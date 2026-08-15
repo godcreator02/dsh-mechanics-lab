@@ -1,0 +1,103 @@
+{
+  "marker": "l00-census-v1",
+  "delayMs": 2000,
+  "snapshots": [
+    {
+      "phase": "boot",
+      "at": "2026-08-15T19:39:35.952Z",
+      "services": {
+        "loader": true,
+        "timer": false,
+        "hmr": false,
+        "logger": false,
+        "webServer": false
+      },
+      "entries": [
+        {
+          "id": "include",
+          "name": "cordis:include",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 1,
+          "inject": [
+            "loader"
+          ]
+        },
+        {
+          "id": "timer",
+          "name": "@deepseek-ai/cordis-plugin-timer",
+          "disabled": false,
+          "hasFiber": false,
+          "fiberState": null,
+          "inject": null
+        },
+        {
+          "id": "hmr",
+          "name": "@deepseek-ai/cordis-plugin-hmr",
+          "disabled": false,
+          "hasFiber": false,
+          "fiberState": null,
+          "inject": null
+        },
+        {
+          "id": "census",
+          "name": "l00-census",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 1,
+          "inject": []
+        }
+      ]
+    },
+    {
+      "phase": "settle",
+      "at": "2026-08-15T19:39:37.957Z",
+      "services": {
+        "loader": true,
+        "timer": true,
+        "hmr": true,
+        "logger": false,
+        "webServer": false
+      },
+      "entries": [
+        {
+          "id": "include",
+          "name": "cordis:include",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": [
+            "loader"
+          ]
+        },
+        {
+          "id": "timer",
+          "name": "@deepseek-ai/cordis-plugin-timer",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": []
+        },
+        {
+          "id": "hmr",
+          "name": "@deepseek-ai/cordis-plugin-hmr",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": [
+            "loader",
+            "timer"
+          ]
+        },
+        {
+          "id": "census",
+          "name": "l00-census",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": []
+        }
+      ]
+    }
+  ]
+}

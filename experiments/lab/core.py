@@ -33,6 +33,13 @@ LAB_PORT_RANGE = range(3090, 3100)
 BUNDLE_BASE = "@deepseek-ai/dsh-base"
 BUNDLE_WEB = "@deepseek-ai/dsh-web-app"
 
+#: 插件系统的两个基础设施包。它们住在 dsh 的安装目录里，**不在 profile 的
+#: node_modules 下** —— 但照样能用裸包名引用：裸包名以 dsh 安装目录为锚
+#: （profile-boot 把自己的 package.json 当 `bareModuleBaseUrl` 传给 boot），
+#: 而不是以 profile 为锚。L0 实测。
+PKG_TIMER = "@deepseek-ai/cordis-plugin-timer"
+PKG_HMR = "@deepseek-ai/cordis-plugin-hmr"
+
 
 class LabError(RuntimeError):
     """实验台自己的错误，区别于被测系统的错误。"""
@@ -262,6 +269,55 @@ class LabHome:
         )
         profile.write_patch(patch)
         return profile
+
+    def make_minimal_profile(
+        self,
+        name: str,
+        *,
+        patch: str = "",
+        hmr_root: list[str] | None = None,
+    ) -> LabProfile:
+        """L0 定出的最小基线：**一个 bundle 都不叠**。
+
+        「能跑起实验的最小插件集合」这个问题，L0 给出的答案是**空集**：
+        插件系统的基础设施不由 bundle 提供，而是框架自带的。空树启动后，
+        进程里已经有三个条目，全都不在任何 patch 文件里：
+
+            cordis:include  树根。整棵配方树挂在它下面，boot 期就在
+            timer           兜底补的。hmr 硬依赖它
+            hmr             兜底补的，`root: []`
+
+        兜底的判定条件是 **hmr 服务在不在**（`ctx.get("hmr") === void 0`），
+        不是「hmr 条目在不在」—— 所以条目写了但没激活（比如 disabled），
+        框架照样会再补一个。
+
+        这条基线相比 `dsh-base`（78 个条目）的好处是决定性的：启动快一截，
+        事件流从几百条降到十几条，且流里剩下的每一条都跟被测对象有关。
+
+        Args:
+            patch: 追加的活层内容。会拼在基础设施条目**之后** —— 活层是
+                YAML 数组，可以有多个 `- insert:` 块，各块独立生效。
+            hmr_root: 不传（默认）就用框架兜底那个 `root: []` 的 hmr ——
+                够用来监听 patch 文件，但**不监听代码文件**，改插件源码不会
+                热重载。要测代码热重载就传监听目录，那时自挂的 timer+hmr
+                会让服务提前就位，兜底自然不触发。
+        """
+        infra = ""
+        if hmr_root is not None:
+            roots = json.dumps(hmr_root)
+            infra = f"""# 自挂基础设施：接管框架兜底，好给 hmr 一个真的 watch root
+- insert:
+    - id: timer
+      name: '{PKG_TIMER}'
+
+    - id: hmr
+      name: '{PKG_HMR}'
+      config:
+        root: {roots}
+        debounce: 100
+
+"""
+        return self.make_profile(name, bundles=[], patch=infra + patch)
 
     def clean(self) -> None:
         """删掉整个 home。"""

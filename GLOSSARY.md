@@ -200,6 +200,42 @@ port: !!js ctx.webStartup.port ?? 3080
 加载由**服务可用性**驱动。`dsh-base` 的 patch 文件里有原话：
 *"Row order carries no load semantics (activation is service-availability driven)"*。
 
+### 🟩 name 的三条解析路径
+
+条目的 `name` 怎么变成一个真的模块？`EntryTree.import` 分三条路，**互不相通**：
+
+| 写法 | 走哪条 | 锚点 |
+|---|---|---|
+| `cordis:xxx` | 内置表 `loader.builtins` | 不解析文件 |
+| `./xxx` `../xxx` | **URL 解析** | `ctx.baseUrl` = **profile 目录** |
+| 其它（裸包名） | **包解析** | dsh **安装目录**（`bareModuleBaseUrl`） |
+
+三条路的实际后果（L0 实测）：
+
+- **内置表只有两个**：`cordis:include` 和 `cordis:group`，由 `mountRootInclude()`
+  塞进去。出厂是空对象，没有第三个
+- **裸包名以 host 为锚**，所以官方包（`@deepseek-ai/cordis-plugin-timer` 等）
+  **不需要 link 进 profile**。官方注释：*"use it when the host, rather than the
+  configuration project, owns the complete plugin set"*
+- **相对路径必须指到文件**。指到目录报 `ERR_UNSUPPORTED_DIR_IMPORT`——
+  因为**只有包解析认 `package.json`**，L1 验过的那条回退链
+  （`exports["."]` → `main` → `index.js`）对相对路径不存在
+
+### 🟩 assertEntriesActivated（boot 末尾的审计）
+
+`dsh-app-boot` 在 `boot()` 返回前跑的最后一道检查：遍历每个**未 disabled** 的条目，
+只要有一个不是 `ACTIVE` 就抛错，整个启动失败（退出码 1）。
+
+PENDING 的那条还会把缺的服务名列出来：
+
+```
+dsh: 1 entry did not activate
+l00-needy: pending (waiting for service: definitelyNotAService)
+```
+
+⚠️ **只在 boot 期审计这一次。** boot 之后靠热重放新加的条目卡在 PENDING，
+不会杀进程——那是完全另一条路径。「PENDING 致不致命」这个问题必须**先问什么时候**。
+
 ---
 
 ## 三、DSH 层：一套部署长什么样
@@ -274,6 +310,20 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 往那个文件写一笔会打进所有实例。
 
 ### 🟩 hmr ⚠️ **这个词也指两样东西**
+
+**全称 Hot Module Replacement，中文「模块热替换」。** 这不是外部译法，
+是官方在包里自报的——`@deepseek-ai/cordis-plugin-hmr` 的 `package.json` 里：
+
+```json
+"@deepseek-ai/cordis": {
+  "services": { "required": ["timer"] },
+  "description": { "en": "Hot Module Replacement", "zh": "模块热替换" }
+}
+```
+
+顺带看到 **hmr 硬依赖 `timer`**，而且是**包级**声明的（不是条目级 `inject`）。
+这解释了 L0 观测到的兜底顺序：框架补 hmr 之前先补 timer，
+否则 hmr 会卡在 PENDING 等一个永远不来的服务。
 
 跟 `bundle` 一样，`hmr` 在这套系统里有两个互不相干的实现：
 
@@ -376,6 +426,42 @@ junction 是完全无效的（实测：改真实源码文件毫无反应）。
 **为什么不用日志**：日志会被吞、被缓冲、被格式变化骗过去；文件存在与否是硬事实。
 ✅ 「插件被加载了」的可操作定义就是「`apply` 被执行了」。
 
+### ⬜ 见证流 / 事件流（A 流与 B 流）
+
+观测台的两条流，来源完全不同，**别混**：
+
+| | **A · 见证流** | **B · 框架事件流** |
+|---|---|---|
+| 谁产生的 | **我们自己的教学插件**，在 `apply` 里主动写 | **框架自己**发的 Cordis 事件，采集器订阅后转记 |
+| 内容 | 见证文件里那几个指纹（marker / 两个时刻 / config 回显） | `internal/status`、`internal/plugin`、`loader/partial-dispose`… |
+| 回答什么 | 「**我的**插件被加载了吗、拿到什么 config」 | 「**这棵树**上发生了什么、什么时候」 |
+| 缺点 | 只看得见自己 | 看得见全部，但要自己分辨哪条与被测对象有关 |
+
+一句话：**见证流是「我说我在」，事件流是「框架说谁在」。** 两条互为佐证——
+见证文件写出来了但事件流里没有对应的状态迁移，那说明观测本身有问题。
+
+### ⬜ 幽灵条目（ghost entry）
+
+**在运行时的树里、却不在任何 patch 文件里的条目。** L0 立的词。
+
+`--dump-config` 算的是「配方」，进程里跑的是「树」，两者差三个：
+
+| 条目 | 谁造的 | id |
+|---|---|---|
+| `cordis:include` | `mountRootInclude()`，**整棵树的根** | 固定 `include` |
+| `timer` | profile-boot 兜底 | **随机生成** |
+| `hmr` | profile-boot 兜底，`root: []` | **随机生成** |
+
+⚠️ 后两个的 id 每次启动都不一样，**只能认 `name` 不能认 id**。
+
+### ⬜ 普查员（census）
+
+L0 的核心观测工具（`l00-census`）：拿 `ctx.get("loader")` 遍历 `loader.entries()`，
+把运行时那棵树整个序列化下来。**拍两张快照**——`apply` 当下（boot 期）和延后两秒
+（settle），因为幽灵条目是 `boot()` 返回之后才补的，只拍一张永远看不见。
+
+跟见证文件的区别：见证文件说「我在」，普查员说「**树上都有谁**」。
+
 ### ⬜ 教具 / fixture / 采集器
 
 - **fixture** —— 某一课专用的教学插件，住在该课目录下，**允许跨课重复**
@@ -460,3 +546,8 @@ config 摘要。
 | **host 侧 hmr** | **client 侧 hmr** | `cordis-plugin-hmr`（chokidar 监听 Node 进程）vs `dsh-client-hmr`（500ms 轮询 + SSE 推浏览器） |
 | **起点快照** | **快照面** | 我们**主动拍**的一张照片（仪器）vs 系统**自己拍了不更新**的那些缓存（被测对象） |
 | **`hmr/change`** | 「检测到变化」 | ✅ 它其实是「**看到了但没处理**」——四条分支都不匹配时才发。真正处理了的反而不发这个事件 |
+| **配方** | **树** | ✅ `--dump-config` 算出的 vs 进程里真跑着的。后者多三个**幽灵条目**（`cordis:include` + 兜底的 timer/hmr），静态 dump 永远看不见 |
+| **裸包名** | **相对路径** | 两套解析算法。✅ 前者以 dsh 安装目录为锚且认 `package.json`；后者以 profile 为锚、走纯 URL 解析、**必须指到文件** |
+| **hmr 条目在不在** | **hmr 服务在不在** | ✅ 兜底判的是**服务**。条目写了但 `disabled: true` → 服务不在 → 框架照样再补一个 |
+| **兜底 hmr** | **自挂 hmr** | ✅ 兜底那个 `root: []`——够监听 patch 文件（精确路径注册，与 root 无关），但**不监听代码文件**。所以最小环境下热重放工作、热重载不工作 |
+| **见证流** | **事件流** | 「我说我在」（自己的插件主动写）vs「框架说谁在」（订阅 Cordis 事件）。互为佐证 |
