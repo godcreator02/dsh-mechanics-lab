@@ -93,11 +93,29 @@ lab-demo-waiting: pending (waiting for service: 压根不存在的服务)
 `dsh-app-boot` 的 `assertEntriesActivated` 在 boot 末尾逐个检查条目是否激活，
 只要有一个停在 pending 就整体 fail-loud。
 
-**推论：一个正常跑着的实例里，PENDING 卡片是看不到的**——带 PENDING 条目的实例
-压根起不来。`PENDING` 只可能出现在热重放中途加入条目的瞬间。
+> ### ⚠️ 这个结论**有条件**，条件尚未查清（L3 补充）
+>
+> L3 在一个**只叠 `dsh-base`** 的 profile 上做了同样的事——`inject` 一个永远不会
+> 出现的服务——结果**实例照常启动**。装上观测台看到的是：
+>
+> ```
+> +  1.861ms  snapshot  fiberState=PENDING
+> +169.677ms  fiber disposed
+> +169.769ms  PENDING → UNLOADING
+> +176.033ms  UNLOADING → DISPOSED
+> ```
+>
+> 条目先进 PENDING 等，然后在 boot 末尾**被主动销毁**——销毁之后它不再是 pending，
+> `assertEntriesActivated` 也就无话可说。
+>
+> L3 的用例 7 做了隔离实验，证明**差异不在服务名**（「提供者被禁用」与「服务名从不
+> 存在」两个变体行为完全一致）。剩下的唯一变量是 **bundle 组合**：本演示叠了
+> `dsh-web-app`，L3 只叠 `dsh-base`。
+>
+> 查清之前，**别把「boot 期 PENDING 致命」当通则用**。
 
-这条留给 `--demo-pending` 演示（它会如预期启动失败并打印上面那段报错），
-也进了 `SYLLABUS.md` 的 L3。
+这条留给 `--demo-pending` 演示（在本演示的 web profile 上它会如预期启动失败），
+详见 `experiments/l03_service_inject/README.md`。
 
 ## 它是怎么读到状态的
 

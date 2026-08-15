@@ -12,8 +12,10 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["experiments"]
-# 实验带教学性质，输出本身是产物的一部分，默认不吞
-addopts = "-v -s --tb=short"
+# 实验带教学性质，输出本身就是产物的一部分。
+# tee-sys 而不是 -s：既实时显示在终端，又被 pytest 捕获——
+# 捕获下来的那一份会被归档进 results/，否则跑完就没了。
+addopts = "-v --capture=tee-sys --tb=short"
 markers = [
     "instance: 需要真的拉起 dsh 实例（慢，且占端口）",
     "static: 纯 --dump-config，不起进程（快，零风险）",

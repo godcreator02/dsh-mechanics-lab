@@ -7,7 +7,10 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
+import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
 
@@ -17,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lab import (  # noqa: E402
     LAB_PORT_RANGE,
+    RESULTS_DIR,
     Instance,
     LabHome,
     LabProfile,
@@ -26,6 +30,76 @@ from lab import (  # noqa: E402
     start_instance,
 )
 
+#: 每个实验模块的用例结果，由下面的 hook 填充，归档时写进 summary.md
+_reports: dict[str, list[dict]] = defaultdict(list)
+
+#: 要归档的产物。`.testhome/` 是 gitignore 的、而且每次跑前会被清空，
+#: 不归档的话上一次的观测证据就永远没了。
+#:
+#: 用宽松的 `*.json` / `*.jsonl` 而不是逐个列文件名：各课的见证文件命名不统一
+#: （L1 是 `witness-*.json`、L3 是 `w-*.json` 和 `ledger*.json`），
+#: 列举法漏过一次。home 根目录下只有实验产物，子目录 profiles/ 和 logs/ 不受影响。
+_ARCHIVE_GLOBS = ("*.jsonl", "*.json")
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    """收集每个用例的结果与输出，供归档用。"""
+    report = yield
+    if report.when == "call":
+        _reports[item.module.__name__].append({
+            "name": item.name,
+            "outcome": report.outcome,
+            "duration": report.duration,
+            "stdout": getattr(report, "capstdout", ""),
+        })
+    return report
+
+
+def _archive(home: LabHome, label: str, module_name: str) -> Path | None:
+    """把这次运行的观测产物归档进 results/<标签>-<时间戳>/。
+
+    归档的是**证据**，不是结论：事件日志、关系表、见证文件、账本，
+    外加一份 summary.md（用例结果 + 它们打印的说明）。
+    """
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    dest = RESULTS_DIR / f"{label}-{stamp}"
+
+    copied = []
+    for pattern in _ARCHIVE_GLOBS:
+        for src in sorted(home.root.glob(pattern)):
+            dest.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest / src.name)
+            copied.append((src.name, src.stat().st_size))
+
+    rows = _reports.pop(module_name, [])
+    if not copied and not rows:
+        return None
+
+    dest.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"# {label} · {stamp}",
+        "",
+        f"跑于 {time.strftime('%Y-%m-%d %H:%M:%S')}（本地时间）",
+        "",
+        "## 用例",
+        "",
+    ]
+    for r in rows:
+        mark = {"passed": "✅", "failed": "❌", "skipped": "⏭️"}.get(r["outcome"], r["outcome"])
+        lines.append(f"### {mark} `{r['name']}`  ·  {r['duration']:.2f}s")
+        text = (r["stdout"] or "").strip()
+        if text:
+            lines += ["", "```", text, "```"]
+        lines.append("")
+    if copied:
+        lines += ["## 归档的观测产物", ""]
+        lines += [f"- `{name}` — {size:,} 字节" for name, size in copied]
+        lines.append("")
+
+    (dest / "summary.md").write_text("\n".join(lines), encoding="utf-8")
+    return dest
+
 
 def _label_of(request: pytest.FixtureRequest) -> str:
     """从实验目录名推出标签：`l01_minimal_plugin/` → `l01`。"""
@@ -34,15 +108,25 @@ def _label_of(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="module")
 def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
-    """本实验专属的假 home。模块级：一个实验文件共用一个，跑完整个清掉。"""
+    """本实验专属的假 home。模块级：一个实验文件共用一个。
+
+    跑完**先归档再放锁**——`.testhome/` 下次跑会被清空，不归档证据就没了。
+    成败都归档：失败的那次证据反而更要紧。
+    """
     label = _label_of(request)
     acquire_lock(label)
+    home = LabHome(label)
     try:
-        home = LabHome(label)
         home.clean()           # 起手清干净，保证可重复跑
         home = LabHome(label)  # clean 会把目录删掉，重建骨架
         yield home
     finally:
+        try:
+            dest = _archive(home, label, request.module.__name__)
+            if dest is not None:
+                print(f"\n观测产物已归档 → {dest}")
+        except Exception as exc:  # 归档失败绝不能盖掉实验本身的结果
+            print(f"\n⚠️ 归档失败：{exc}")
         release_lock()
 
 
