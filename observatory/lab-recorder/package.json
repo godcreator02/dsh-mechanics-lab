@@ -1,0 +1,8 @@
+{
+  "name": "lab-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "观测台的采集器：订阅 Cordis 生命周期事件，追加写 jsonl。无 UI、零 inject。",
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}

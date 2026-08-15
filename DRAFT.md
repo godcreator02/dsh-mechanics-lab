@@ -147,6 +147,8 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 | 我（源码推理） | 缺 `exports["./client"]` 是抛错而非缓存，补上不用重启 | 行为与负判缓存一致，**必须重启** | v1 E6 |
 | 我（源码推理） | `exports["."]` 是插件最小形态的必需项 | Node 有回退链 `exports → main → index.js`，三条断一条不影响 | **L1** |
 | 我（源码推理） | 活层贡献的条目没有来源注释 | 有，只是形式不同：bundle 层标包名，活层标 patch 文件绝对路径 | **L1** |
+| 我（源码推理） | 改 `config` 走原地 reconfigure，**fiber 不动** | fiber 对象保住了（无 `fiber disposed` 事件），但状态实实在在走了 `ACTIVE→UNLOADING→LOADING→ACTIVE`——**`ctx.effect` 注册的副作用被清理并重跑**。「没被销毁」≠「没动过」 | **观测台** |
+| 我（由上一条推出的） | `dshw attach` 改 hmr 的 `config` 是安全的 | **说法作废**——它建立在「改 config 不动 fiber」这个不精确的推断上。改 config 会触发 UNLOADING，而 patch 监听的 watcher 正挂在 hmr fiber 的 effect 上 → 很可能被自己清掉且不恢复。**待 L13 实测** | **观测台** |
 | 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换 | v1 E1 |
 | 项目正本 | client 模块表是实例 boot 时的快照 | 表成员增量热维护，包元数据按名惰性缓存且永不过期 | v1 E6 |
 

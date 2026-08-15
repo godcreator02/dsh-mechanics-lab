@@ -274,9 +274,25 @@ L5 的重点是 effect 语义，不是重放机制。
 - 关键一问：**只改 hmr 条目自己的 `config`（比如往 `root` 加一项），会不会导致
   patch 监听自断？**
 
-**L10 的源码结论已经给了预言**：改 `config` 走的是原地 reconfigure 分支
-（`replace` 只在 `name`/`inject`/`group` 变化时为真），**不 dispose fiber**，
-所以监听不该断。本课负责把这个预言测实。
+**⚠️ 预言已经反过来了。** 观测台的实测（`observatory/README.md`）显示：
+改 `config` 时 fiber 对象虽然保住（没有 `fiber disposed` 事件），
+**但状态实实在在走了 `ACTIVE → UNLOADING → LOADING → ACTIVE`** ——
+`UNLOADING` 阶段会清理该 fiber 上所有 `ctx.effect` 注册的副作用。
+
+把这条实测接上源码就得到一条**相反**的推论：
+
+1. patch 文件的 watcher 由 `hmr.registerConfig()` 建立，**挂在 hmr 自己 fiber 的
+   effect 上**
+2. `watchUserPatches` 只在 boot 时调用一次，之后无人重新注册
+3. → **任何改动 hmr 条目 `config` 的操作，都会让 patch 监听被自己清掉且不恢复**
+
+而 `dshw attach` 每挂一条分发线，干的正是「往 hmr 的 `root` 里叠一项」。
+
+这跟 v1 E3 的一条观察吻合：Part C4 记到「哑火是永久性的，把 root 改回去也救不回来」
+——当时因观测信号选错、整批作废，这条没被当真。
+
+**本课的核心任务变成：把这条推论测实或证伪。** 做法：单轮观测 + 观测台事件流
+（现在能分辨「重放发生了但条目没变」与「重放根本没发生」了）。
 
 ---
 
