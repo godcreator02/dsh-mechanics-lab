@@ -85,6 +85,14 @@ def show(events: list[dict], since: int, title: str) -> int:
             print(f"    +{e['ms']:9.3f}ms  {e['id']:<13} {what}")
         elif e["kind"] == "snapshot":
             print(f"    +{e['ms']:9.3f}ms  {e['id']:<13} snapshot {e.get('to') or '无 fiber'}")
+        elif e["kind"] == "entry-dispose":
+            # 这一类曾经被漏掉，导致得出「对照组一个事件都没有」的**错误**结论。
+            # 实际上每次重放所有条目的 options 都被无差别替换一遍（force=true），
+            # 只是 fiber 没动。漏了它就分不清「条目没被碰」和「条目被碰了但 fiber 没动」。
+            tag = "options 被替换" if e.get("active") else "条目已移除"
+            print(f"    +{e['ms']:9.3f}ms  {e['id']:<13} {tag}")
+        else:
+            print(f"    +{e['ms']:9.3f}ms  {e['id']:<13} {e['kind']}")
     others = len(fresh) - len(mine)
     if others:
         print(f"    （另有 {others} 条框架自带条目的事件，已折叠）")

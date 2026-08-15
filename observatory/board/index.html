@@ -273,7 +273,15 @@ function describeEvent(e) {
     case "snapshot":       return ["snapshot " + (e.to || (e.disabled ? "DISABLED" : "无 fiber")), e.to ? colorOf(e.to) : "var(--s-none)"];
     case "plugin":         return [e.uid === null ? "fiber disposed" : "fiber created", "var(--ink-mute)"];
     case "entry-init":     return ["entry init", "var(--ink-mute)"];
-    case "entry-dispose":  return ["entry dispose" + (e.active ? "（仍在用）" : "") + (e.legacy ? "  legacy=" + JSON.stringify(e.legacy) : ""), "var(--s-unloading)"];
+    // ⚠️ 别被事件原名 loader/partial-dispose 骗了 —— 它**不是**「条目被销毁」。
+    // 每次活层重放，EntryGroup.create() 都以 force=true 调 entry.update()，
+    // 跳过 diff 检查，所以**所有条目**的 options 都被无差别替换一遍，全都发这个事件。
+    // legacy 是**改动前**的 options；active=false 才表示条目真的从树里被移除。
+    case "entry-dispose":  return [
+      (e.active ? "options 被替换" : "条目已移除")
+        + (e.legacy ? "  旧值=" + JSON.stringify(e.legacy) : ""),
+      e.active ? "var(--ink-mute)" : "var(--s-unloading)",
+    ];
     case "service":        return [(e.present ? "服务出现 " : "服务撤销 ") + e.serviceName, e.present ? "var(--s-active)" : "var(--s-disposed)"];
     case "config-update":  return [e.note || "config update", "var(--ink-mute)"];
     // hmr/change 只在「四条分支都不匹配」时才发 —— 它的语义是「我看到了但没处理」，

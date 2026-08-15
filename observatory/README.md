@@ -79,7 +79,7 @@ uv run python observatory/board/server.py       # → http://127.0.0.1:8899/
 |---|---|---|
 | `internal/status` | fiber 状态每次转换，**带旧状态** | 全部 |
 | `internal/plugin` | fiber 创建／销毁 | 全部 |
-| `loader/partial-dispose` | 条目被重配置，**`legacy` 是改动前的 options** | ⭐ L10 |
+| `loader/partial-dispose` | 条目的 **options 被替换了一次**，`legacy` 是改动前的值（**不是**「条目被销毁」，见下） | ⭐ L10 |
 | `internal/service` | 服务出现／撤销，**带提供者** | ⭐ L3 |
 | `hmr/change` | HMR **看到了但没处理**的文件变化（见下） | ⭐ L11 |
 | `hmr/reload` | **代码**热重载完成，带这次重载了哪些 | ⭐ L11 |
@@ -195,8 +195,28 @@ hmr 的主 watcher 对每个文件变化按顺序判断四条分支：是 includ
 alpha   ACTIVE → UNLOADING
 alpha   UNLOADING → LOADING
 alpha   LOADING → ACTIVE
-beta    （一个事件都没有）
+alpha   options 被替换（旧值含「轮次: 第一版」）
+beta    options 被替换（旧值原样，它一个字没改）    ← 注意这行
 ```
+
+⚠️ **最后一行推翻了本文档早先的一句话。** 之前这里写的是「beta 一个事件都没有」，
+那是因为打印函数漏掉了 `entry-dispose` 这一类。准确的说法是：
+
+> 改 alpha 时，**beta 的 fiber 没有任何状态转换**，但**它的 options 被替换了一次**。
+
+因为 `EntryGroup.update()` 对每个条目都以 `force=true` 调 `entry.update()`，
+**跳过了 `if (!diff.length) return` 那道检查**——所以每次重放，全部条目的 options
+都被无差别替换一遍（一次 79 条目的重放就是 79 条 `entry-dispose`）。
+
+**「条目级 diff」发生在更下一层**：
+
+| 层 | 行为 |
+|---|---|
+| `EntryGroup.update()` | 对所有条目**无差别**替换 options |
+| `entry.update()` 内部的 diff | **这里才判断**要不要动 fiber，没变就什么都不做 |
+
+对 L10 有直接影响：判断「重放发生了没有」**不能只看 `status` 事件**——
+`entry-dispose` 才是每次重放都会出现的信号，它是更可靠的重放探测器。
 
 **⚠️ 这修正了一个源码推断。** 从 `entry.ts` 的 `update()` 读出来的是
 「改 config 走原地 reconfigure 分支，不 dispose fiber」，于是我一度认为
