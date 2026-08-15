@@ -1,0 +1,10 @@
+{
+  "marker": "lab-alpha-v1",
+  "appliedAt": "2026-08-15T18:13:25.084Z",
+  "gotRegistry": true,
+  "ledgerBefore": [],
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/.testhome/l03/w-alpha.json",
+    "note": "第一层消费者"
+  }
+}
