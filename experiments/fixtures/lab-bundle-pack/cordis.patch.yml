@@ -1,0 +1,25 @@
+# lab-bundle-pack —— E4 实验用假 profile bundle（fixture 基线版，被 E4 脚本读取/改写/还原）。
+#
+# 演示 bundle 层能做的两件事：
+#   ① `- insert:` 插入一个新条目，指向本包自带的 host 插件
+#   ② 用裸 `- id:` 跨包改写一个已经存在的条目的 config
+#      （这里改的是 @deepseek-ai/dsh-base 插进来的 session-title）
+#
+# composeProfile() 只在 boot 时读一次这份文件，之后没有 watcher 盯着它——
+# 这正是 E4 用例 2 要拿活着的实例实测验证的「冷」。
+
+- insert:
+    - id: lab-bundled-plugin
+      name: lab-bundle-pack
+      config:
+        variant: v1
+        probePath: /bundled-probe
+
+# 跨包改写：session-title 原本由 @deepseek-ai/dsh-base 插入，默认
+# fallbackMaxWords: 5。这里把它改成 1 —— --dump-config 的来源注释会把这行
+# 标成 "patched by lab-bundle-pack"，用来演示「bundle 层可以跨包改别人的条目」。
+- id: session-title
+  config:
+    fallbackMaxWords: 1
+    fallbackMaxBytes: 40
+    maxTitleBytes: 80

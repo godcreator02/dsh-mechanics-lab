@@ -1,0 +1,11 @@
+{
+  "name": "lab-probe-basic",
+  "version": "0.1.0",
+  "description": "E3 探针插件——挂一条 GET /probe-basic 路由，靠 appliedAt 判断条目是否被重新挂载",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  }
+}

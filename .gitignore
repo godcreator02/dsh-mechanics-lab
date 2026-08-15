@@ -1,0 +1,9 @@
+# 假 DSH home：实验用运行时数据，有意放在箱内（见 README「破例声明」），但不进 git
+/.testhome/
+
+# 实验原始输出：结论手工提炼进 index.html 与 results/*.md，原始日志不进 git
+/results/*.raw.txt
+/results/*.raw.log
+
+# fixtures 里假插件被 pnpm 装出来的东西
+**/node_modules/

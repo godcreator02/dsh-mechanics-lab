@@ -1,0 +1,12 @@
+{
+  "name": "lab-bundle-pack",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "description": "E4 实验用假 profile bundle fixture —— 只用来验证 bundle 层的冷热边界，不发布。",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
