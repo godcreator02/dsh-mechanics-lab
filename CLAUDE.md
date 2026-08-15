@@ -78,9 +78,12 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。两个产
 
 ```
 CLAUDE.md          本文件——怎么在这个项目里干活
+GLOSSARY.md        术语表：按 Cordis / Loader / DSH / 自造 四层分组，标注哪些已实测
 SYLLABUS.md        课程大纲：十三课各讲什么、假说、实验设计、难点
 DRAFT.md           方案草稿：意图、纠偏记录、结论安置、实测推翻的假设清单
 README.md          箱子说明：破例声明、端口占用、怎么跑
+demo/              教具：lab-inspector（DSH 内嵌面板，兼 L12 的 client 插件样板）
+observatory/       观测台：lab-recorder（注入式采集）+ 看板（独立只读服务）
 index.html         教材（自包含单文件）
 pyproject.toml     依赖与 pytest 配置
 .python-version    3.12.10，uv 据此建 venv
