@@ -6,25 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root {
-  --paper:        #f7f8fa;
-  --raised:       #ffffff;
-  --sunk:         #eceff3;
-  --ink:          #10161d;
-  --ink-soft:     #3d4753;
-  --ink-mute:     #6b7684;
-  --rule:         #d8dee6;
-  --rule-strong:  #b9c2cd;
-  --accent:       #0e7c86;
-  --accent-soft:  #d7eef0;
-
-  --s-active:     #16a34a;
-  --s-pending:    #b45309;
-  --s-loading:    #1e4fa3;
-  --s-unloading:  #1e4fa3;
-  --s-failed:     #c2410c;
-  --s-disposed:   #6b7684;
-  --s-none:       #8892a0;
-
+  --paper: #f7f8fa; --raised: #ffffff; --sunk: #eceff3;
+  --ink: #10161d; --ink-soft: #3d4753; --ink-mute: #6b7684;
+  --rule: #d8dee6; --rule-strong: #b9c2cd;
+  --accent: #0e7c86; --accent-soft: #d7eef0;
+  --s-active: #16a34a; --s-pending: #b45309; --s-loading: #1e4fa3;
+  --s-unloading: #1e4fa3; --s-failed: #c2410c; --s-disposed: #6b7684; --s-none: #8892a0;
   --mono: "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", ui-monospace, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 }
@@ -44,13 +31,11 @@ body {
   font-family: var(--sans); font-size: 13px; line-height: 1.6;
   height: 100vh; display: flex; flex-direction: column;
 }
-
-/* ── 顶栏 ── */
 header {
-  flex: none; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 10px 16px; border-bottom: 1px solid var(--rule); background: var(--raised);
+  flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px; border-bottom: 1px solid var(--rule); background: var(--raised);
 }
-h1 { font-size: 13px; font-weight: 650; margin: 0; letter-spacing: .02em; }
+h1 { font-size: 13px; font-weight: 650; margin: 0; }
 h1 span { color: var(--accent); font-family: var(--mono); font-weight: 400; font-size: 11px; }
 .spacer { flex: 1; }
 select, button {
@@ -58,59 +43,86 @@ select, button {
   background: var(--sunk); color: var(--ink);
   border: 1px solid var(--rule); border-radius: 4px; padding: 3px 8px; cursor: pointer;
 }
-button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 label.chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
 .stat { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 
-/* ── 布局 ── */
-main { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
-@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-section { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--rule); }
+/* 事件类型过滤条 */
+#kinds { flex: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 14px;
+  border-bottom: 1px solid var(--rule); background: var(--sunk); align-items: center; }
+#kinds .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-mute); margin-right: 4px; }
+.kind {
+  font-family: var(--mono); font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--rule); background: var(--raised); color: var(--ink-mute); cursor: pointer;
+}
+.kind[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.kind .n { opacity: .65; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+main { flex: 1; display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+@media (max-width: 940px) { main { grid-template-columns: 1fr; } }
+section { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--rule); overflow: hidden; }
 section:last-child { border-right: none; }
 .sec-head {
-  flex: none; padding: 7px 14px; border-bottom: 1px solid var(--rule);
+  flex: none; padding: 6px 12px; border-bottom: 1px solid var(--rule);
   font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
   color: var(--ink-mute); background: var(--sunk);
   display: flex; justify-content: space-between; gap: 8px;
 }
-.scroll { flex: 1; overflow-y: auto; padding: 8px; }
+.sec-head.top { border-top: 1px solid var(--rule); }
+.scroll { overflow-y: auto; padding: 7px; }
+.pane-state { flex: 1 1 34%; }
+.pane-rel   { flex: 1 1 33%; }
+.pane-wit   { flex: 1 1 33%; }
 
-/* ── 当前态卡片 ── */
 .card {
   display: grid; grid-template-columns: 8px 1fr auto; gap: 8px; align-items: center;
-  padding: 6px 9px; border: 1px solid var(--rule); border-left-width: 3px;
-  border-radius: 5px; margin-bottom: 5px; background: var(--raised);
+  padding: 5px 8px; border: 1px solid var(--rule); border-left-width: 3px;
+  border-radius: 5px; margin-bottom: 4px; background: var(--raised);
 }
-.card .nm { font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+.card .nm { font-family: var(--mono); font-size: 11px; word-break: break-all; }
 .card .id { color: var(--ink-mute); font-size: 10px; }
-.card .st { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; white-space: nowrap; }
+.card .st { font-family: var(--mono); font-size: 10px; font-weight: 600; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 
-/* ── 时间线 ── */
-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
-th {
-  text-align: left; font-weight: 500; font-size: 10px; letter-spacing: .08em;
-  color: var(--ink-mute); text-transform: uppercase;
-  padding: 4px 8px; border-bottom: 1px solid var(--rule);
-  position: sticky; top: 0; background: var(--paper);
+/* 时间线 */
+.grp { margin-bottom: 10px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.grp-h {
+  padding: 5px 10px; background: var(--sunk); cursor: pointer; user-select: none;
+  display: flex; align-items: baseline; gap: 10px;
+  font-family: var(--mono); font-size: 11px; border-bottom: 1px solid var(--rule);
 }
-td { padding: 2px 8px; border-bottom: 1px solid transparent; vertical-align: top; }
+.grp-h .tag { color: var(--accent); font-weight: 650; }
+.grp-h .meta { color: var(--ink-mute); font-size: 10px; }
+.grp[data-open="false"] .grp-b { display: none; }
+.grp[data-open="false"] .grp-h { border-bottom: none; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+td { padding: 1px 8px; vertical-align: top; }
 tbody tr:hover { background: var(--sunk); }
-td.t { text-align: right; color: var(--ink-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
-td.gap { color: var(--ink-mute); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; font-size: 10px; }
-td.nm { word-break: break-all; }
-td.ev { white-space: nowrap; font-weight: 600; }
+td.t { text-align: right; color: var(--ink-mute); font-variant-numeric: tabular-nums; white-space: nowrap; width: 76px; }
+td.gap { color: var(--ink-mute); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; font-size: 10px; width: 62px; }
+td.nm { word-break: break-all; width: 30%; }
+td.ev { white-space: pre-wrap; word-break: break-all; }
 tr.own td.nm { color: var(--accent); }
-tr.marker td { color: var(--ink-mute); font-style: italic; border-top: 1px dashed var(--rule-strong); }
+tr.note td { color: var(--ink-mute); font-style: italic; }
 
-/* ── 见证流 ── */
-.wit { border: 1px solid var(--rule); border-radius: 5px; margin-bottom: 7px; background: var(--raised); overflow: hidden; }
-.wit-h {
-  padding: 5px 9px; background: var(--sunk); font-family: var(--mono); font-size: 10.5px;
-  display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--rule);
-}
-.wit pre { margin: 0; padding: 7px 9px; font-family: var(--mono); font-size: 11px; line-height: 1.5; overflow-x: auto; }
-.empty { color: var(--ink-mute); padding: 14px; text-align: center; font-size: 12px; }
+/* 关系表 */
+.rel-grp { margin-bottom: 8px; }
+.rel-grp h4 { margin: 0 0 4px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-mute); font-weight: 500; }
+.rel-row { display: flex; gap: 8px; font-family: var(--mono); font-size: 10.5px; padding: 2px 6px;
+  border-bottom: 1px solid var(--rule); }
+.rel-row .who { color: var(--accent); flex: none; min-width: 90px; word-break: break-all; }
+.rel-row .what { flex: 1; word-break: break-all; }
+.rel-row .n { color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 1px 7px;
+  border: 1px solid var(--rule); border-radius: 999px; margin: 0 3px 3px 0; }
+
+.wit { border: 1px solid var(--rule); border-radius: 5px; margin-bottom: 6px; background: var(--raised); overflow: hidden; }
+.wit-h { padding: 4px 8px; background: var(--sunk); font-family: var(--mono); font-size: 10px;
+  display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--rule); }
+.wit pre { margin: 0; padding: 6px 8px; font-family: var(--mono); font-size: 10.5px; line-height: 1.45; overflow-x: auto; }
+.empty { color: var(--ink-mute); padding: 12px; text-align: center; font-size: 11.5px; }
+.warn { color: var(--s-failed); }
 </style>
 </head>
 <body>
@@ -121,27 +133,36 @@ tr.marker td { color: var(--ink-mute); font-style: italic; border-top: 1px dashe
   <label class="chk"><input type="checkbox" id="only-lab" checked> 只看 lab-*</label>
   <label class="chk"><input type="checkbox" id="auto" checked> 自动刷新</label>
   <button id="refresh" type="button">刷新</button>
+  <button id="toggle-all" type="button">全部折叠</button>
   <span class="spacer"></span>
   <span class="stat" id="stat">—</span>
 </header>
 
+<div id="kinds"><span class="lbl">事件类型</span></div>
+
 <main>
   <section>
     <div class="sec-head"><span>当前态</span><span id="cnt-state"></span></div>
-    <div class="scroll" id="state-list"></div>
-    <div class="sec-head" style="border-top:1px solid var(--rule)"><span>见证流</span><span id="cnt-wit"></span></div>
-    <div class="scroll" id="wit-list" style="max-height:38%"></div>
+    <div class="scroll pane-state" id="state-list"></div>
+    <div class="sec-head top"><span>关系表</span><span id="cnt-rel"></span></div>
+    <div class="scroll pane-rel" id="rel-list"></div>
+    <div class="sec-head top"><span>见证流</span><span id="cnt-wit"></span></div>
+    <div class="scroll pane-wit" id="wit-list"></div>
   </section>
   <section>
-    <div class="sec-head"><span>事件时间线</span><span id="cnt-ev"></span></div>
-    <div class="scroll" id="timeline"></div>
+    <div class="sec-head"><span>事件时间线 · 按重放分组</span><span id="cnt-ev"></span></div>
+    <div class="scroll" id="timeline" style="flex:1"></div>
   </section>
 </main>
 
 <script>
 "use strict";
-
 const $ = (s) => document.querySelector(s);
+
+/** 相邻事件间隔超过这个数就切一组——一次 patch 改动引发的事件是密集的，
+ *  两次改动之间是秒级的空白，这个启发式足够把「启动」和每次「重放」分开。 */
+const GROUP_GAP_MS = 500;
+
 const STATE_COLOR = {
   ACTIVE: "var(--s-active)", PENDING: "var(--s-pending)", LOADING: "var(--s-loading)",
   UNLOADING: "var(--s-unloading)", FAILED: "var(--s-failed)", DISPOSED: "var(--s-disposed)",
@@ -149,8 +170,12 @@ const STATE_COLOR = {
 const colorOf = (s) => STATE_COLOR[s] || "var(--s-none)";
 
 let currentRun = null;
-let events = [];
-let witnesses = [];
+let events = [], witnesses = [], relations = null;
+let mutedKinds = new Set();   // 被关掉的事件类型
+let collapsed = new Set();    // 被折叠的组
+let allCollapsed = false;
+
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 async function api(path) {
   const res = await fetch(path, { cache: "no-store" });
@@ -160,21 +185,16 @@ async function api(path) {
 
 async function loadRuns() {
   const { runs } = await api("/api/runs");
-  const sel = $("#run-select");
-  const prev = currentRun;
+  const sel = $("#run-select"), prev = currentRun;
   sel.innerHTML = "";
-  if (runs.length === 0) {
-    sel.innerHTML = '<option value="">（还没有运行记录）</option>';
-    return;
-  }
-  // 事件日志最新的排前面
+  if (!runs.length) { sel.innerHTML = '<option value="">（还没有运行记录）</option>'; return; }
   runs.sort((a, b) => (b.eventMtime || 0) - (a.eventMtime || 0));
   for (const r of runs) {
-    const opt = document.createElement("option");
-    opt.value = r.label;
-    opt.textContent = r.label + (r.hasEvents ? "  ·  " + Math.round(r.eventBytes / 1024) + "KB" : "  ·  无事件")
-      + (r.witnessCount ? "  ·  见证 " + r.witnessCount : "");
-    sel.appendChild(opt);
+    const o = document.createElement("option");
+    o.value = r.label;
+    o.textContent = r.label + (r.hasEvents ? " · " + Math.round(r.eventBytes / 1024) + "KB" : " · 无事件")
+      + (r.witnessCount ? " · 见证 " + r.witnessCount : "");
+    sel.appendChild(o);
   }
   currentRun = runs.some((r) => r.label === prev) ? prev : runs[0].label;
   sel.value = currentRun;
@@ -183,123 +203,185 @@ async function loadRuns() {
 async function loadRun() {
   if (!currentRun) return;
   $("#run-label").textContent = currentRun;
-  const [ev, wt] = await Promise.all([
-    api("/api/events?run=" + encodeURIComponent(currentRun)),
-    api("/api/witness?run=" + encodeURIComponent(currentRun)),
+  const q = "?run=" + encodeURIComponent(currentRun);
+  const [ev, wt, rl] = await Promise.all([
+    api("/api/events" + q), api("/api/witness" + q), api("/api/relations" + q),
   ]);
-  events = ev.events || [];
-  witnesses = wt.witnesses || [];
+  events = ev.events || []; witnesses = wt.witnesses || []; relations = rl.relations || null;
+  renderKinds();
   render();
 }
 
-/** 只看 lab-* 时，滤掉框架自带条目——但那些条目本身是 L4 的教材，所以可切换。 */
-function visible(e) {
+/** 只看 lab-*：滤掉框架自带条目。但那些本身是 L4 的教材，所以可切换。 */
+function nameVisible(e) {
   if (!$("#only-lab").checked) return true;
-  const n = e.name || "";
-  return n.startsWith("lab-");
+  if (!e.name && !e.id) return true;          // recorder 里程碑之类的留着
+  return String(e.name || "").startsWith("lab-");
+}
+const kindVisible = (e) => !mutedKinds.has(e.kind);
+const visible = (e) => kindVisible(e) && nameVisible(e);
+
+/** 事件类型过滤条：从实际出现过的 kind 动态生成，带计数。 */
+function renderKinds() {
+  const counts = new Map();
+  for (const e of events) counts.set(e.kind, (counts.get(e.kind) || 0) + 1);
+  const box = $("#kinds");
+  box.querySelectorAll(".kind").forEach((n) => n.remove());
+  for (const [kind, n] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
+    const b = document.createElement("button");
+    b.className = "kind"; b.type = "button";
+    b.setAttribute("aria-pressed", String(!mutedKinds.has(kind)));
+    b.innerHTML = esc(kind) + '<span class="n">' + n + "</span>";
+    b.addEventListener("click", () => {
+      mutedKinds.has(kind) ? mutedKinds.delete(kind) : mutedKinds.add(kind);
+      renderKinds(); render();
+    });
+    box.appendChild(b);
+  }
 }
 
-/** 从事件流推导每个条目的当前状态。看板不连实例，实例死了也能看。 */
+/** 从事件流推导当前态。看板不连实例，实例死了也能看。 */
 function deriveState() {
   const map = new Map();
   for (const e of events) {
     if (e.scope !== "entry" || !e.id) continue;
     const prev = map.get(e.id) || { id: e.id, name: e.name };
-    if (e.kind === "snapshot") {
-      map.set(e.id, { ...prev, name: e.name || prev.name, state: e.to, disabled: e.disabled, hasFiber: e.hasFiber });
-    } else if (e.kind === "status") {
-      map.set(e.id, { ...prev, name: e.name || prev.name, state: e.to, hasFiber: true });
-    } else if (e.kind === "plugin") {
-      map.set(e.id, { ...prev, name: e.name || prev.name });
-    }
+    if (e.kind === "snapshot") map.set(e.id, { ...prev, name: e.name || prev.name, state: e.to, disabled: e.disabled, hasFiber: e.hasFiber });
+    else if (e.kind === "status") map.set(e.id, { ...prev, name: e.name || prev.name, state: e.to, hasFiber: true });
+    else map.set(e.id, { ...prev, name: e.name || prev.name });
   }
   return [...map.values()].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+}
+
+/** 按时间间隔把事件切成组：第一组是启动，之后每组对应一次重放。 */
+function groupEvents(list) {
+  const groups = [];
+  let cur = null;
+  for (const e of list) {
+    if (!cur || e.ms - cur.lastMs > GROUP_GAP_MS) {
+      cur = { start: e.ms, lastMs: e.ms, items: [] };
+      groups.push(cur);
+    }
+    cur.items.push(e); cur.lastMs = e.ms;
+  }
+  return groups;
+}
+
+function describeEvent(e) {
+  switch (e.kind) {
+    case "status":         return [e.from + " → " + e.to, colorOf(e.to)];
+    case "snapshot":       return ["snapshot " + (e.to || (e.disabled ? "DISABLED" : "无 fiber")), e.to ? colorOf(e.to) : "var(--s-none)"];
+    case "plugin":         return [e.uid === null ? "fiber disposed" : "fiber created", "var(--ink-mute)"];
+    case "entry-init":     return ["entry init", "var(--ink-mute)"];
+    case "entry-dispose":  return ["entry dispose" + (e.active ? "（仍在用）" : "") + (e.legacy ? "  legacy=" + JSON.stringify(e.legacy) : ""), "var(--s-unloading)"];
+    case "service":        return [(e.present ? "服务出现 " : "服务撤销 ") + e.serviceName, e.present ? "var(--s-active)" : "var(--s-disposed)"];
+    case "config-update":  return [e.note || "config update", "var(--ink-mute)"];
+    case "hmr-change":     return ["hmr 看到文件变化  " + (e.url || ""), "var(--s-loading)"];
+    case "hmr-reload":     return ["hmr 重载 " + e.count + " 个  " + JSON.stringify(e.files || []), "var(--s-loading)"];
+    case "hmr-failed":     return ["hmr 重放失败  " + e.filename + "  " + e.error, "var(--s-failed)"];
+    case "recorder":       return [e.note || "", "var(--ink-mute)"];
+    default:               return [e.kind + " " + JSON.stringify({ ...e, seq: undefined, ms: undefined, at: undefined, kind: undefined }), "var(--ink-mute)"];
+  }
 }
 
 function render() {
   // ── 当前态 ──
   const all = deriveState();
-  const shown = all.filter(visible);
-  $("#state-list").innerHTML = shown.length === 0
-    ? '<div class="empty">没有匹配的条目</div>'
+  const shown = all.filter((s) => !$("#only-lab").checked || String(s.name || "").startsWith("lab-"));
+  $("#state-list").innerHTML = shown.length === 0 ? '<div class="empty">没有匹配的条目</div>'
     : shown.map((s) => {
         const label = s.state || (s.disabled ? "DISABLED" : "——");
         const color = s.state ? colorOf(s.state) : (s.disabled ? "var(--s-disposed)" : "var(--s-none)");
-        return '<div class="card" style="border-left-color:' + color + '">'
-          + '<span class="dot" style="background:' + color + '"></span>'
+        return '<div class="card" style="border-left-color:' + color + '"><span class="dot" style="background:' + color + '"></span>'
           + '<span><span class="nm">' + esc(s.name || s.id) + "</span>"
-          + (s.id !== s.name ? '<br><span class="id">id: ' + esc(s.id) + "</span>" : "")
-          + "</span>"
+          + (s.id !== s.name ? '<br><span class="id">id: ' + esc(s.id) + "</span>" : "") + "</span>"
           + '<span class="st" style="color:' + color + '">' + esc(label) + "</span></div>";
       }).join("");
   $("#cnt-state").textContent = shown.length + " / " + all.length;
 
-  // ── 时间线 ──
-  const rows = events.filter((e) => e.kind === "recorder" || visible(e));
+  // ── 时间线（分组）──
+  const rows = events.filter(visible);
+  const groups = groupEvents(rows);
   const lastByEntry = new Map();
-  const body = rows.map((e) => {
-    if (e.kind === "recorder") {
-      return '<tr class="marker"><td class="t">+' + e.ms.toFixed(3) + "</td><td></td>"
-        + '<td colspan="2">' + esc(e.note || "") + "</td></tr>";
-    }
-    // 与该条目上一条事件的间隔——窄窗口就是在这一列现形的
-    const prevMs = lastByEntry.get(e.id);
-    lastByEntry.set(e.id, e.ms);
-    const gap = prevMs === undefined ? "" : "+" + (e.ms - prevMs).toFixed(3);
-
-    let desc, color;
-    if (e.kind === "status") {
-      desc = e.from + " → " + e.to;
-      color = colorOf(e.to);
-    } else if (e.kind === "snapshot") {
-      desc = "snapshot " + (e.to || (e.disabled ? "DISABLED" : "无 fiber"));
-      color = e.to ? colorOf(e.to) : "var(--s-none)";
-    } else {
-      desc = e.uid === null ? "fiber disposed" : "fiber created";
-      color = "var(--ink-mute)";
-    }
-    const own = (e.name || "").startsWith("lab-") ? " class=\"own\"" : "";
-    return "<tr" + own + '><td class="t">+' + e.ms.toFixed(3) + '</td><td class="gap">' + gap + "</td>"
-      + '<td class="nm">' + esc(e.name || e.id || "—") + "</td>"
-      + '<td class="ev" style="color:' + color + '">' + esc(desc) + "</td></tr>";
-  }).join("");
-
   $("#timeline").innerHTML = rows.length === 0
     ? '<div class="empty">没有事件——这次运行可能没挂 lab-recorder</div>'
-    : '<table><thead><tr><th style="text-align:right">+MS</th><th style="text-align:right">间隔</th>'
-      + "<th>条目</th><th>事件</th></tr></thead><tbody>" + body + "</tbody></table>";
-  $("#cnt-ev").textContent = rows.length + " / " + events.length;
+    : groups.map((g, gi) => {
+        const ids = new Set(g.items.map((e) => e.id).filter(Boolean));
+        const open = !collapsed.has(gi);
+        const title = gi === 0 ? "启动" : "重放 #" + gi;
+        const body = g.items.map((e) => {
+          const prevMs = lastByEntry.get(e.id);
+          if (e.id) lastByEntry.set(e.id, e.ms);
+          const gap = (e.id && prevMs !== undefined) ? "+" + (e.ms - prevMs).toFixed(3) : "";
+          const [desc, color] = describeEvent(e);
+          const cls = e.kind === "recorder" ? " class=\"note\""
+            : String(e.name || "").startsWith("lab-") ? " class=\"own\"" : "";
+          return "<tr" + cls + '><td class="t">+' + e.ms.toFixed(3) + '</td><td class="gap">' + gap + "</td>"
+            + '<td class="nm">' + esc(e.name || e.id || "") + "</td>"
+            + '<td class="ev" style="color:' + color + '">' + esc(desc) + "</td></tr>";
+        }).join("");
+        return '<div class="grp" data-open="' + open + '" data-gi="' + gi + '">'
+          + '<div class="grp-h"><span class="tag">' + title + "</span>"
+          + '<span class="meta">+' + g.start.toFixed(1) + "ms 起 · " + g.items.length + " 条 · "
+          + ids.size + " 个条目 · 跨度 " + (g.lastMs - g.start).toFixed(1) + "ms</span></div>"
+          + '<div class="grp-b"><table><tbody>' + body + "</tbody></table></div></div>";
+      }).join("");
+  $("#timeline").querySelectorAll(".grp-h").forEach((h) => h.addEventListener("click", () => {
+    const gi = Number(h.parentElement.dataset.gi);
+    collapsed.has(gi) ? collapsed.delete(gi) : collapsed.add(gi);
+    render();
+  }));
+  $("#cnt-ev").textContent = rows.length + " / " + events.length + " · " + groups.length + " 组";
+
+  // ── 关系表 ──
+  if (!relations) {
+    $("#rel-list").innerHTML = '<div class="empty">没有关系表</div>';
+    $("#cnt-rel").textContent = "";
+  } else {
+    const parts = [];
+    if (relations.services?.length) {
+      parts.push('<div class="rel-grp"><h4>服务 · ' + relations.services.length + "</h4>"
+        + relations.services.map((s) => '<span class="pill" style="color:' + (s.present ? "var(--s-active)" : "var(--s-disposed)") + '">'
+          + esc(s.name) + "</span>").join("") + "</div>");
+    }
+    const rel = (title, rows_) => rows_.length ? '<div class="rel-grp"><h4>' + title + " · " + rows_.length + "</h4>"
+      + rows_.slice(0, 200).map((r) => '<div class="rel-row"><span class="who">' + esc(r.who) + '</span>'
+        + '<span class="what">' + esc(r.what) + '</span><span class="n">' + r.count + "</span></div>").join("") + "</div>" : "";
+    parts.push(rel("谁监听什么事件", relations.listeners || []));
+    parts.push(rel("谁读什么服务", relations.serviceReads || []));
+    if (!relations.waterfall) {
+      parts.push('<div class="empty">「谁读什么服务」需要打开 waterfall 观测<br>'
+        + '（config.waterfall = true，<span class="warn">会把仪器插进执行链</span>，测时序的实验别开）</div>');
+    }
+    $("#rel-list").innerHTML = parts.join("") || '<div class="empty">关系表是空的</div>';
+    $("#cnt-rel").textContent = (relations.services?.length || 0) + " 服务";
+  }
 
   // ── 见证流 ──
-  $("#wit-list").innerHTML = witnesses.length === 0
-    ? '<div class="empty">没有见证文件</div>'
-    : witnesses.map((w) =>
-        '<div class="wit"><div class="wit-h"><span>' + esc(w.name) + "</span>"
-        + "<span>" + new Date(w.mtime * 1000).toLocaleTimeString("zh-CN") + "</span></div>"
-        + "<pre>" + esc(JSON.stringify(w.body, null, 2)) + "</pre></div>"
-      ).join("");
+  $("#wit-list").innerHTML = witnesses.length === 0 ? '<div class="empty">没有见证文件</div>'
+    : witnesses.map((w) => '<div class="wit"><div class="wit-h"><span>' + esc(w.name) + "</span><span>"
+        + new Date(w.mtime * 1000).toLocaleTimeString("zh-CN") + "</span></div><pre>"
+        + esc(JSON.stringify(w.body, null, 2)) + "</pre></div>").join("");
   $("#cnt-wit").textContent = String(witnesses.length);
 
-  const statuses = events.filter((e) => e.kind === "status").length;
-  $("#stat").textContent = events.length + " 事件 · " + statuses + " 次状态转换 · " + all.length + " 个条目";
-}
-
-function esc(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const st = events.filter((e) => e.kind === "status").length;
+  $("#stat").textContent = events.length + " 事件 · " + st + " 次状态转换 · " + all.length + " 个条目";
 }
 
 async function tick() {
-  try {
-    await loadRuns();
-    await loadRun();
-  } catch (err) {
-    $("#stat").textContent = "读取失败：" + err.message;
-  }
+  try { await loadRuns(); await loadRun(); }
+  catch (err) { $("#stat").textContent = "读取失败：" + err.message; }
 }
 
-$("#run-select").addEventListener("change", (e) => { currentRun = e.target.value; loadRun(); });
+$("#run-select").addEventListener("change", (e) => { currentRun = e.target.value; collapsed.clear(); loadRun(); });
 $("#only-lab").addEventListener("change", render);
 $("#refresh").addEventListener("click", tick);
+$("#toggle-all").addEventListener("click", () => {
+  allCollapsed = !allCollapsed;
+  collapsed = allCollapsed ? new Set(groupEvents(events.filter(visible)).map((_, i) => i)) : new Set();
+  $("#toggle-all").textContent = allCollapsed ? "全部展开" : "全部折叠";
+  render();
+});
 setInterval(() => { if ($("#auto").checked) tick(); }, 2000);
 tick();
 </script>

@@ -68,6 +68,20 @@ def read_events(label: str) -> list[dict]:
     return out
 
 
+def read_relations(label: str) -> dict | None:
+    """关系表：去重聚合的「谁读过什么服务」「谁监听什么事件」「有哪些服务」。
+
+    它不是流水，没有时序意义，所以单独一个文件、单独一块展示，不混进时间线。
+    """
+    path = TESTHOME / label / "events.relations.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def read_witnesses(label: str) -> list[dict]:
     home = TESTHOME / label
     if not home.is_dir():
@@ -123,6 +137,8 @@ class BoardHandler(BaseHTTPRequestHandler):
             self._json({"label": label, "events": read_events(label) if label else []})
         elif parsed.path == "/api/witness":
             self._json({"label": label, "witnesses": read_witnesses(label) if label else []})
+        elif parsed.path == "/api/relations":
+            self._json({"label": label, "relations": read_relations(label) if label else None})
         else:
             self._send(404, b"not found", "text/plain; charset=utf-8")
 

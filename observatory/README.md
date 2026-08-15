@@ -69,6 +69,69 @@ uv run python observatory/board/server.py       # → http://127.0.0.1:8899/
 然后把 `observatory/lab-recorder` link 进那个 profile。现成的例子见
 `observatory/verify_scope.py` 和 `observatory/demo_lifecycle.py`。
 
+## 订阅了什么：三类事件，依据是「是不是 waterfall」
+
+分类标准**不是**"量大不大"，而是**订阅这个动作本身会不会改变系统**。
+
+### 流水型 —— 全量记进 `events.jsonl`，时间线展示
+
+| 事件 | 拿到什么 | 服务哪一课 |
+|---|---|---|
+| `internal/status` | fiber 状态每次转换，**带旧状态** | 全部 |
+| `internal/plugin` | fiber 创建／销毁 | 全部 |
+| `loader/partial-dispose` | 条目被重配置，**`legacy` 是改动前的 options** | ⭐ L10 |
+| `internal/service` | 服务出现／撤销，**带提供者** | ⭐ L3 |
+| `hmr/change` | HMR 检测到哪个文件变了 | ⭐ L11 |
+| `hmr/reload` | 这次重载了哪些插件 | ⭐ L11 |
+| `hmr/config-update-failed` | patch 重放失败及原因 | 排障 |
+| `loader/entry-init` | 条目初始化 | 出生链 |
+| `loader/config-update` | loader 把树写回磁盘 | 解释 `cordis.yml` 被重写 |
+
+### 关系型 —— 去重聚合进 `events.relations.json`，单独一块展示
+
+`internal/listener`（谁监听什么事件）。它**不是** waterfall（签名里没有 `next`），可以安全订阅。
+
+**为什么去重而不记流水**：这类信息的价值在于**关系**，不在于次数。
+"谁监听了 `session/event`" 有意义，"监听器被触发了 8000 次"没有。
+去重后几十条，还直接画得出依赖图。
+
+### 链路型 —— waterfall，**默认关**
+
+`internal/config`、`internal/update`、`internal/get`、`internal/set`、`loader/patch-context`
+
+⚠️ 这些监听器**必须调用 `next()` 并传回返回值**，否则**阻断整条执行链**。
+订阅它们不再是只读观测，而是插进了执行路径。
+
+打开方式：条目 config 里写 `waterfall: true`。打开后 `internal/get`
+（每次服务访问都触发，热路径）走**去重聚合**，绝不记流水。
+
+**为什么默认关**：L10 / L13 测的就是时序。仪器插在执行链里会让那两课的结论可疑。
+平时想看服务读取关系再打开。
+
+### 不订的
+
+- 业务层 `session/*`、`tools/*`、`skills/*`、`session-telemetry/*` —— 跟插件机制无关，纯噪音
+
+## 实测的事件量
+
+一次 `demo_lifecycle` 运行（只叠 `dsh-base`，三次活层改动）：
+
+```
+status         209      entry-dispose  158      plugin    101
+snapshot        82      service         42      hmr-change  2
+```
+
+共 596 条。看板按**时间间隔自动切组**（相邻事件超过 500ms 就切），
+这次正好切成「启动 / 重放 #1 / 重放 #2」三组——L10 要看的就是
+「这**一次**改动引发了什么」，而不是一条几百行的流水账。
+
+### 一条顺带被数据证实的事
+
+这次运行有 **2 条 `hmr-change`**（对应两次改活层文件），但**一条 `hmr-reload` 都没有**。
+
+因为改的是 **patch 文件**（走配方热重放），不是**插件代码**（走代码热重载）——
+**两条链路的区分被直接观测到了**，不用再靠推理。
+
 ## 采集器的三条设计约束
 
 1. **零 `inject`**。订阅事件只要 `apply` 的 `ctx`，写文件只要 `node:fs`。
