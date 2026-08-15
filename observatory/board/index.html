@@ -276,7 +276,9 @@ function describeEvent(e) {
     case "entry-dispose":  return ["entry dispose" + (e.active ? "（仍在用）" : "") + (e.legacy ? "  legacy=" + JSON.stringify(e.legacy) : ""), "var(--s-unloading)"];
     case "service":        return [(e.present ? "服务出现 " : "服务撤销 ") + e.serviceName, e.present ? "var(--s-active)" : "var(--s-disposed)"];
     case "config-update":  return [e.note || "config update", "var(--ink-mute)"];
-    case "hmr-change":     return ["hmr 看到文件变化  " + (e.url || ""), "var(--s-loading)"];
+    // hmr/change 只在「四条分支都不匹配」时才发 —— 它的语义是「我看到了但没处理」，
+    // 不是「检测到变化」。所以用灰色（没干活），不用表示在干活的蓝色。
+    case "hmr-change":     return ["hmr 看到但未处理  " + (e.url || ""), "var(--ink-mute)"];
     case "hmr-reload":     return ["hmr 重载 " + e.count + " 个  " + JSON.stringify(e.files || []), "var(--s-loading)"];
     case "hmr-failed":     return ["hmr 重放失败  " + e.filename + "  " + e.error, "var(--s-failed)"];
     case "recorder":       return [e.note || "", "var(--ink-mute)"];

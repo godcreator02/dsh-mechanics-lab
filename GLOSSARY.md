@@ -273,15 +273,86 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 且对同一个 home 下**所有 profile 同时生效**。共享 home 的部署里，
 往那个文件写一笔会打进所有实例。
 
-### 🟨 hmr
+### 🟩 hmr ⚠️ **这个词也指两样东西**
 
-热重载。承担**两件不同的事**：
+跟 `bundle` 一样，`hmr` 在这套系统里有两个互不相干的实现：
 
-1. **配方热重放**——监听 patch 文件，重新 compose 整叠 → loader 做条目级事务 diff
-2. **代码热重载**——监听 watch root 下的模块文件，清 ESM/CJS 缓存 → 重 import → 原位重挂
+| | **host 侧 hmr** | **client 侧 hmr** |
+|---|---|---|
+| 包 | 🟩 `@deepseek-ai/cordis-plugin-hmr` | 🟨 `@deepseek-ai/dsh-client-hmr` |
+| 管什么 | Node 进程里的配方与模块 | 浏览器里的 client bundle |
+| 机制 | chokidar 文件监听 | **500ms `statSync` 轮询** + SSE 推送 |
+| 生效 | 约 1–2 秒 | 约 3 秒，不用 F5 |
 
-⚠️ ✅ 它的 `ignored` 默认含 `**/node_modules`，依赖遍历也跳过——
-**watch root 必须指向真实源码目录，指向 `node_modules` 里的 junction 是无效的**。
+（client 侧用轮询不用 inotify 是有意的，源码注释：网络挂载不发 inotify 事件。）
+
+下面讲的都是 **host 侧**那个。它是 cordis 生态的插件，不是 DSH 自己的东西——
+跟 `cordis-plugin-loader`、`cordis-plugin-include` 同族。
+
+#### 它有两个 watcher，别混
+
+| | **主 watcher** | **`registerConfig` 的 watcher** |
+|---|---|---|
+| 监视什么 | `root` 配置的那些目录（递归） | **精确到单个文件**（每个 patch 文件一个） |
+| 谁建的 | hmr 的 `Service.init` | `watchUserPatches()` 在 boot 时调 `hmr.registerConfig()` |
+| 干什么 | 走下面那四条分支 | 触发**配方热重放** |
+
+#### 主 watcher 的四条分支
+
+文件一变，主 watcher 按顺序判断：
+
+| # | 条件 | 动作 |
+|---|---|---|
+| 1 | 是某个 include 的 config 文件 | 刷新那棵子树 |
+| 2 | 在 **`externals`** 里（CLI 入口的依赖树，即框架自己的代码） | **`loader.exit()`——整个进程退出** |
+| 3 | 在 Node 的 **ESM `loadCache`** 里（被 import 过的模块） | **代码热重载**：清 ESM+CJS 缓存 → 重 import → dispose 旧 fiber → 原位重挂，失败双向回滚 |
+| 4 | 以上都不是 | 只 `emit('hmr/change', url)`——**没人接** |
+
+⚠️ ✅ **第 4 条分支是「非 import 文件是冷的」的实现根因。** 插件在 `apply` 里
+`readFileSync` 读的文件从没进过 `loadCache`，所以改了它只走到第 4 条：
+HMR 看得见，但归类为「不关我事」。
+
+✅ **实测佐证**：改 `cordis.patch.yml` 时，观测到两条 `hmr/change` 事件，
+而且**发生在配方重放之后**——重放是 `registerConfig` 的那个 watcher 干的；
+主 watcher 因为 `root: ['.']` 覆盖了 profile 目录也看见了同一个文件，
+但一路走到第 4 条分支，发了个没人接的事件。
+
+所以 **`hmr/change` 的语义是「我看到了但没处理」**，不是「检测到变化」。
+
+#### 关键配置
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `root` | `['.']` | watch root 数组，相对 `base` 解析 |
+| `base` | ctx.baseUrl | 相对路径的基准 |
+| `debounce` | 100ms | 合并突发变更。消费 stable 线时会调到 1000ms |
+| `ignored` | 含 `**/node_modules` | 见下 |
+
+⚠️ ✅ **watch root 必须指向真实源码目录**——`ignored` 默认含 `**/node_modules`，
+而且**依赖遍历也跳过 node_modules**，所以把 root 指向 `node_modules` 里那个
+junction 是完全无效的（实测：改真实源码文件毫无反应）。
+
+#### 三个相关事件
+
+| 事件 | 什么时候发 |
+|---|---|
+| `hmr/change` | 第 4 条分支——看到了但没处理 |
+| `hmr/reload` | **代码**热重载完成，带这次重载了哪些插件 |
+| `hmr/config-update-failed` | 配方重放失败 |
+
+✅ 实测：改 patch 文件时只有 `hmr/change`，**一条 `hmr/reload` 都没有**——
+因为那走的是配方热重放，不是代码热重载。**两条链路的区分可以直接观测到。**
+
+#### ⚠️ 一条待验的要害
+
+`registerConfig` 建立的 watcher，其清理**挂在 hmr 自己 fiber 的 `ctx.effect` 上**；
+而 `watchUserPatches()` **只在 boot 时调用一次**，之后无人重新注册。
+
+✅ 又实测到：改一个条目的 `config` 会让它的 fiber 走 `UNLOADING → LOADING`，
+**effect 被清理并重跑**。
+
+两条接起来 → **改动 hmr 条目的 `config`，很可能把 patch 监听自己清掉且不恢复**。
+这正是 L13 要测实或证伪的核心问题。
 
 ### 🟨 dsh.client / client-modules
 
@@ -312,6 +383,66 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 - **教具** —— 跨课通用的演示件，住 `demo/`
 - **采集器**（`lab-recorder`）—— 观测台注入进被观测进程的那一半
 
+### ⬜ snapshot ⚠️ **这个词在本项目里也指两样东西**
+
+两个含义方向相反：一个是**我们的观测动作**，一个是**被观测的机制**。
+
+#### ① 起点快照（`snapshot` 事件）—— 观测动作
+
+采集器挂载的那一刻，**遍历整棵树、把每个条目此刻的状态记一遍**，
+产出一批 `kind: "snapshot"` 的事件。
+
+**为什么需要它**：采集器自己也是树上的一个条目，在它 `apply` 之前挂载的条目，
+其 `fiber created` 和 `PENDING → LOADING` 已经发生完了。
+✅ 实测（补快照之前）：78 个条目本该约 234 次状态转换，只录到 203 次；
+`lab-minimal` 只赶上最后一跳 `LOADING → ACTIVE`。
+
+**它记什么**：条目 id、name、此刻的 `FiberState`、有没有 fiber、是否 disabled、
+config 摘要。
+
+**跟 `status` 事件的区别**：
+
+| | `snapshot` | `status` |
+|---|---|---|
+| 性质 | **补记**——「我来晚了，现在长这样」 | **实时**——「刚刚变了」 |
+| 有无 `from` | 无（不知道之前是什么） | 有旧状态 |
+| 时机 | 只在采集器挂载时一批 | 每次转换 |
+
+**局限**：它补的是**起点**，补不了**过程**。丢掉的 `PENDING → LOADING` 永远丢了。
+而且没法根治——加载顺序由**服务可用性**驱动，没法把采集器排到第一个。
+时间线顶部那条「采集开始（本行之前的事件未被记录）」就是这个边界的标记。
+
+#### ② 快照面 —— 被观测的机制
+
+指**系统里那些"拍了照就不再更新"的缓存**。判断「改了这个要不要重启」，
+本质就是问：**它撞在哪个快照面上，那个面有没有人负责刷新**。
+
+| 快照面 | 什么时候拍的 | 谁负责刷新 |
+|---|---|---|
+| profile bundle 叠 | boot 时 `composeProfile()` 读一次 | ✅ **无人** → 必须重启 |
+| Node 的 ESM / CJS 模块缓存 | 首次 `import()` | hmr（清缓存重 import） |
+| `link:` 依赖指向哪个目录 | `pnpm install` 落 junction 时 | ✅ **无人** → 必须重启 |
+| `pkgMeta` 负判缓存（「这不是 client 包」） | 该包名首次被 resolve 时 | ✅ **无人，源码注释直说 never expires** |
+| 插件 `apply` 期 `readFileSync` 读进来的东西 | `apply` 执行那一刻 | ✅ 只有让 `apply` 重跑才行 |
+
+⚠️ **两个含义别混**：「起点快照」是我们**主动拍**的一张照片；
+「快照面」是系统**自己拍了不更新**的那些照片。前者是仪器，后者是被测对象。
+
+### ⬜ 关系表 / 事件三分类
+
+**关系表**（`events.relations.json`）—— 采集器对**高频、去重后才有价值**的信息做的
+聚合输出：有哪些服务、谁监听什么事件、谁读什么服务。它**没有时序意义**，
+所以不进时间线，单独一块展示。
+
+**事件三分类** —— 采集器对订阅对象的分类，依据是**「是不是 waterfall」**，
+不是「量大不大」：
+
+| 类 | 怎么记 | 为什么 |
+|---|---|---|
+| **流水型** | 全量记进 `events.jsonl` | 低频、有时序意义 |
+| **关系型** | 去重聚合进关系表 | 价值在关系不在次数（"谁监听 X" 有意义，"触发了 8000 次" 没有） |
+| **链路型** | **默认不订** | waterfall 事件的监听器**必须调 `next()`**，订阅它等于插进执行链，不再是只读观测 |
+
 ---
 
 ## 五、最容易混的几对
@@ -325,4 +456,7 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 | **bundle 层** | **活层** | 两条**独立**的注册路径。✅ 实测：把包从 bundles 名单摘掉重启后，活层里 insert 同一个包的条目照常存活 |
 | **`DISABLED`** | **`PENDING`** | 人主动关的（连 fiber 都没有）vs 依赖没到位（fiber 建了在等）。排查方向完全相反 |
 | **fiber 没被销毁** | **fiber 没动过** | ✅ 改 `config` 时 fiber 对象保住，但状态走了 `UNLOADING → LOADING`，**effect 被清理重跑** |
-| **热重载** | **热重放** | 代码热重载（清模块缓存重 import）vs 配方热重放（重新 compose patch 叠）。两条不同的链路 |
+| **热重载** | **热重放** | 代码热重载（清模块缓存重 import）vs 配方热重放（重新 compose patch 叠）。✅ 实测可分辨：改 patch 文件只出 `hmr/change`，一条 `hmr/reload` 都没有 |
+| **host 侧 hmr** | **client 侧 hmr** | `cordis-plugin-hmr`（chokidar 监听 Node 进程）vs `dsh-client-hmr`（500ms 轮询 + SSE 推浏览器） |
+| **起点快照** | **快照面** | 我们**主动拍**的一张照片（仪器）vs 系统**自己拍了不更新**的那些缓存（被测对象） |
+| **`hmr/change`** | 「检测到变化」 | ✅ 它其实是「**看到了但没处理**」——四条分支都不匹配时才发。真正处理了的反而不发这个事件 |

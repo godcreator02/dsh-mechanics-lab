@@ -81,8 +81,8 @@ uv run python observatory/board/server.py       # → http://127.0.0.1:8899/
 | `internal/plugin` | fiber 创建／销毁 | 全部 |
 | `loader/partial-dispose` | 条目被重配置，**`legacy` 是改动前的 options** | ⭐ L10 |
 | `internal/service` | 服务出现／撤销，**带提供者** | ⭐ L3 |
-| `hmr/change` | HMR 检测到哪个文件变了 | ⭐ L11 |
-| `hmr/reload` | 这次重载了哪些插件 | ⭐ L11 |
+| `hmr/change` | HMR **看到了但没处理**的文件变化（见下） | ⭐ L11 |
+| `hmr/reload` | **代码**热重载完成，带这次重载了哪些 | ⭐ L11 |
 | `hmr/config-update-failed` | patch 重放失败及原因 | 排障 |
 | `loader/entry-init` | 条目初始化 | 出生链 |
 | `loader/config-update` | loader 把树写回磁盘 | 解释 `cordis.yml` 被重写 |
@@ -125,12 +125,31 @@ snapshot        82      service         42      hmr-change  2
 这次正好切成「启动 / 重放 #1 / 重放 #2」三组——L10 要看的就是
 「这**一次**改动引发了什么」，而不是一条几百行的流水账。
 
-### 一条顺带被数据证实的事
+### 顺带被数据证实的两件事
 
-这次运行有 **2 条 `hmr-change`**（对应两次改活层文件），但**一条 `hmr-reload` 都没有**。
+**① 配方热重放 ≠ 代码热重载。** 这次运行有 **2 条 `hmr-change`**（对应两次改活层文件），
+但**一条 `hmr-reload` 都没有**——因为改的是 **patch 文件**（走配方热重放），
+不是**插件代码**（走代码热重载）。两条链路的区分**被直接观测到**，不用再靠推理。
 
-因为改的是 **patch 文件**（走配方热重放），不是**插件代码**（走代码热重载）——
-**两条链路的区分被直接观测到了**，不用再靠推理。
+**② `hmr/change` 的语义是「看到了但没处理」，不是「检测到变化」。**
+
+hmr 的主 watcher 对每个文件变化按顺序判断四条分支：是 include 的 config 文件 →
+刷新子树；在 `externals` 里 → 整进程退出；在 ESM `loadCache` 里 → 代码热重载；
+**都不是 → 只 `emit('hmr/change')`，没人接**。
+
+那 2 条 `hmr-change` 的 url 都是 `cordis.patch.yml`，而且时间戳落在**配方重放之后**：
+
+```
+重放 #1 从 +1052.2ms 起  ……  hmr-change 在 +1058.971ms
+重放 #2 从 +4058.3ms 起  ……  hmr-change 在 +4058.316ms
+```
+
+说明 patch 文件的重放是 **`registerConfig` 那个独立 watcher** 干的；
+主 watcher 因为 `root: ['.']` 覆盖了 profile 目录也看见了同一个文件，
+但一路走到第 4 条分支，发了个没人接的事件。
+
+⚠️ 第 4 条分支同时是「**非 import 文件是冷的**」的实现根因：插件在 `apply` 里
+`readFileSync` 读的文件从没进过 `loadCache`，改了它就走到这一条。
 
 ## 采集器的三条设计约束
 
