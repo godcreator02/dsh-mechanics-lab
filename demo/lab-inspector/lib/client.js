@@ -49,27 +49,34 @@ window.__ModuleLoader__.load({
 			+ ".labi_body{min-width:0;flex:1}"
 			+ ".labi_name{font-weight:600;color:var(--dsw-alias-label-primary,#111);word-break:break-all}"
 			+ ".labi_meta{color:var(--dsw-alias-label-caption,#888);font-size:11px;margin-top:1px;word-break:break-all}"
-			+ ".labi_state{font-size:10px;margin-top:3px;letter-spacing:.06em;font-weight:600;"
+			// 一行一个「字段名 + 值」，两类概念各占一行，视觉上就分开了
+			+ ".labi_row{display:flex;align-items:baseline;gap:6px;margin-top:3px}"
+			+ ".labi_k{flex:none;width:38px;font-size:9px;letter-spacing:.09em;"
 			+ "color:var(--dsw-alias-label-dimmed,#9ca3af);font-family:ui-monospace,Consolas,monospace}"
+			+ ".labi_v{font-size:10px;font-weight:600;letter-spacing:.05em;"
+			+ "color:var(--dsw-alias-label-secondary,#666);font-family:ui-monospace,Consolas,monospace}"
 			// ── 按 FiberState 分色：绿只给 ACTIVE，其余各按语义 ──
-			+ '.labi_card[data-state="ACTIVE"]{border-color:var(--dsw-alias-state-success-primary,#16a34a);'
+			+ '.labi_card[data-fiber="ACTIVE"]{border-color:var(--dsw-alias-state-success-primary,#16a34a);'
 			+ "background:var(--dsw-alias-state-success-tertiary,#ecfdf3)}"
-			+ '.labi_card[data-state="ACTIVE"] .labi_dot,'
-			+ '.labi_card[data-state="ACTIVE"] .labi_name,'
-			+ '.labi_card[data-state="ACTIVE"] .labi_state{color:var(--dsw-alias-state-success-primary,#16a34a)}'
-			+ '.labi_card[data-state="ACTIVE"] .labi_dot{background:var(--dsw-alias-state-success-primary,#16a34a)}'
-			+ '.labi_card[data-state="PENDING"]{border-color:var(--dsw-alias-state-warn-primary,#d97706)}'
-			+ '.labi_card[data-state="PENDING"] .labi_dot{background:var(--dsw-alias-state-warn-primary,#d97706)}'
-			+ '.labi_card[data-state="PENDING"] .labi_state{color:var(--dsw-alias-state-warn-primary,#d97706)}'
-			+ '.labi_card[data-state="FAILED"]{border-color:var(--dsw-alias-state-error-primary,#dc2626);'
+			+ '.labi_card[data-fiber="ACTIVE"] .labi_name,'
+			+ '.labi_card[data-fiber="ACTIVE"] .labi_v{color:var(--dsw-alias-state-success-primary,#16a34a)}'
+			+ '.labi_card[data-fiber="ACTIVE"] .labi_dot{background:var(--dsw-alias-state-success-primary,#16a34a)}'
+			+ '.labi_card[data-fiber="PENDING"]{border-color:var(--dsw-alias-state-warn-primary,#d97706)}'
+			+ '.labi_card[data-fiber="PENDING"] .labi_dot{background:var(--dsw-alias-state-warn-primary,#d97706)}'
+			+ '.labi_card[data-fiber="PENDING"] .labi_v{color:var(--dsw-alias-state-warn-primary,#d97706)}'
+			+ '.labi_card[data-fiber="FAILED"]{border-color:var(--dsw-alias-state-error-primary,#dc2626);'
 			+ "background:var(--dsw-alias-state-error-secondary,#fef2f2)}"
-			+ '.labi_card[data-state="FAILED"] .labi_dot{background:var(--dsw-alias-state-error-primary,#dc2626)}'
-			+ '.labi_card[data-state="FAILED"] .labi_name,'
-			+ '.labi_card[data-state="FAILED"] .labi_state{color:var(--dsw-alias-state-error-primary,#dc2626)}'
-			+ '.labi_card[data-state="LOADING"] .labi_dot,'
-			+ '.labi_card[data-state="UNLOADING"] .labi_dot{background:var(--dsw-alias-state-business-primary,#2563eb)}'
-			+ '.labi_card[data-state="LOADING"] .labi_state,'
-			+ '.labi_card[data-state="UNLOADING"] .labi_state{color:var(--dsw-alias-state-business-primary,#2563eb)}'
+			+ '.labi_card[data-fiber="FAILED"] .labi_dot{background:var(--dsw-alias-state-error-primary,#dc2626)}'
+			+ '.labi_card[data-fiber="FAILED"] .labi_name,'
+			+ '.labi_card[data-fiber="FAILED"] .labi_v{color:var(--dsw-alias-state-error-primary,#dc2626)}'
+			+ '.labi_card[data-fiber="LOADING"] .labi_dot,'
+			+ '.labi_card[data-fiber="UNLOADING"] .labi_dot{background:var(--dsw-alias-state-business-primary,#2563eb)}'
+			+ '.labi_card[data-fiber="LOADING"] .labi_v,'
+			+ '.labi_card[data-fiber="UNLOADING"] .labi_v{color:var(--dsw-alias-state-business-primary,#2563eb)}'
+			// 条目级：被禁用的整张卡压暗，与「fiber 状态」的配色互不干涉
+			+ '.labi_card[data-disabled="true"] .labi_name{color:var(--dsw-alias-label-dimmed,#9ca3af)}'
+			+ ".labi_legend{font-size:9px;line-height:1.5;color:var(--dsw-alias-label-dimmed,#9ca3af);"
+			+ "padding-top:6px;border-top:1px solid var(--dsw-alias-border-l2,#e5e7eb)}"
 			+ ".labi_empty{color:var(--dsw-alias-label-caption,#888);padding:6px 2px}"
 			+ ".labi_err{color:var(--dsw-alias-state-error-primary,#dc2626);padding:6px 2px;word-break:break-all}"
 			+ ".labi_foot{padding-top:6px;border-top:1px solid var(--dsw-alias-border-l2,#e5e7eb);"
@@ -89,17 +96,24 @@ window.__ModuleLoader__.load({
 		//#region component
 
 		/**
-		 * 每个状态的一句话解释，挂在原生 title 上（悬停可见）。
-		 * 状态名本身用 Cordis 的 FiberState 原名，不翻译 —— 这样看到的词
-		 * 和源码、日志、文档里的词是同一个。
+		 * 第一类：Cordis 官方 FiberState 的六个成员。原名不翻译 ——
+		 * 这样面板上看到的词和源码、日志、报错里的词是同一个。
 		 */
-		const STATE_HINT = {
+		const FIBER_HINT = {
 			PENDING: "等 inject 声明的服务就位",
 			LOADING: "插件回调正在执行（apply 运行中）",
 			ACTIVE: "加载完成，正在提供服务",
 			FAILED: "回调或配置校验抛了错",
 			UNLOADING: "disposer 正在跑",
 			DISPOSED: "已移除，不会再启动",
+		};
+
+		/**
+		 * 第二类：条目级事实，**本面板自己看的，不是 FiberState 的成员**。
+		 * 单独一行显示，绝不与 fiberState 混用同一个字段 —— 否则读的人
+		 * 会以为 Cordis 有七个八个状态。
+		 */
+		const ENTRY_HINT = {
 			DISABLED: "条目写了 disabled，压根没创建 fiber（人主动关的，不是依赖没到位）",
 			NO_FIBER: "没被禁用却也没有 fiber —— 罕见，值得查",
 		};
@@ -140,7 +154,7 @@ window.__ModuleLoader__.load({
 			}, []);
 
 			const entries = (state && state.entries) || [];
-			const activeCount = entries.filter((e) => e.state === "ACTIVE").length;
+			const activeCount = entries.filter((e) => e.fiberState === "ACTIVE").length;
 
 			let body;
 			if (error !== null) {
@@ -151,12 +165,27 @@ window.__ModuleLoader__.load({
 				body = h("div", { className: "labi_empty" },
 					"没有名字以 " + state.prefix + " 开头的插件");
 			} else {
-				body = h("ul", { className: "labi_list" }, entries.map((entry) =>
-					h("li", {
+				body = h("ul", { className: "labi_list" }, entries.map((entry) => {
+					// 条目级标记：只在「没有 fiber」时才有话说
+					const entryFlag = entry.hasFiber
+						? null
+						: entry.disabled
+							? "DISABLED"
+							: "NO_FIBER";
+					const hint = []
+						.concat(entry.fiberState
+							? ["FIBER " + entry.fiberState + " — " + (FIBER_HINT[entry.fiberState] || "未知状态")]
+							: ["FIBER —— 没有 fiber（这不是 FiberState 的成员）"])
+						.concat(entryFlag ? ["ENTRY " + entryFlag + " — " + ENTRY_HINT[entryFlag]] : [])
+						.join("\n");
+
+					return h("li", {
 						key: entry.id,
 						className: "labi_card",
-						"data-state": entry.state,
-						title: entry.state + " — " + (STATE_HINT[entry.state] || "未知状态"),
+						// 两个独立的 data 属性：配色各管各的，不互相顶替
+						"data-fiber": entry.fiberState || "NONE",
+						"data-disabled": String(Boolean(entry.disabled)),
+						title: hint,
 					}, [
 						h("span", { key: "dot", className: "labi_dot" }),
 						h("div", { key: "body", className: "labi_body" }, [
@@ -165,10 +194,21 @@ window.__ModuleLoader__.load({
 							entry.id !== entry.name
 								? h("div", { key: "id", className: "labi_meta" }, "id: " + entry.id)
 								: null,
-							h("div", { key: "state", className: "labi_state" }, entry.state),
+							// ── 第一行：官方 FiberState ──
+							h("div", { key: "fiber", className: "labi_row" }, [
+								h("span", { key: "k", className: "labi_k" }, "FIBER"),
+								h("span", { key: "v", className: "labi_v" }, entry.fiberState || "——"),
+							]),
+							// ── 第二行：条目级事实（只在有话说时出现）──
+							entryFlag
+								? h("div", { key: "entry", className: "labi_row" }, [
+									h("span", { key: "k", className: "labi_k" }, "ENTRY"),
+									h("span", { key: "v", className: "labi_v" }, entryFlag),
+								])
+								: null,
 						]),
-					])
-				));
+					]);
+				}));
 			}
 
 			return h("div", { className: "labi_panel" }, [
@@ -178,6 +218,10 @@ window.__ModuleLoader__.load({
 						activeCount + " / " + entries.length + " ACTIVE"),
 				]),
 				h("div", { key: "body" }, body),
+				state !== null
+					? h("div", { key: "legend", className: "labi_legend" },
+						"FIBER = Cordis FiberState（官方六态）　ENTRY = 条目级（本面板自加）")
+					: null,
 				state !== null
 					? h("div", { key: "foot", className: "labi_foot" }, [
 						h("span", { key: "p" }, "前缀 " + state.prefix),

@@ -4,19 +4,19 @@
  * 干一件事：把当前组合树里「我们的插件」的状态，经一个只读路由暴露出去。
  *   GET /lab-inspector/state  →  { at, prefix, entries: [{id, name, state, ...}] }
  *
- * 状态名不是自己发明的，用的是 **Cordis 的 fiber 生命周期状态**本身
- * （`@deepseek-ai/cordis` 的 `FiberState` 枚举，见 lib/types/fiber.d.ts）：
+ * 响应里把**两类互不相干的概念严格分开**，绝不混进同一个字段：
  *
- *   PENDING    等 inject 声明的服务就位
- *   LOADING    插件回调正在跑（apply 执行中）
- *   ACTIVE     加载完成、正在提供服务   ← 这才是「运行中」
- *   FAILED     回调或配置校验抛了错
- *   UNLOADING  disposer 正在跑
- *   DISPOSED   已移除，不会再启动
+ *   fiberState  —— Cordis 官方的 fiber 生命周期状态，原名不翻译
+ *                  （`@deepseek-ai/cordis` 的 FiberState，见 lib/types/fiber.d.ts）
+ *                  PENDING / LOADING / ACTIVE / FAILED / DISPOSED / UNLOADING
+ *                  **没有 fiber 时是 null**，不是某个自造的状态名
  *
- * 另外补一个**条目级**（不是 fiber 级）的状态：条目写了 disabled 就压根不会
- * 创建 fiber，此时报 DISABLED —— 它和 PENDING 的区别很要紧：
- * DISABLED 是人主动关的，PENDING 是依赖没到位。
+ *   disabled / hasFiber —— 条目级事实，本面板自己看的，**不属于 FiberState**
+ *
+ * 为什么非分不可：「条目被禁用」和「fiber 停在 PENDING」在界面上都表现为
+ * 「没在跑」，但前者是人主动关的、后者是依赖没到位，排查方向完全相反。
+ * 把自造的 DISABLED 塞进 fiberState 字段，等于伪造了一个官方不存在的状态，
+ * 读的人会以为 Cordis 有七个状态。
  *
  * 只读：本插件不提供任何改变状态的接口。教学演示件，看得见摸不着。
  */
@@ -70,20 +70,18 @@ export function apply(ctx, config) {
       const fiber = entry.fiber;
       const stateCode = fiber ? fiber.state : null;
 
-      // 没有 fiber 的两种成因要分开：被禁用（人关的）vs 其它（理论上不该出现，
-      // 因为启用的条目一 init 就会有 fiber，哪怕它卡在 PENDING）
-      const state =
-        stateCode === null
-          ? disabled
-            ? "DISABLED"
-            : "NO_FIBER"
-          : FIBER_STATE_NAMES[stateCode] ?? "UNKNOWN_" + stateCode;
-
       entries.push({
         id: options.id ?? name,
         name,
-        state,
-        stateCode,
+
+        // ── 第一类：Cordis 官方的 FiberState ────────────────────────────
+        // 没有 fiber 时为 null（不是某个状态名）—— 因为「没有 fiber」压根
+        // 不是 FiberState 的成员，硬塞一个自造的名字进来就是混淆两套概念。
+        fiberState: stateCode === null ? null : FIBER_STATE_NAMES[stateCode] ?? "UNKNOWN_" + stateCode,
+        fiberStateCode: stateCode,
+
+        // ── 第二类：条目级事实，本面板自己看的，不属于 FiberState ────────
+        hasFiber: fiber !== undefined,
         disabled,
         // 声明式的禁用写法（可能是布尔，也可能是 !!js 表达式对象）
         disabledDeclared: options.disabled ?? null,

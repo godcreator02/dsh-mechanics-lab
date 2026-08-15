@@ -13,10 +13,15 @@ uv run python demo/run_demo.py --demo-pending   # 演示「boot 期 PENDING 是�
 > 这是**教具**，不是某一课的 fixture。fixtures 按课分、允许重复；教具跨课通用，
 > 所以住在 `demo/` 而不是某个 `l0X_*/fixtures/`。
 
-## 状态名用框架自己的，不自己发明
+## 两类概念严格分开，不混
 
-卡片上的状态是 **Cordis 的 `FiberState`** 原名（`@deepseek-ai/cordis` 的
-`lib/types/fiber.d.ts`），不翻译——这样面板上看到的词，和源码、日志、报错里的词是同一个：
+卡片上有两行，对应两类**互不相干**的东西。JSON 里也是两组独立字段，
+UI 上是两个独立的 `data-*` 属性——绝不合并成一个「状态」字段。
+
+### 第一行 `FIBER` — Cordis 官方的 `FiberState`
+
+原名不翻译，这样面板上看到的词和源码、日志、报错里的词是同一个
+（`@deepseek-ai/cordis` 的 `lib/types/fiber.d.ts`，**一共六个**）：
 
 | 状态 | 含义 | 颜色 |
 |---|---|---|
@@ -27,14 +32,22 @@ uv run python demo/run_demo.py --demo-pending   # 演示「boot 期 PENDING 是�
 | `FAILED` | 回调或配置校验抛了错 | 红 |
 | `DISPOSED` | 已移除，不会再启动 | 灰 |
 
-外加一个**条目级**（不是 fiber 级）的状态：
+**没有 fiber 时这一行显示 `——`，而不是某个状态名**。「没有 fiber」压根不是
+`FiberState` 的成员，硬塞一个自造的名字进去，读的人会以为 Cordis 有七个状态。
 
-| 状态 | 含义 | 颜色 |
-|---|---|---|
-| `DISABLED` | 条目写了 `disabled`，压根没创建 fiber | 灰 |
+### 第二行 `ENTRY` — 条目级事实（本面板自加，**不是** FiberState）
 
-**`DISABLED` 与 `PENDING` 的区别很要紧**：前者是人主动关的，后者是依赖没到位——
-排查方向完全不同。悬停卡片能看到每个状态的一句话解释。
+只在「没有 fiber」时才出现：
+
+| 标记 | 含义 |
+|---|---|
+| `DISABLED` | 条目写了 `disabled`，压根没创建 fiber |
+| `NO_FIBER` | 没被禁用却也没有 fiber——罕见，值得查 |
+
+**`DISABLED` 与 `PENDING` 的区别很要紧**：前者是人主动关的、连 fiber 都没有；
+后者 fiber 建出来了、卡在等依赖。排查方向完全相反。这也正是两类必须分开的理由。
+
+悬停卡片能看到两行各自的一句话解释。
 
 配色走框架的设计令牌（`--dsw-alias-state-success-primary` 等），亮/暗主题自动跟随。
 实测暗色主题下绿色渲染为 `rgb(34,197,94)`——是令牌值，不是代码里的 fallback。
@@ -92,7 +105,18 @@ host 半边注册一个只读路由：
 
 ```
 GET /lab-inspector/state
-→ { marker, at, prefix, entries: [{ id, name, state, stateCode, disabled, ... }] }
+→ {
+    marker, at, prefix,
+    entries: [{
+      id, name,
+      fiberState,      // 官方 FiberState 名，没有 fiber 时为 null
+      fiberStateCode,  // 官方枚举数字，没有 fiber 时为 null
+      hasFiber,        // ↓ 以下为条目级事实，不属于 FiberState
+      disabled,
+      disabledDeclared,
+      hasConfig,
+    }]
+  }
 ```
 
 判据抄自 `cordis-plugin-loader` 的 `Entry`：`entry.fiber` 有没有、`entry.fiber.state`

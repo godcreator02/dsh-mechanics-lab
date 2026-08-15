@@ -76,10 +76,11 @@ PENDING_ENTRY = """
 
 
 #: 每个演示条目的预期状态。--check 模式据此判定。
+#: 两类概念分开写：(官方 fiberState, 条目级标记)。fiberState 为 None 表示没有 fiber。
 EXPECTED = {
-    "lab-inspector": "ACTIVE",
-    "lab-demo-alpha": "ACTIVE",
-    "lab-demo-sleeping": "DISABLED",
+    "lab-inspector": ("ACTIVE", None),
+    "lab-demo-alpha": ("ACTIVE", None),
+    "lab-demo-sleeping": (None, "DISABLED"),
 }
 
 
@@ -129,10 +130,12 @@ def main() -> int:
             return 1
 
         print(f"\nhost 侧读到 {len(state['entries'])} 个 lab- 插件：")
+        print(f"    {'FIBER（官方）':<16} {'ENTRY（自加）':<14} 插件")
         got = {}
         for entry in state["entries"]:
-            got[entry["name"]] = entry["state"]
-            print(f"    {entry['state']:<10} {entry['name']}")
+            flag = None if entry["hasFiber"] else ("DISABLED" if entry["disabled"] else "NO_FIBER")
+            got[entry["name"]] = (entry["fiberState"], flag)
+            print(f"    {entry['fiberState'] or '——':<16} {flag or '':<14} {entry['name']}")
 
         # client 半边有没有被 dsh-client-modules 扫进图：取它的 bundle 试试。
         # 注意不能只看状态码 —— dsh 对未匹配路径回 200 + SPA 兜底 HTML。
@@ -153,10 +156,11 @@ def main() -> int:
         print()
         failed = False
         for name, want in EXPECTED.items():
-            actual = got.get(name, "（缺席）")
+            actual = got.get(name)
             ok = actual == want
             failed = failed or not ok
-            print(f"  {'✅' if ok else '❌'} {name:<20} 预期 {want:<9} 实际 {actual}")
+            fmt = lambda pair: f"fiber={pair[0] or '——'} entry={pair[1] or '——'}" if pair else "（缺席）"
+            print(f"  {'✅' if ok else '❌'} {name:<20} 预期 {fmt(want):<28} 实际 {fmt(actual)}")
         if not client_ok:
             failed = True
         return 1 if failed else 0
