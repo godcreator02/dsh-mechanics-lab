@@ -1,0 +1,24 @@
+[project]
+name = "dsh-mechanics-lab"
+version = "0.1.0"
+description = "DeepSeek Harness 插件系统原理实验台"
+requires-python = "==3.12.10"
+dependencies = [
+    # dump-config 的输出要真解析成对象再断言，不许用正则抓文本
+    "pyyaml>=6.0.3",
+    # 实验就是测试：参数化用例、fixture 管实例生命周期、断言内省
+    "pytest>=9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["experiments"]
+# 实验带教学性质，输出本身是产物的一部分，默认不吞
+addopts = "-v -s --tb=short"
+markers = [
+    "instance: 需要真的拉起 dsh 实例（慢，且占端口）",
+    "static: 纯 --dump-config，不起进程（快，零风险）",
+]
+
+[tool.uv]
+# 本项目禁止使用全局 Python：一切经 `uv run`，解释器与依赖都锁在 .venv 里
+package = false

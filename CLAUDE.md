@@ -55,6 +55,7 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。两个产
 | **端口** | 只用 3090–3099。**绝不碰 3080（主实例）/ 3239 / 3733** |
 | **删目录** | 逐层拆 junction，**绝不跟着链接走**（profile 的 node_modules 里全是指向源码和 npx 缓存的 junction） |
 | **并发** | 一次只跑一个实验。多个实验共用 profile 名和端口会互相污染（第一版踩过） |
+| **Python 环境** | **只用 uv + venv，禁止全局 Python。** 解释器钉死 3.12.10（`.python-version`），依赖锁在 `uv.lock`，一切经 `uv run` 执行 |
 | **语言** | Python。进程编排、YAML 解析、断言都在 `lab.py` 里 |
 
 ## 五、观测方法论（都是踩出来的）
@@ -89,10 +90,22 @@ CLAUDE.md          本文件——怎么在这个项目里干活
 DRAFT.md           方案草稿：意图、梯度设计、已有结论安置、待办
 README.md          箱子说明：破例声明、端口占用、怎么跑
 index.html         教材（自包含单文件）
+pyproject.toml     依赖与 pytest 配置
+.python-version    3.12.10，uv 据此建 venv
+uv.lock            依赖锁定，进 git 保证可复现
 experiments/
   lab.py           公共脚手架：进程编排 + YAML 解析 + 断言
-  L*.py            按梯度编号的实验
+  test_l*.py       按梯度编号的实验（pytest 用例）
   fixtures/        教学插件（为讲原理设计，不仿制真实插件）
 results/           每次跑的结论（*.md 进 git，*.raw.txt 不进）
 .testhome/         假 home，gitignore
+.venv/             虚拟环境，gitignore
+```
+
+跑法一律经 uv，不激活也不碰全局解释器：
+
+```powershell
+uv sync                              # 首次或依赖变更后
+uv run pytest -m static              # 只跑不起进程的实验
+uv run pytest experiments/test_l1_minimal_plugin.py
 ```

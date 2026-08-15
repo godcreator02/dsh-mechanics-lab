@@ -151,6 +151,13 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
   拿它判断会漏
 - `shutil.rmtree` 处理 junction 历史上有跟进去删目标内容的问题——profile 的 `node_modules`
   里全是指向插件源码和 npx 缓存的 junction，跟进去就删真东西
-- `pathlib.Path.is_junction()` 要 Python 3.12+
-- 结论：用 `os.walk(followlinks=False)` + `os.readlink` 探测 + `os.rmdir` 拆链接，
-  **明知这个坑去写**，不要顺手 `shutil.rmtree`
+- ✅ **`pathlib.Path.is_junction()` 需要 Python 3.12+，本项目钉的 3.12.10 自带**（已验证），
+  所以检测这一半是干净的，不用自己拿 `os.readlink` 试探
+- 结论：用 `Path.is_junction()` 判断 + `os.rmdir` 拆链接本身（Windows 上 rmdir 一个重解析点
+  只删链接、不碰目标内容），真目录才递归删；**绝不顺手 `shutil.rmtree`**
+
+### 环境
+
+`uv` + venv，解释器钉 3.12.10，禁止全局 Python。依赖只有两个：`pyyaml`（真解析 dump-config）
+和 `pytest`（实验即测试）。HTTP 探测用标准库 `urllib`，不引入 `requests`——少一个依赖，
+而且 `HTTPError`（有响应）与 `URLError`（连不上）的语义天然分离，正好是探活要区分的两种情况。

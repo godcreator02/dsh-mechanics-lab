@@ -7,3 +7,8 @@
 
 # fixtures 里假插件被 pnpm 装出来的东西
 **/node_modules/
+
+# Python 虚拟环境：由 uv 管理，uv.lock 进 git 保证可复现，.venv 本身不进
+/.venv/
+__pycache__/
+.pytest_cache/
