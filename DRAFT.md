@@ -136,6 +136,8 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 | L12 client 负判缓存 | `design.md` 的「client 模块表是实例 boot 时的快照」表述错误，应改为「表的成员增量热维护，包元数据按名惰性缓存且永不过期」 | 待办 |
 | L12 附加 | 「缺 `exports["./client"]` 是抛错而非缓存、补上不用重启」——**实测推翻**，写作契约里不能留这个逃生门 | 待办 |
 | L11 watch root | 「watch root 必须指向真实源码目录，不能指 node_modules 里的 junction」是承重设计，实测证实 | 已证实 |
+| **L0 hmr 兜底** | `CLAUDE.md` 记「hmr 条目没在启动时启用的进程，patch 文件改了没人看」——与源码**对不上**：profile-boot 在 boot 后判 `ctx.get("hmr") === void 0`，服务不在就补一个 `root: []` 的 hmr，patch 监听照常。dshw 那次观察另有原因，需重验 | 待 L13 |
+| **L0 兜底判据** | 兜底判的是**服务**不是条目。`disabled: true` 的 hmr 条目 → 服务不存在 → 框架照样补。dshw「活层反禁用 hmr 是鸡生蛋」的推论要重新检查 | 待 L13 |
 
 ## 七、实测推翻的假设（累积清单）
 
@@ -149,8 +151,13 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 | 我（源码推理） | 活层贡献的条目没有来源注释 | 有，只是形式不同：bundle 层标包名，活层标 patch 文件绝对路径 | **L1** |
 | 我（源码推理） | 改 `config` 走原地 reconfigure，**fiber 不动** | fiber 对象保住了（无 `fiber disposed` 事件），但状态实实在在走了 `ACTIVE→UNLOADING→LOADING→ACTIVE`——**`ctx.effect` 注册的副作用被清理并重跑**。「没被销毁」≠「没动过」 | **观测台** |
 | 我（由上一条推出的） | `dshw attach` 改 hmr 的 `config` 是安全的 | **说法作废**——它建立在「改 config 不动 fiber」这个不精确的推断上。改 config 会触发 UNLOADING，而 patch 监听的 watcher 正挂在 hmr fiber 的 effect 上 → 很可能被自己清掉且不恢复。**待 L13 实测** | **观测台** |
-| 我（由教具实验推出的） | 「boot 期的 PENDING 是致命的」是通则 | **有条件，条件未明**。只叠 `dsh-base` 时，依赖永远满足不了的条目会在 boot 末尾被 **DISPOSED**（不是卡在 PENDING），实例照常启动。隔离实验证明差异**不在服务名**，剩下的变量是 **bundle 组合** | **L3** |
+| 我（由教具实验推出的） | 「boot 期的 PENDING 是致命的」有条件，条件是 **bundle 组合** | **归因错了，而且原判定本身是对的**。`assertEntriesActivated` 在 boot 末尾审计每个未 disabled 的条目，非 ACTIVE 一律抛错——跟 bundle 组合无关。L3 那次之所以没死，是那些条目**最终变成了 ACTIVE**：把中间态误当终态 | **L0** |
+| 我（源码推理） | 运行时的树 = `--dump-config` 算出的配方 | **多三个条目**：`cordis:include`（树根，boot 期就在）、`timer`、`hmr`（boot 返回后由 profile-boot 兜底补，id 随机生成）。静态 dump 永远看不见它们 | **L0** |
+| 我（源码推理） | 要跑实验至少得叠 `dsh-base` | `bundles: []` 就能跑。插件系统的基础设施是框架自带的，`dsh-base` 提供的是「一个 AI 助手」不是「一个插件运行时」 | **L0** |
+| 我（源码推理） | 插件包必须 link 进 profile 的 `node_modules` | 分两种：**裸包名以 dsh 安装目录为锚**（官方包不用 link）；**相对路径以 profile 为锚，且必须指到文件**（`ERR_UNSUPPORTED_DIR_IMPORT`）。只有包解析认 `package.json`，L1 那条回退链对相对路径不存在 | **L0** |
 | 我（实验设计） | 教学插件拿不到服务时应该 `throw` 把问题吵出来 | **探针不该在观测点抛错**——它把「根本没 apply」和「apply 了但服务是 undefined」混成同一个结果（实例起不来），两种完全不同的语义无法分辨。改成如实记录后真相立刻清楚 | **L3** |
+| 我（实验设计） | `except LabError` 能判出「启动失败」 | **`start_instance(wait_http=False)` 立即返回、不做存活检查**，那个 except 永远不触发。L3 用例 7 因此把两次失败都读成「启动成功」，进而伪造出「bundle 组合是变量」这个假问题。**用例根本没在测它自称在测的东西** | **L0 复核 L3** |
+| 我（读观测数据） | `PENDING → UNLOADING → DISPOSED` = 条目等超时被放弃 | 那是 `boot()` 失败后 catch 里 `ctx.fiber.dispose()` 的**整树回滚**。同一份事件流，缺了「进程还活着吗」这一个最粗的对照，读出了完全相反的结论 | **L0 复核 L3** |
 | 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换 | v1 E1 |
 | 项目正本 | client 模块表是实例 boot 时的快照 | 表成员增量热维护，包元数据按名惰性缓存且永不过期 | v1 E6 |
 
@@ -160,9 +167,16 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 - [x] **L1 · 插件的最小形态** — 8 个用例全过，约 32 秒
 - [x] **L2 · 条目的字段** — 6 个用例全过，约 38 秒
 - [x] **`SYLLABUS.md`** — L3–L13 大纲列全（要回答什么、假说、实验设计、难点、依赖与开销）
-- [ ] L3 · 服务与 inject → 一轮一级往下走（第二级要先造那套四个插件的依赖系统）
-- [ ] 教材 `index.html` 按梯度重排（现在是按「术语→组合→patch→热链路→快照面」组织的，
-      与梯度不完全对齐）；第 7 节「与项目正本的出入」移出正文，并入本文件第六节
+- [x] **L3 · 服务与 inject** — 8 个用例全过，约 55 秒；观测台 + 归档机制随这一课立起来
+- [x] **L0 · 最小可运行环境** — 10 个用例全过，约 74 秒。定出基线
+      `make_minimal_profile()`（`bundles: []`），并解掉 PENDING 悬案
+- [ ] **L1–L3 迁到 L0 基线**并复跑对齐（事件流从几百条降到十几条）。迁移本身
+      是一次交叉验证：结论若不变，说明它们确实不依赖 `dsh-base`
+- [ ] L4 · 加载顺序 → 一轮一级往下走
+- [ ] 教材 `index.html` 的处置：v1 教材，旧结构，且含已被推翻的判定
+      （写着「改 config 不 dispose fiber」）。删／留／按新梯度重排，待定
+- [ ] `observatory/` 下的独立脚本（`demo_lifecycle.py`、`verify_scope.py`）不走
+      pytest，产物没被自动归档
 - [ ] L13 重做时改成**单轮观测**：每轮改动前重启实例，避免多轮改动互相干扰
 
 ### junction 安全删除（Python 版要专门处理的坑）

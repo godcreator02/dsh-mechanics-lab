@@ -205,6 +205,14 @@ def start_instance(
         port: 不传则不加 `--port`（适合没叠 dsh-web-app 的 profile）。
         wait_http: 等 HTTP 起来才返回。没有 web 服务的 profile 要传 False，
             否则会白等到超时。
+
+    ⚠️ **`wait_http=False` 时本函数不做任何存活检查，立即返回。**
+    启动失败也**不会**抛 `LabError` —— 想判断启动成不成功，必须自己等一会儿
+    再看 `inst.alive()`，不能靠 `try/except LabError`。
+
+    这不是理论风险：L3 用例 7 正是这么写的，于是把两次「启动失败（退出码 1）」
+    双双读成「启动成功」，进而伪造出「bundle 组合影响 PENDING 是否致命」这个
+    根本不存在的问题，还写进了 README。L0 复核时才发现。
     """
     if port is not None:
         if port in FORBIDDEN_PORTS:

@@ -375,6 +375,20 @@ def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, v
 
     两次差了两个变量：**服务名是否有（被禁用的）提供者**，以及 **bundle 组合**。
     这里把前一个变量单独拎出来测——两个变体都在只叠 dsh-base 的同一环境下跑。
+
+    ⚠️ **本用例第一版有个实验设计缺陷，结论整个是反的**（L0 复核时发现）：
+
+    它靠 `except LabError` 判断启动失败，但 `start_instance(wait_http=False)`
+    **立即返回、不做任何存活检查**，那个 except 永远不会触发。于是两个变体都
+    打印「启动成功」，进而得出「只叠 dsh-base 时 PENDING 不致命」的错误结论，
+    再进而把差异归因到 bundle 组合。
+
+    真相（L0 从源码 + 实测两头确认）：`assertEntriesActivated` 在 boot 末尾审计，
+    PENDING **无条件致命**。而本用例事件流里那条 `PENDING → UNLOADING → DISPOSED`
+    恰恰是审计失败后 `boot()` 的 catch 里 `ctx.fiber.dispose()` 整棵树的痕迹——
+    **它一直是启动失败的证据，被读成了「照常启动」。**
+
+    现在改成直接看进程死没死。
     """
     tag = "dis" if service_name == "labRegistry" else "never"
     profile = lab_home.make_profile(f"l03-unsat-{tag}")
@@ -395,22 +409,22 @@ def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, v
 
     profile.write_patch(_patch(*entries))
 
-    outcome = "启动成功"
-    try:
-        inst = launch(profile, wait_http=False)
-        try:
-            time.sleep(5)
-        finally:
-            inst.stop()
-            time.sleep(1)
-    except LabError as exc:
-        outcome = "启动失败"
-        print(f"\n  [{variant}] → **{outcome}**")
-        for line in dict.fromkeys(ln.strip() for ln in str(exc).splitlines() if "pending (waiting" in ln):
-            print("    " + line)
-        return
+    inst = launch(profile, wait_http=False)
+    time.sleep(5)
+    alive = inst.alive()
+    logs = inst.logs(tail=30)
+    inst.stop()
+    time.sleep(1)
 
-    print(f"\n  [{variant}] → **{outcome}**")
+    print(f"\n  [{variant}] → **{'启动成功' if alive else '启动失败'}**"
+          f"（退出码 {inst.proc.returncode}）")
+    verdicts = dict.fromkeys(
+        ln.strip() for ln in logs.splitlines()
+        if "pending (waiting" in ln or "did not activate" in ln
+    )
+    for line in verdicts:
+        print("    " + line)
+
     if events.exists():
         rows = [json.loads(ln) for ln in events.read_text(encoding="utf-8").splitlines() if ln.strip()]
         mine = [e for e in rows if e.get("id") == "lab-alpha"]
@@ -419,3 +433,9 @@ def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, v
                 print(f"    +{e['ms']:8.3f}ms  {e['from']:>9} → {e['to']}")
             elif e["kind"] == "snapshot":
                 print(f"    +{e['ms']:8.3f}ms  snapshot fiberState={e.get('to')}")
+
+    assert not alive, (
+        "预期 boot 末尾的审计让启动失败。它居然活着——那说明 assertEntriesActivated "
+        "有 L0 还没发现的放行条件，记进 DRAFT.md"
+    )
+    assert verdicts, f"启动是失败了，但日志里没找到审计判词：\n{logs}"
