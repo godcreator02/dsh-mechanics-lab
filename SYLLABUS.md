@@ -66,6 +66,22 @@ loader 源码里有一句注释提到 fiber 会被「inject checker」dispose，
 条目上 `inject: [...]`）。L2 实测发现 dsh-base 的 79 个条目**一个都没写条目级 inject**，
 所以要把两种写法的关系测清楚：是覆盖、合并，还是各自独立生效？
 
+**已有的两条实证**（写 `demo/lab-inspector` 教具时撞出来的，见 `demo/README.md`）：
+
+1. **`inject: ["loader"]` 会把插件锁死在 PENDING。** loader 的 intercept 契约里有
+   `await?: boolean` — *"Keep dependent plugins pending while loader entries are still
+   loading"*。而插件自己就是 loader 的一个条目，于是等成死结：路由永远 404，
+   **且日志里一个字都没有**（PENDING 不是错误，没人为它报警）。
+   解法是 `ctx.get("loader")` 运行时取。
+   → 本课要把这个 intercept 机制测清楚：哪些服务有这种 await 语义？
+
+2. **boot 期的 PENDING 是致命的。** `dsh-app-boot` 的 `assertEntriesActivated` 在 boot
+   末尾逐个检查，只要有条目停在 pending 就整体 fail-loud：
+   `dsh: 1 entry did not activate / lab-demo-waiting: pending (waiting for service: ...)`。
+   **推论：稳态运行的实例里根本看不到 PENDING**，它只可能出现在热重放中途加入条目的瞬间。
+   → 这条直接影响 L3 的实验设计：不能指望「造一个 PENDING 条目然后观察它」，
+   实例会起不来；要观察 PENDING 只能在运行中经热重放插入（那就依赖 L10 了）。
+
 ### ⬜ L4 · 加载顺序
 
 **要回答**：条目在 YAML 里的先后，决定加载顺序吗？

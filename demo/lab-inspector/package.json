@@ -1,0 +1,23 @@
+{
+  "name": "lab-inspector",
+  "version": "0.1.0",
+  "private": true,
+  "description": "教学演示件：在 Web 界面右侧用卡片列出实验插件的运行状态（只读，不提供任何操作）",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  }
+}
