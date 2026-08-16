@@ -32,11 +32,31 @@ const WATCHED_SERVICES = ["loader", "timer", "hmr", "logger", "webServer"];
  * 还没有（或不再有）活的实例 —— 跟「fiber 存在但状态不是 ACTIVE」是两回事，
  * 所以两者分开记，绝不合成一个字段。
  */
+/**
+ * 找一个条目的**父条目**。
+ *
+ * 条目树是分层的，但 `loader.entries()` 是扁平遍历（自己 + 所有嵌套子树），
+ * 光看那个列表分不出谁在谁下面。层级恰恰是要紧的：配方热重放重新 compose 的
+ * 是 **root include 的子树**，不在子树里的条目（比如兜底的 timer/hmr）不受影响。
+ *
+ * 取法照抄 loader 源码里 `getOuterStack` 的走法：`entry.parent` 是它所属的
+ * EntryGroup，那个组的 `ctx.fiber.entry` 就是拥有这棵子树的条目；
+ * 根组没有拥有者，返回 null。
+ */
+function parentIdOf(entry) {
+  try {
+    return entry.parent?.ctx?.fiber?.entry?.options?.id ?? null;
+  } catch {
+    return null; // 观测点绝不抛错
+  }
+}
+
 function censusEntry(entry) {
   const fiber = entry.fiber;
   return {
     id: entry.options?.id ?? null,
     name: entry.options?.name ?? null,
+    parent: parentIdOf(entry),
     disabled: entry.options?.disabled === true,
     hasFiber: fiber !== undefined,
     fiberState: fiber === undefined ? null : fiber.state,

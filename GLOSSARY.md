@@ -200,6 +200,37 @@ port: !!js ctx.webStartup.port ?? 3080
 加载由**服务可用性**驱动。`dsh-base` 的 patch 文件里有原话：
 *"Row order carries no load semantics (activation is service-availability driven)"*。
 
+### 🟩 root include（`cordis:include`）
+
+**整棵配方树的根。** 由 `mountRootInclude()` 在 boot 期创建，id 固定是 `include`。
+
+它不只是「一个条目」——**整个配方装在它的 `config` 里**：
+
+```js
+config: {
+  path: …/cordis.yml,      // 空根 []
+  patches: [...patches]    // bundle 层 + 活层 + home 层 + overlays 全在这
+}
+```
+
+✅ 由此推出一条实现事实：**「配方热重放」就是「改 include 这一个条目的 config」**
+（`watchUserPatches` 的回调重新 compose 出 patches，然后 `entry.update({config})`）。
+
+✅ **层级要紧**（L0 实测）：配方里的条目住在 **include 的子树**里，
+而兜底补的 `timer`/`hmr` 在**根组、与 include 平级**：
+
+```
+根组
+├─ include                  ← 树根
+│   └─ 配方里的条目…         ⊂include
+├─ timer  ← 兜底，平级
+└─ hmr    ← 兜底，平级
+```
+
+配方重放重新 compose 的只有 include 的子树，**碰不到平级的那些**。
+所以同样叫 hmr，兜底的那个和写在配方里的那个处境完全不同——
+后者每次重放都可能被重挂、watcher 随 effect 一起清掉。
+
 ### 🟩 name 的三条解析路径
 
 条目的 `name` 怎么变成一个真的模块？`EntryTree.import` 分三条路，**互不相通**：

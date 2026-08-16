@@ -132,6 +132,57 @@ await watchUserPatches(ctx, { filename: home 层, … })
 顺带看到状态迁移：boot 期两个条目都是 `1`（LOADING），settle 时都是 `2`（ACTIVE）。
 插件自己的 `apply` 跑在 LOADING 期——**在自己的 apply 里是看不到自己 ACTIVE 的**。
 
+### `include` 是什么：整个配方装在它的 config 里
+
+它不只是「一个条目」。`mountRootInclude()` 建它的时候：
+
+```js
+const rootInclude = {
+  id: "include",
+  name: "cordis:include",
+  config: {
+    path: …/cordis.yml,      // 空根 []
+    patches: [...patches]    // bundle 层 + 活层 + home 层 + overlays 全在这
+  }
+}
+```
+
+**所谓「配方」，就是这个条目的 `config.patches`。** 由此推出一条不显然的实现事实：
+`watchUserPatches` 的回调干的事是重新 compose 出 patches，然后
+`entry.update({config: {...includeConfig, patches}})`——
+
+> **「配方热重放」在实现上就是「改 `include` 这一个条目的 config」。**
+
+### 层级：谁在子树里，谁不在
+
+`loader.entries()` 是扁平遍历（自己 + 所有嵌套子树），光看列表分不出层级。
+给普查员补上 `parent` 之后，真实结构是：
+
+```
+根组
+├─ include (cordis:include)    ← 树根
+│   └─ census                  ⊂include   ← 配方里的条目住在子树
+├─ f6ca8c01 (timer)            ← 兜底补的，跟 include **平级**
+└─ 730a50ab (hmr)              ← 同上
+```
+
+⚠️ **兜底的 `timer`/`hmr` 不在 include 的子树里。** 配方热重放重新 compose 的
+只是 include 的子树，碰不到它们——所以兜底的 hmr 能稳稳撑住 patch 监听，
+不会被自己触发的重放干掉。
+
+**这推出一条对 L13 很要紧的区分**：同样叫 hmr，两种处境完全不同。
+
+| | 兜底的 hmr | 写在配方里的 hmr |
+|---|---|---|
+| 位置 | 根组，与 include 平级 | **include 的子树里** |
+| 配方重放时 | 碰不到它 | **可能被重挂，watcher 随 effect 一起清掉** |
+
+dshw 的场景正是后者（web bundle 里的 hmr 条目 + 活层反禁用），
+而本实验台的最小环境是前者。**这很可能就是「dshw 观察到 patch 监听哑火、
+我们的实验环境却一切正常」的根源**——两边测的根本不是同一个东西。
+
+（这条是推论，L13 去坐实。）
+
 ---
 
 ## 三、兜底判的是服务，不是条目

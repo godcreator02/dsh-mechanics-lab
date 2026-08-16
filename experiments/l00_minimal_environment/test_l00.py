@@ -130,7 +130,10 @@ def show_entries(snap: dict | None, title: str) -> None:
     for e in entries:
         state = "无 fiber" if not e["hasFiber"] else f"state={e['fiberState']}"
         flag = " [disabled]" if e["disabled"] else ""
-        print(f"    · id={e['id']!s:<28} {e['name']!s:<42} {state}{flag}")
+        # 缩进表示层级：根组的顶格，有父条目的往里缩一层
+        indent = "    " if e.get("parent") else ""
+        under = f"  ⊂{e['parent']}" if e.get("parent") else ""
+        print(f"    · {indent}id={e['id']!s:<24} {e['name']!s:<42} {state}{flag}{under}")
 
 
 # ── 用例 ────────────────────────────────────────────────────────────────────
