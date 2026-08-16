@@ -41,10 +41,14 @@
 给它的入口形态，从那个入口爬出来的每条路径也一样。所以：**watch 的入口必须
 本身就是真实路径。** ①⑤⑥⑦ 满足它，②③ 连爬都没爬到，④⑨ 爬到了但入口是链接。
 
-⑧ 问的是另一件事：⑦ 那个形态下**同时**改代码和改包里那份 patch 的 `config`，
-拿到的是哪一头的新值。答案是**新代码配旧配方**。
+⑧⑩ 各问一件别的事：
 
-六个判定（详见各用例的 docstring）：
+  * **⑧** —— ⑦ 那个形态下**同时**改代码和改包里那份 patch 的 `config`，
+    拿到的是哪一头的新值。答案是**新代码配旧配方**。
+  * **⑩** —— 包进了 bundles 名单、活层**又挂一条不同 id 的**（同 id 会撞车，
+    那堵墙归第 10 项）。改一次代码，**两个条目都重来**，各自沿用各自的 `config`。
+
+七个判定（详见各用例的 docstring）：
 
   * **经 junction 装进来的模块，URL 是链接那一头的真实路径**，不含 `node_modules`。
     所以 hmr 那三处 `url.includes('/node_modules/')` 一处都不命中 —— 挡住热重载的
@@ -70,6 +74,10 @@
     范围内、watcher **报了**它的变化（事件流里 `hmr-change` 点名 `cordis.patch.yml`），
     但它不是任何 include 的 filename、也不在 `loadCache` 里，于是掉进「只发个事件」
     的分支 —— **不是没人看见，是看见了没人管。**
+  * **重载的单位是插件，不是条目**（⑩）。同一个包被两个条目挂着时，改一次代码
+    发**一次** `hmr/reload`，但那一次里两个 fiber 全部重挂 —— 重挂循环遍历的是
+    `runtime.fibers`，一个 Plugin 的所有 fiber。每个 fiber 各自沿用自己那份
+    `oldFiber._config`，所以两条重来之后报出的 `config` 仍然各不相同。
 """
 
 from __future__ import annotations
@@ -158,7 +166,7 @@ def copy_package(dest: Path) -> Path:
 
 
 def build(
-    lab_home: LabHome, name: str, *, placement: str, watch: str, ignored: list[str] | None = None
+    lab_home: LabHome, name: str, *, placement: str, watch: str, ignored: list[str] | None = None, live_extra: str = ""
 ) -> tuple[LabProfile, Path, Path]:
     """搭一个 profile。
 
@@ -178,6 +186,8 @@ def build(
             后两个指的是磁盘上同一份代码的两条路径。
         ignored: hmr 的 `ignored` 名单。不传就不写这个键，走 schema 默认值
             ``['**/node_modules', '**/.*', 'cache', 'data']``。
+        live_extra: 追加到活层 patch 文件末尾的内容。bundle 形态下用它再挂一条
+            **不同 id** 的条目（同 id 会撞车，那是第 10 项的墙）。
 
     Returns:
         profile、事件流路径、**用例待会儿要改的那个 index.js**。
@@ -217,7 +227,7 @@ def build(
         roots=json.dumps(["."] + extra),
         ignored="" if ignored is None else f"        ignored: {json.dumps(ignored)}\n",
         out=json.dumps(events.as_posix()),
-        entry=entry,
+        entry=entry + live_extra,
     )
     in_bundles = placement in ("bundle", "bundle-nested", "junction-in")
     profile = lab_home.make_profile(name, bundles=[PKG_NAME] if in_bundles else [], patch=patch)
@@ -258,9 +268,9 @@ def edit_bundle_config(pkg_dir: Path) -> Path:
 # ── 读事件流 ────────────────────────────────────────────────────────────────
 
 
-def said_versions(events: list[dict]) -> list[str]:
-    """插件报过的「版本」，按时间顺序。"""
-    return [e["data"]["版本"] for e in reports(events, who="greeter") if (e.get("data") or {}).get("版本")]
+def said_versions(events: list[dict], who: str = "greeter") -> list[str]:
+    """某个条目报过的「版本」，按时间顺序。"""
+    return [e["data"]["版本"] for e in reports(events, who=who) if (e.get("data") or {}).get("版本")]
 
 
 def said_pairs(events: list[dict]) -> list[tuple[str, str | None]]:
@@ -281,12 +291,12 @@ def said_note(events: list[dict], note: str) -> list[dict]:
     return [e["data"] for e in reports(events, who="greeter") if e.get("note") == note and e.get("data")]
 
 
-def wait_said(inst: Instance, path: Path, *, count: int, timeout: float = 40.0) -> list[str]:
-    """等插件报到第 `count` 版为止 —— 验「应该发生的事」用轮询，比死等快也更稳。"""
+def wait_said(inst: Instance, path: Path, *, count: int, who: str = "greeter", timeout: float = 40.0) -> list[str]:
+    """等某个条目报到第 `count` 版为止 —— 验「应该发生的事」用轮询，比死等快也更稳。"""
     deadline = time.monotonic() + timeout
     got: list[str] = []
     while time.monotonic() < deadline:
-        got = said_versions(read_events(path))
+        got = said_versions(read_events(path), who)
         if len(got) >= count:
             return got
         if not inst.alive():
@@ -649,6 +659,65 @@ def test_junction_inside_profile_pointing_out(lab_home: LabHome, launch):
     assert got == [FIRST], f"watcher 报的是链接路径，跟 loadCache 对不上，不该重载，实际 {got}"
     assert of_kind(events, "hmr-change"), "chokidar 该跟着 junction 走进去并报出变化"
     assert not of_kind(events, "hmr-reload"), "报了也不该重载：那条路径不在 loadCache 里"
+
+
+def test_both_layers_different_ids_both_reload(lab_home: LabHome, launch):
+    """⑩ 包进了 bundles 名单，活层**又挂一条不同 id 的** —— 两个条目都重来。
+
+    「进 bundles 的同时也在活层 insert」有两种下场，取决于 `id` 撞不撞：
+
+      * **同 id** —— 实例起不来。两层拼起来那是两个条目、`id` 撞了，挂载期抛
+        `duplicate loader entry id`，进程当场退出。那堵墙归第 10 项，这里不重复。
+      * **不同 id** —— 合法。同一个包被挂两次，两个条目各有各的 `config`。
+
+    这一条测后者，问的是：**改一次代码，两个条目都会重来吗？**
+
+    值得测是因为 `partialReload` 的重挂循环遍历的是
+    `runtime.fibers`（`cordis-plugin-hmr/src/index.ts:503-508`）—— 一个 Plugin 的
+    所有 fiber。两个条目就是两个 fiber，各带各的 `oldFiber._config`。
+
+    配置照搬 ⑥ 那套已验能热重载的（源码在外 + `root` 加真实路径 + 去掉 `**/.*`），
+    只多一条活层条目。
+    """
+    profile, events_path, index_js = build(
+        lab_home,
+        "twoids",
+        placement="bundle",
+        watch="source",
+        ignored=["**/node_modules", "cache", "data"],
+        live_extra=f"""
+- insert:
+    - id: greeter-live
+      name: {PKG_NAME}
+      config:
+        版本: 活层这条
+""",
+    )
+
+    inst = launch(profile, wait_http=False)
+    assert wait_said(inst, events_path, count=1, who="greeter") == [FIRST]
+    assert wait_said(inst, events_path, count=1, who="greeter-live") == [FIRST]
+    time.sleep(1.0)
+
+    edit_code(index_js)
+    bundle_side = wait_said(inst, events_path, count=2, who="greeter", timeout=25.0)
+    live_side = wait_said(inst, events_path, count=2, who="greeter-live", timeout=25.0)
+
+    events = read_events(events_path)
+    print("\n══ ⑩ 一个包挂两次（bundle 层 + 活层，id 不同）═════════════")
+    print(f"  bundle 层那条 greeter　　报过：{bundle_side}")
+    print(f"  活层那条 greeter-live　　报过：{live_side}")
+    print(f"  两条各自的 config：{[d.get('配置版本') for d in said_note(events, '我跑起来了')] or '见下方时间线'}")
+    print(f"  {hmr_noise(events)}")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert bundle_side == [FIRST, SECOND], f"bundle 层那条该重来，实际 {bundle_side}"
+    assert live_side == [FIRST, SECOND], f"活层那条也该重来，实际 {live_side}"
+    for who in ("greeter", "greeter-live"):
+        assert states_of(events, who).count("ACTIVE") == 2, f"{who} 应当跑起来两次"
+    # 一次改动、一次重载事件，但里面装着两个 fiber
+    assert len(of_kind(events, "hmr-reload")) == 1, "改一个文件只该有一次重载"
 
 
 def test_code_reload_keeps_the_old_config(lab_home: LabHome, launch):
