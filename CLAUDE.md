@@ -66,12 +66,34 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。两个产
 
 ## 六、结论的地位
 
-**实测 > 源码推理。** 源码推理错过：从 `dsh-client-modules` 的源码位置推出「缺
-`exports["./client"]` 是抛错而非缓存，所以补上不用重启」，实测三次干净复现**推翻**了它。
+### 信息源按「便宜且权威」排序取用
+
+**官方文档 → 源码 → 实测。三档都要走，一档都不能跳。**
+
+⚠️ **每开一课，第一件事是 grep `docs/official/`。** 那是官方 `docs/` 的完整快照
+（215 篇、版本钉在 `47f9438`，导览见 `docs/official/README.md`）。
+
+这条纪律是**代价换来的**：前四课走的是「源码 → 实测」，跳过文档，结果 **12 条
+结论是重新发现官方早就写明的东西**（FiberState 六态、config 整字段替换、五层
+叠加顺序、裸包名以 dsh 安装目录为锚……全表见 `DRAFT.md` 第八节）。其中两条还被
+误记成「推翻项目正本的发现」——实际上是项目正本抄错了文档。
+
+反过来也不能只信文档：
+- 文档在教程语境里会做**简化**（「插件路径必须是绝对路径」其实是三条解析路径之一）
+- 文档只讲**「怎么写插件」**，不讲**「框架怎么加载插件」**——本实验台的 12 条
+  独有发现全落在后一层
+
+**三档互相校验**才是对的做法。文档说的和实测不符时，**那种不一致恰恰是最有价值的产出**。
+
+### 实测 > 源码推理
+
+源码推理错过：从 `dsh-client-modules` 的源码位置推出「缺 `exports["./client"]`
+是抛错而非缓存，所以补上不用重启」，实测三次干净复现**推翻**了它。
 
 所以：
 - 每条写进教材的判定都要标注状态——**待验 / 已实测 / 已推翻**
-- 状态只有一个数据源（教材 `index.html` 里的 `LAB` 数组），改一处全页跟着变
+- 引用文档要标出处与版本（`docs/official/…/publish.zh.md:123`），
+  不要写「官方说……」——文档会改，标了版本才知道对照的是哪一版
 - 源码位置可以写进「为什么」，但不能单独作为判定依据
 
 ## 七、目录
@@ -79,20 +101,29 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。两个产
 ```
 CLAUDE.md          本文件——怎么在这个项目里干活
 GLOSSARY.md        术语表：按 Cordis / Loader / DSH / 自造 四层分组，标注哪些已实测
-SYLLABUS.md        课程大纲：十三课各讲什么、假说、实验设计、难点
-DRAFT.md           方案草稿：意图、纠偏记录、结论安置、实测推翻的假设清单
+SYLLABUS.md        课程大纲：十四课各讲什么、假说、实验设计、难点
+DRAFT.md           方案草稿：意图、纠偏记录、推翻清单、**与官方文档的对照盘点**
 README.md          箱子说明：破例声明、端口占用、怎么跑
+docs/official/     ⚠️ 官方 docs 完整快照（215 篇，版本钉 47f9438）
+                   **开课前先 grep 这里**；导览见其 README.md
 demo/              教具：lab-inspector（DSH 内嵌面板，兼 L12 的 client 插件样板）
 observatory/       观测台：lab-recorder（注入式采集）+ 看板（独立只读服务）
-index.html         教材（自包含单文件）
+index.html         v1 教材（旧结构，含已被推翻的判定，待处置）
 pyproject.toml     依赖与 pytest 配置
 .python-version    3.12.10，uv 据此建 venv
 uv.lock            依赖锁定，进 git 保证可复现
 experiments/
-  lab.py           公共脚手架：进程编排 + YAML 解析 + 断言
-  test_l*.py       按梯度编号的实验（pytest 用例）
-  fixtures/        教学插件（为讲原理设计，不仿制真实插件）
-results/           每次跑的结论（*.md 进 git，*.raw.txt 不进）
+  conftest.py      pytest 装置：假 home、端口、实例回收、**产物归档**
+  lab/             公共脚手架（包）
+    core.py        路径常量、junction 安全删除、LabHome / LabProfile、基线 profile
+    dump.py        --dump-config 真解析（含 !!js 方言）
+    instance.py    实例起停、并发锁、HTTP 探测
+  l00_minimal_environment/   一课一目录，各自完全自包含
+    README.md      这一课讲什么、实测到了什么
+    test_l00.py    pytest 用例
+    fixtures/      本课专用教学插件（允许跨课重复，那是特性）
+  l01_… l02_… l03_…
+results/           每次跑的归档（summary.md + 见证文件进 git，*.jsonl 不进）
 .testhome/         假 home，gitignore
 .venv/             虚拟环境，gitignore
 ```

@@ -158,10 +158,90 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 | 我（实验设计） | 教学插件拿不到服务时应该 `throw` 把问题吵出来 | **探针不该在观测点抛错**——它把「根本没 apply」和「apply 了但服务是 undefined」混成同一个结果（实例起不来），两种完全不同的语义无法分辨。改成如实记录后真相立刻清楚 | **L3** |
 | 我（实验设计） | `except LabError` 能判出「启动失败」 | **`start_instance(wait_http=False)` 立即返回、不做存活检查**，那个 except 永远不触发。L3 用例 7 因此把两次失败都读成「启动成功」，进而伪造出「bundle 组合是变量」这个假问题。**用例根本没在测它自称在测的东西** | **L0 复核 L3** |
 | 我（读观测数据） | `PENDING → UNLOADING → DISPOSED` = 条目等超时被放弃 | 那是 `boot()` 失败后 catch 里 `ctx.fiber.dispose()` 的**整树回滚**。同一份事件流，缺了「进程还活着吗」这一个最粗的对照，读出了完全相反的结论 | **L0 复核 L3** |
-| 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换 | v1 E1 |
+| 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换。⚠️ **这条不是「文档没说」而是「项目正本抄错了」**——官方 `basic/publish.zh.md:123` 原话就是「patch 会替换目标行的整个 `config` 值，而不是深度合并各键」 | v1 E1 |
 | 项目正本 | client 模块表是实例 boot 时的快照 | 表成员增量热维护，包元数据按名惰性缓存且永不过期 | v1 E6 |
 
-## 八、待办
+## 八、与官方文档的对照盘点（2026-08-16）
+
+**起因是一句批评**：「这里文档你都没看全啊 文档里写的挺详细啊」。
+
+属实。此前的做法是「读源码 + 实测」，跳过了最便宜的信息源。补课之后把官方
+`docs/` 整个存进 `docs/official/`（215 篇、2.93 MB、版本钉在 `47f9438`），
+逐篇对照。结论分三类。
+
+### A 类 · 文档已写明，我们绕了远路重新发现（12 条）
+
+这一类是**方法上的浪费**，必须认。出处均为 `docs/official/`：
+
+| 结论 | 文档出处 |
+|---|---|
+| FiberState 六态 + 完整状态图 | `user/develop/framework/index.zh.md` 有现成表格 |
+| `config` 是整字段替换，**不深度合并各键** | `user/develop/basic/publish.zh.md:123` 原话 |
+| 五层叠加顺序（bundle → 活层 → home → overlay） | 同上 `:112-119`，逐条列明 |
+| 裸包名从 **dsh 安装目录**解析 | 同上 `:128`「内置组合包名称始终从 dsh 安装目录本身解析」 |
+| 相对路径以 **profile 目录**为锚 | `user/develop/basic/index.zh.md:56` |
+| 改 `config` = 卸载旧实例 + 加载新实例 | `basic/config.zh.md:100`；`cordis-api/fiber.zh.md` 的 `update()` 更精确：「校验并应用新配置，**然后重新启动插件**」 |
+| 服务消失 → 依赖方自动 dispose；恢复 → 自动重载 | `framework/index.zh.md:38`、`framework/service.zh.md:102` |
+| effect 逆序清理，多个异步处置器并发、不保证逐个完成 | `framework/index.zh.md:63` |
+| waterfall 监听器**必须** `next()` | `framework/events.zh.md:80` |
+| 状态转换发 `internal/status` | `cordis-api/fiber.zh.md` 的 `fiber.state` |
+| `dsh plugin add` 自动把声明 `dsh.bundle` 的包追加进 `bundles` | `basic/publish.zh.md:83` |
+| `!!js` 的求值时机：先等注入、再基于已注入上下文求值 | `basic/publish.zh.md:151` |
+
+其中「`config` 整字段替换」和「五层顺序」两条，我们当初是当作**推翻项目正本**
+的发现记下来的——实际上官方文档从一开始就是这么写的，是**项目正本抄错了**，
+不是文档没说。这个区别很重要，DRAFT 第七节那两行的措辞已相应修正。
+
+### B 类 · 文档确实没写，实验才有价值（12 条）
+
+| 结论 | 出处 |
+|---|---|
+| **幽灵条目**：`cordis:include` + 兜底 `timer`/`hmr` 不在任何 patch 文件里 | L0 |
+| **boot 末尾 `assertEntriesActivated` 审计，PENDING 无条件致命** | L0 |
+| 兜底判的是**服务**不是条目；写进活层再 `disabled` 只会让框架另造一份 | L0 |
+| **树的层级**：兜底的 timer/hmr 在根组、与 include 平级，不在配方子树里 | L0 |
+| 相对路径**必须指到文件**，指目录报 `ERR_UNSUPPORTED_DIR_IMPORT` | L0 |
+| `package.json` 里的**包级** `@deepseek-ai/cordis.services.required` | L0（hmr 包） |
+| 条目级 `inject` 是**补充**不是覆盖 | L3 |
+| 野字段被带着走但**没人读**（写错字段名静默失败） | L2 |
+| `cordis.yml` 每次启动被框架重写成 `[]` | L0 |
+| 兜底 hmr 的 `root: []` **不监听代码文件**（热重放工作、热重载不工作） | L0 |
+| bundle 层与活层是**两条独立注册路径** | v1 E4 |
+| 同 id 双挂载抛 `duplicate loader entry id`，**整次重放事务回滚** | 源码复核 |
+
+这一类全部落在**「框架怎么加载插件」**这一层，而官方 `user/develop/` 讲的是
+**「怎么写插件」**。两者视角不同，所以文档没有它们并不奇怪——但这不构成
+「可以不读文档」的理由。
+
+### C 类 · 需要澄清的两处
+
+1. **「插件路径必须是绝对路径」**（`basic/index.zh.md:56`）——这是**教程语境
+   下的安全建议**，不是解析规则的全部。实际有三条路径（内置表 / 相对 URL 解析 /
+   包解析），官方包用裸名、相对路径指到文件都能工作。文档那句紧接着解释了原因
+   （「patch 文件只贡献配置，不会改变 loader 解析模块路径时使用的 profile 目录」）
+   ——即 `--patch` overlay 里的相对路径**不以 patch 文件自身为锚**，容易踩坑，
+   所以教程让你写绝对路径。
+2. **「如果服务还没准备好，你的插件会等着，不会执行」**（`framework/service.zh.md:32`）
+   ——这句只描述了**运行期**。boot 期永远等不到会**杀掉整个进程**，文档没提。
+
+### 一个白捡的工具：`fiber.getEffects()`
+
+`cordis-api/fiber.zh.md` 里有个我们一直没用上的现成接口——返回当前 fiber 上
+所有已注册 effect 的元数据树，带 label（形如 `ctx.on("event")`、`ctx.provide("name")`）。
+
+**这对 L13 是决定性的**：要查「hmr 的 patch watcher 还在不在」，
+用它可以**直接看**，不必靠「改 patch 文件看有没有反应」这种间接观测——
+而间接观测正是 v1 E3 整批数据作废的原因。
+
+### 方法论教训
+
+**信息源要按「便宜且权威」排序取用**：官方文档 → 源码 → 实测。
+此前的顺序是「源码 → 实测」，跳过第一档，代价是 12 条重复劳动。
+
+但也不能倒过来只信文档：C 类那两条说明文档会在语境里做简化，
+B 类说明文档不覆盖机制层。**三档互相校验**才是对的做法。
+
+## 九、待办
 
 - [x] `lab/` 脚手架（Python）：进程编排、YAML 真解析（含 `!!js` 方言）、junction 安全删除、并发锁
 - [x] **L1 · 插件的最小形态** — 8 个用例全过，约 32 秒
