@@ -28,11 +28,18 @@
 | ⑤ | profile 外面 | 活层 | 源码真实路径 | **去掉 `**/.*`** | **重载** |
 | ⑥ | profile 外面 | **包自注册** | 源码真实路径 | 去掉 `**/.*` | **重载**（跟 ⑤ 一样） |
 | ⑦ | **profile 里面** | 包自注册 | profile 目录 | 默认 | **重载**（hmr 一个字没改） |
+| ⑨ | profile 外面 | 包自注册 | profile 目录，里面有条 junction 指出去 | 默认 | watcher 出声了，但没重载 |
 
-②③⑤⑥⑦ 都是 junction 装进来、用包名引用的形态。①②只差一个 junction，
+②③⑤⑥⑦⑨ 都是 junction 装进来、用包名引用的形态。①②只差一个 junction，
 ②③只差 hmr 的 `root`，③④只差同一份代码的两条路径，③⑤只差 `ignored` 里的一条，
 ⑤⑥只差条目写在哪一层，⑥⑦只差源码放在磁盘的哪个位置 —— 哪一环断的，
 看哪两条的差就知道。
+
+**能不能热重载，归结为一个充要条件**：watcher 报出的那条路径，`pathToFileURL`
+之后要跟 `loadCache` 的 key 字节相同。而 `loadCache` 的 key 永远是 realpath
+（Node 解析模块时就 realpath 了），watcher 报的路径**从不 realpath**——它保持你
+给它的入口形态，从那个入口爬出来的每条路径也一样。所以：**watch 的入口必须
+本身就是真实路径。** ①⑤⑥⑦ 满足它，②③ 连爬都没爬到，④⑨ 爬到了但入口是链接。
 
 ⑧ 问的是另一件事：⑦ 那个形态下**同时**改代码和改包里那份 patch 的 `config`，
 拿到的是哪一头的新值。答案是**新代码配旧配方**。
@@ -48,8 +55,9 @@
   * **误伤只在源码位于 watch base 外面时发作**。源码在里面，算出来的相对路径
     不以 `..` 开头，默认 `ignored` 原样就能用（⑦）—— 所以这不是「junction 形态
     与 hmr 不兼容」，是「向上走的相对路径与那条隐藏文件规则不兼容」。
-  * **`root` 里的路径不做 realpath**，所以盯 junction 和盯它那一头不是一回事：
-    watcher 报 junction 路径，`loadCache` 存真实路径，`Map.has` 认字符串。
+  * **watcher 报出的路径从不做 realpath**，所以盯链接和盯链接那一头不是一回事：
+    watcher 报链接路径，`loadCache` 存真实路径，`Map.has` 认字符串。你手填 junction
+    路径（④）和让 chokidar 自己跟着 junction 爬进去（⑨），结果一样。
   * **条目从哪一层来不影响它能不能被热重载**：bundle 层生的条目跟活层写的条目在
     同一棵树上（两种形态报出的 `baseUrl` 都是 profile 目录），重载路径完全一样。
     跟第 10 项摆在一起看：**bundle 层的配方是冷的，但配方指向的代码是热的** ——
@@ -82,6 +90,7 @@ from lab import (  # noqa: E402
     LabHome,
     LabProfile,
     entry_ids,
+    make_junction,
     of_kind,
     read_events,
     reports,
@@ -191,6 +200,11 @@ def build(
         # `root: ['.']` 的范围内，算出来的相对路径也不再以 `..` 开头
         pkg_dir = copy_package(profile_dir / "src" / PKG_NAME)
         entry = ""
+    elif placement == "junction-in":
+        # 源码留在 profile **外面**，但 profile 里建一条 `src` junction 指过去。
+        # 于是 watch 范围内存在一条通往源码的路，而且那条路不叫 node_modules。
+        pkg_dir = copy_package(lab_home.root / f"src-{name}" / PKG_NAME)
+        entry = ""
     else:
         raise ValueError(f"未知 placement：{placement}")
 
@@ -205,14 +219,18 @@ def build(
         out=json.dumps(events.as_posix()),
         entry=entry,
     )
-    in_bundles = placement in ("bundle", "bundle-nested")
+    in_bundles = placement in ("bundle", "bundle-nested", "junction-in")
     profile = lab_home.make_profile(name, bundles=[PKG_NAME] if in_bundles else [], patch=patch)
     profile.link_plugin("lab-recorder", OBSERVER)
-    if placement in ("linked", "bundle", "bundle-nested"):
+    if placement != "inline":
         # 装进来这件事要做两半：依赖声明一行、node_modules 里一条链接。
         # 缺哪半 Node 都找不到 `name: hmr-linked`（第 9 项讲过的那套）。
         # 进不进 bundles 名单是**另一件事**，由 placement 单独决定。
         profile.link_plugin(PKG_NAME, pkg_dir)
+    if placement == "junction-in":
+        # profile 里的第二条链接，指向源码目录的父级。它跟 node_modules 那条指的
+        # 是同一份代码，区别只在这条落在 watch 范围内、而且名字不在 ignored 名单上。
+        make_junction(profile.dir / "src", pkg_dir.parent)
 
     return profile, events, pkg_dir / "index.js"
 
@@ -579,6 +597,58 @@ def test_source_nested_under_profile_needs_no_hmr_change(lab_home: LabHome, laun
     assert "greeter" in entry_ids(events), "包自己那份 patch 写的条目应当出现在树上"
     assert got == [FIRST, SECOND], f"源码在 watch base 里面，默认配置就该热重载，实际 {got}"
     assert states_of(events, "greeter").count("ACTIVE") == 2, "该条目应当跑起来两次"
+
+
+def test_junction_inside_profile_pointing_out(lab_home: LabHome, launch):
+    """⑨ 源码留在 profile 外面，但 profile 里建一条链接指过去 —— hmr 全默认配置。
+
+    这一条钻的是 ⑤⑦ 之间那道缝。⑤ 要改 hmr 两个键，⑦ 要把源码搬进 profile。
+    要是两样都不想做呢：
+
+      * 源码物理上留在你自己的工作目录（**没搬进 profile**）
+      * `<profile>/src` 是一条 junction，指向源码目录的父级
+      * hmr 一个字不改：`root: ['.']`、默认 `ignored`
+
+    于是 watch 范围内**存在一条通往源码的路**，而且那条路不叫 `node_modules`——
+    躲开了 ② 撞上的那条规则；它也不以 `..` 开头——躲开了 ③ 撞上的那条。
+
+    结果：**不重载**，失败形态跟 ④ 一模一样 —— watcher 出声了，重载没发生。
+
+    两件事一次问清了：chokidar 的 `followSymlinks` 默认为 true，它**确实**跟着这条
+    junction 走了进去（所以有 `hmr-change`）；但它报出的是**链接路径**
+    （`<profile>/src/...`），而 `loadCache` 存的是链接那头的真实路径，`Map.has`
+    认字符串，对不上。
+
+    ④ 是你手填 junction 路径，⑨ 是 chokidar 自己爬进去的 —— **两种方式都报链接
+    路径**。所以「`root` 里的路径不做 realpath」这条判定的适用面比 ④ 单独看要宽：
+    不只是你填的入口，watcher 从那个入口爬出来的每一条路径都保持链接形态。
+    """
+    profile, events_path, index_js = build(lab_home, "jin", placement="junction-in", watch="profile")
+    via = profile.dir / "src" / PKG_NAME / "index.js"
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+
+    edit_code(index_js)
+    got = wait_said(inst, events_path, count=2, timeout=25.0)
+    if len(got) < 2:
+        Instance.settle(8.0)  # 没等到就再坐实一会儿，别把「慢」读成「不会」
+        got = said_versions(read_events(events_path))
+
+    events = read_events(events_path)
+    print("\n══ ⑨ profile 里一条链接指向外面的源码，hmr 全默认 ════════")
+    print(f"  源码真身：　{index_js}")
+    print(f"  profile 里的那条路：{via}")
+    print("  hmr 盯着：['.']　ignored：默认（一个字没改）")
+    print(f"  {hmr_noise(events)}")
+    print(show_identity(events))
+    print(f"  插件报过的版本：{got}")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert got == [FIRST], f"watcher 报的是链接路径，跟 loadCache 对不上，不该重载，实际 {got}"
+    assert of_kind(events, "hmr-change"), "chokidar 该跟着 junction 走进去并报出变化"
+    assert not of_kind(events, "hmr-reload"), "报了也不该重载：那条路径不在 loadCache 里"
 
 
 def test_code_reload_keeps_the_old_config(lab_home: LabHome, launch):
