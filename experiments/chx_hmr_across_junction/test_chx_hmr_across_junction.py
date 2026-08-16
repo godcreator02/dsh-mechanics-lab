@@ -4,30 +4,35 @@
 
     uv run pytest experiments/chx_hmr_across_junction/ -n 0 -s
 
-装插件有两种落地形态，前面各项分别见过：
+插件落地有三种形态，前面各项分别见过：
 
   * **代码就摆在 profile 目录里** —— 第 6 项那个 `greeter.mjs`，条目用相对路径引用
-  * **代码在别处，装进来** —— 第 9、10 项那套：`package.json` 写一行 `link:`，
-    `node_modules` 里建一条 junction 指过去，条目用**包名**引用
+  * **代码在别处，装进来** —— `package.json` 写一行 `link:`，`node_modules` 里建
+    一条 junction 指过去，条目用**包名**写在活层
+  * **装进来 + 自注册** —— 上一种再加两样：包里声明 `dsh.bundle.patch`、包名进
+    `dsh.profile.bundles` 名单，于是条目由**包自己那份 patch** 生，活层一个字不写。
+    这是 publish.md 讲的分发形态，第 10 项见过它的配方那一面
 
-第 6 项证明了第一种形态改代码就热重载。这一项问第二种：**同样改代码，
+第 6 项证明了第一种形态改代码就热重载。这一项问后两种：**同样改代码，
 链接那一头的文件动了，hmr 认不认？**
 
 这不是「hmr 灵不灵」的问题，是**它盯的范围与代码的真实落点对不对得上**的问题。
-五条用例把变量拆开，一次只动一个：
+六条用例把变量拆开，一次只动一个：
 
-| | 代码在哪 | hmr 盯着哪 | `ignored` | 结果 |
-|---|---|---|---|---|
-| ① | profile 目录里 | profile 目录 | 默认 | **重载**（对照组：不走 junction 就是好的） |
-| ② | 链接那一头 | profile 目录 | 默认 | 没反应 —— watcher 一声没出 |
-| ③ | 链接那一头 | **源码真实路径** | 默认 | 没反应 —— watcher **还是**一声没出 |
-| ④ | 链接那一头 | **那条 junction** | 默认 | watcher 出声了，但没重载 |
-| ⑤ | 链接那一头 | 源码真实路径 | **去掉 `**/.*`** | **重载** |
+| | 代码在哪 | 条目从哪来 | hmr 盯着哪 | `ignored` | 结果 |
+|---|---|---|---|---|---|
+| ① | profile 目录里 | 活层 | profile 目录 | 默认 | **重载**（对照组：不走 junction 就是好的） |
+| ② | 链接那一头 | 活层 | profile 目录 | 默认 | 没反应 —— watcher 一声没出 |
+| ③ | 链接那一头 | 活层 | **源码真实路径** | 默认 | 没反应 —— watcher **还是**一声没出 |
+| ④ | 链接那一头 | 活层 | **那条 junction** | 默认 | watcher 出声了，但没重载 |
+| ⑤ | 链接那一头 | 活层 | 源码真实路径 | **去掉 `**/.*`** | **重载** |
+| ⑥ | 链接那一头 | **包自注册** | 源码真实路径 | 去掉 `**/.*` | **重载**（跟 ⑤ 一样） |
 
 ①②只差一个 junction，②③只差 hmr 的 `root`，③④只差同一份代码的两条路径，
-③⑤只差 `ignored` 里的一条 —— 哪一环断的，看哪两条的差就知道。
+③⑤只差 `ignored` 里的一条，⑤⑥只差条目写在哪一层 —— 哪一环断的，看哪两条的差
+就知道。
 
-三个判定（详见各用例的 docstring）：
+四个判定（详见各用例的 docstring）：
 
   * **经 junction 装进来的模块，URL 是链接那一头的真实路径**，不含 `node_modules`。
     所以 hmr 那三处 `url.includes('/node_modules/')` 一处都不命中 —— 挡住热重载的
@@ -37,6 +42,10 @@
     这串反斜杠路径被 picomatch 当成一整段，一段以点开头就成了「隐藏文件」。
   * **`root` 里的路径不做 realpath**，所以盯 junction 和盯它那一头不是一回事：
     watcher 报 junction 路径，`loadCache` 存真实路径，`Map.has` 认字符串。
+  * **条目从哪一层来不影响它能不能被热重载**：bundle 层生的条目跟活层写的条目在
+    同一棵树上（两种形态报出的 `baseUrl` 都是 profile 目录），重载路径完全一样。
+    跟第 10 项摆在一起看：**bundle 层的配方是冷的，但配方指向的代码是热的** ——
+    改包里那份 `cordis.patch.yml` 要重启，改它指向的 `index.js` 不用。
 """
 
 from __future__ import annotations
@@ -56,6 +65,7 @@ from lab import (  # noqa: E402
     Instance,
     LabHome,
     LabProfile,
+    entry_ids,
     of_kind,
     read_events,
     reports,
@@ -91,7 +101,12 @@ BASE = """- insert:
       config:
         out: {out}
         flushMs: 100
+{entry}"""
 
+#: 活层里那条 greeter。**bundle 形态下这块必须留空** —— 包自己那份 patch 已经
+#: 生了同一个 `id`，活层再写一条就是两层撞同 id，挂载期抛 duplicate loader
+#: entry id，实例当场退出（第 10 项那堵墙）。
+ENTRY = """
 - insert:
     - id: greeter
       name: {entry_name}
@@ -120,10 +135,14 @@ def build(
     """搭一个 profile。
 
     Args:
-        placement: 代码落在哪。
+        placement: 代码落在哪、条目从哪来。
             ``"inline"`` —— 包目录直接摆进 profile 目录，条目用相对路径引用文件。
             ``"linked"`` —— 包目录留在 profile 外面，靠 `link:` + junction 装进来，
-            条目用包名引用（第 9、10 项那套供给形态）。
+            **条目由用例写在活层**，用包名引用。
+            ``"bundle"`` —— 装法同上，但包名进 `dsh.profile.bundles` 名单，
+            **条目由包自己那份 `cordis.patch.yml` 生**，活层一个字不写。
+            这才是 publish.md 描述的分发形态；`"linked"` 是把「装进来」和
+            「自注册」拆开之后的前一半。
         watch: hmr 的 `root` 除了 `'.'` 还加什么。
             ``"profile"`` —— 什么都不加，就 `['.']`（默认值，也是 dsh-base 写的那个）。
             ``"source"`` —— 加**源码包目录的真实路径**。
@@ -141,10 +160,13 @@ def build(
 
     if placement == "inline":
         pkg_dir = copy_package(profile_dir / PKG_NAME)
-        entry_name = f"./{PKG_NAME}/index.js"
+        entry = ENTRY.format(entry_name=f"./{PKG_NAME}/index.js")
     elif placement == "linked":
         pkg_dir = copy_package(lab_home.root / f"src-{name}" / PKG_NAME)
-        entry_name = PKG_NAME
+        entry = ENTRY.format(entry_name=PKG_NAME)
+    elif placement == "bundle":
+        pkg_dir = copy_package(lab_home.root / f"src-{name}" / PKG_NAME)
+        entry = ""  # 条目归包自己那份 patch 生，活层不写
     else:
         raise ValueError(f"未知 placement：{placement}")
 
@@ -157,13 +179,14 @@ def build(
         roots=json.dumps(["."] + extra),
         ignored="" if ignored is None else f"        ignored: {json.dumps(ignored)}\n",
         out=json.dumps(events.as_posix()),
-        entry_name=entry_name,
+        entry=entry,
     )
-    profile = lab_home.make_profile(name, bundles=[], patch=patch)
+    profile = lab_home.make_profile(name, bundles=[PKG_NAME] if placement == "bundle" else [], patch=patch)
     profile.link_plugin("lab-recorder", OBSERVER)
-    if placement == "linked":
+    if placement in ("linked", "bundle"):
         # 装进来这件事要做两半：依赖声明一行、node_modules 里一条链接。
         # 缺哪半 Node 都找不到 `name: hmr-linked`（第 9 项讲过的那套）。
+        # 进不进 bundles 名单是**另一件事**，由 placement 单独决定。
         profile.link_plugin(PKG_NAME, pkg_dir)
 
     return profile, events, pkg_dir / "index.js"
@@ -418,3 +441,45 @@ def test_watching_the_junction_path(lab_home: LabHome, launch):
     assert got == [FIRST], f"两条路径不等价，盯着 junction 不该导致重载，实际 {got}"
     assert of_kind(events, "hmr-change"), "这一条的特征恰恰是 watcher 出了声 —— 没有 hmr-change 就跟 ③ 混了"
     assert not of_kind(events, "hmr-reload"), "出了声也不该重载：报的路径不在 loadCache 里"
+
+
+def test_bundle_self_registered_entry(lab_home: LabHome, launch):
+    """⑥ 真正的分发形态 · 条目由**包自己那份 patch** 生，活层一个字不写。
+
+    前面五条的条目都是用例手写在活层的，那是把「装进来」和「自注册」拆开之后的
+    前一半。publish.md 讲的分发形态是整套：包里声明 `dsh.bundle.patch`，用户把
+    包名加进 `dsh.profile.bundles`，条目就自己上树。
+
+    跟 ⑤ 只差这一件事 —— 装法、`root`、`ignored` 全部照搬 ⑤ 那套已经验过能重载的
+    配置。所以这一条问的是：**条目从哪一层来，影不影响它能不能被热重载。**
+
+    值得单测是因为重载路径上有一处依赖条目所在的树：`partialReload` 反查插件时，
+    拿的是 `entry.parent.tree.ctx.baseUrl` 当解析基点、`entry.options.name` 当要
+    解析的名字（`cordis-plugin-hmr/src/index.ts:409-417`）。bundle 层的条目跟活层
+    的条目要是不在同一棵树上，这个基点就变了，`hmr-linked` 这个包名能不能从新基点
+    解析出来是另一回事 —— 解析抛错会被 catch 吞掉，只留一条 warn。
+    """
+    profile, events_path, index_js = build(
+        lab_home, "selfreg", placement="bundle", watch="source", ignored=["**/node_modules", "cache", "data"]
+    )
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+
+    edit_code(index_js)
+    got = wait_said(inst, events_path, count=2, timeout=25.0)
+
+    events = read_events(events_path)
+    print("\n══ ⑥ 条目由包自己那份 patch 生（真正的分发形态）═══════════")
+    print(f"  bundles 名单：{[PKG_NAME]}　活层写的条目：无")
+    print(f"  代码落点：{index_js}")
+    print(f"  hmr 盯着：['.', '{index_js.parent.as_posix()}']　ignored 去掉了 `**/.*`")
+    print(f"  {hmr_noise(events)}")
+    print(show_identity(events))
+    print(f"  插件报过的版本：{got}")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert "greeter" in entry_ids(events), "包自己那份 patch 写的条目应当出现在树上"
+    assert got == [FIRST, SECOND], f"条目从哪一层来不该影响热重载，实际 {got}"
+    assert states_of(events, "greeter").count("ACTIVE") == 2, "该条目应当跑起来两次"
