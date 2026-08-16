@@ -67,12 +67,7 @@ def watch(inst: Instance, seconds: float = OBSERVE) -> dict:
             died_at = round(seconds - (deadline - time.monotonic()), 2)
             break
         time.sleep(0.25)
-    return {
-        "alive": inst.alive(),
-        "died_at": died_at,
-        "exit_code": inst.proc.returncode,
-        "logs": inst.logs(tail=30),
-    }
+    return {"alive": inst.alive(), "died_at": died_at, "exit_code": inst.proc.returncode, "logs": inst.logs(tail=30)}
 
 
 def read_census(path: Path) -> list[dict] | None:
@@ -166,11 +161,7 @@ def test_profile_minimal_files(lab_home: LabHome, fixtures_dir: Path, launch):
     # 固定 6 秒，单跑时稳过，但全套跑到这里机器负载高、dsh 启动变慢，
     # 窗口到期时框架还没写完这个文件，用例就假失败了。
     # 这正是观测方法论第 4 条说的那种错：验「该发生」用轮询，验「不该发生」才用固定长等待。
-    inst.wait_for(
-        root_config.exists,
-        timeout=45.0,
-        what="框架建出空根 cordis.yml",
-    )
+    inst.wait_for(root_config.exists, timeout=45.0, what="框架建出空根 cordis.yml")
     got = watch(inst, seconds=1.0)
 
     print("启动后 cordis.yml 存在？ True")
@@ -180,9 +171,7 @@ def test_profile_minimal_files(lab_home: LabHome, fixtures_dir: Path, launch):
     print(f"进程还活着？ {got['alive']}（退出码 {got['exit_code']}）")
     if not got["alive"]:
         print(got["logs"])
-    assert root_config.read_text(encoding="utf-8").strip().endswith("[]"), (
-        "空根的内容应当是一个空数组"
-    )
+    assert root_config.read_text(encoding="utf-8").strip().endswith("[]"), "空根的内容应当是一个空数组"
 
 
 def test_empty_bundles_boots(lab_home: LabHome, fixtures_dir: Path, launch):
@@ -257,13 +246,9 @@ def test_effective_config_vs_entry_tree(lab_home: LabHome, fixtures_dir: Path, l
     print(f"  boot 返回之后新增的 id：{sorted(tree_ids - boot_ids) or '（没有）'}")
 
     assert ghosts == {"include"}, (
-        f"预期只差 include 一个，实际 {sorted(ghosts)}。"
-        "多出来的说明基线没把基础设施带全，或者框架又补了别的东西"
+        f"预期只差 include 一个，实际 {sorted(ghosts)}。多出来的说明基线没把基础设施带全，或者框架又补了别的东西"
     )
-    assert recipe_ids <= tree_ids, (
-        f"config 里有、树上没有的：{sorted(recipe_ids - tree_ids)}"
-    )
-
+    assert recipe_ids <= tree_ids, f"config 里有、树上没有的：{sorted(recipe_ids - tree_ids)}"
 
 
 def test_bare_name_resolution(lab_home: LabHome, fixtures_dir: Path, launch):
@@ -302,22 +287,12 @@ def test_bare_name_resolution(lab_home: LabHome, fixtures_dir: Path, launch):
     assert not linked.exists(), "前提被破坏：timer 竟然被 link 进 profile 了"
     for eid in ("timer", "hmr"):
         e = next((x for x in settle_snap["entries"] if x["id"] == eid), None)
-        assert e is not None and e["fiberState"] == 2, (
-            f"裸包名 {eid} 没能激活 —— 那 link 就是必需的\n{got['logs']}"
-        )
+        assert e is not None and e["fiberState"] == 2, f"裸包名 {eid} 没能激活 —— 那 link 就是必需的\n{got['logs']}"
     print("  → 裸包名不用 link 进 profile：parent-walk 找到了上一层的共享 node_modules")
 
 
-@pytest.mark.parametrize(
-    "kind, suffix",
-    [
-        ("指向目录", ""),
-        ("指向文件", "/index.js"),
-    ],
-)
-def test_relative_name_resolution(
-    lab_home: LabHome, fixtures_dir: Path, launch, kind: str, suffix: str
-):
+@pytest.mark.parametrize("kind, suffix", [("指向目录", ""), ("指向文件", "/index.js")])
+def test_relative_name_resolution(lab_home: LabHome, fixtures_dir: Path, launch, kind: str, suffix: str):
     """问题 7 的另一半：**相对路径**的 `name` 怎么解析？
 
     上一个用例证明了裸包名以 dsh 安装目录为锚 —— 那对官方包够用，
@@ -349,14 +324,17 @@ def test_relative_name_resolution(
     print(f"  相对路径   {spec}")
 
     # 拼在基线那块之后 —— patch 文件是 YAML 数组，允许多个 `- insert:` 块
-    profile.write_patch(profile.read_patch() + f"""# 相对路径引用
+    profile.write_patch(
+        profile.read_patch()
+        + f"""# 相对路径引用
 - insert:
     - id: census
       name: {json.dumps(spec)}
       config:
         out: {json.dumps(census_out.as_posix())}
         delayMs: {CENSUS_DELAY_MS}
-""")
+"""
+    )
 
     linked = profile.dir / "node_modules" / "l00-census"
     print(f"  有没有 link？ {linked.exists()}（预期 False）")
@@ -391,9 +369,7 @@ def test_who_keeps_process_alive(lab_home: LabHome, fixtures_dir: Path, launch):
     死了 → 保活需要更多东西，那「最小集合」的定义就得往上加。
     """
     census_out = lab_home.root / "census-alive.json"
-    profile = lab_home.make_minimal_profile(
-        "alive", patch=census_patch(census_out, delay_ms=1000)
-    )
+    profile = lab_home.make_minimal_profile("alive", patch=census_patch(census_out, delay_ms=1000))
     profile.link_plugin("l00-census", fixtures_dir / "l00-census")
 
     inst = launch(profile, wait_http=False)
@@ -427,9 +403,7 @@ def test_baseline_profile(lab_home: LabHome, fixtures_dir: Path, launch):
     for label, hmr_root in (("默认 root []", None), ("指定 watch root", ["."])):
         tag = "dflt" if hmr_root is None else "rooted"
         census_out = lab_home.root / f"census-baseline-{tag}.json"
-        profile = lab_home.make_minimal_profile(
-            tag, hmr_root=hmr_root, patch=census_patch(census_out)
-        )
+        profile = lab_home.make_minimal_profile(tag, hmr_root=hmr_root, patch=census_patch(census_out))
         profile.link_plugin("l00-census", fixtures_dir / "l00-census")
 
         inst = launch(profile, wait_http=False)
@@ -444,13 +418,9 @@ def test_baseline_profile(lab_home: LabHome, fixtures_dir: Path, launch):
         ids = sorted(e["id"] for e in entries)
 
         # ① 形状完全可预测——多一个少一个都说明基线漏了东西或框架补了东西
-        assert ids == ["census", "hmr", "include", "timer"], (
-            f"{label}：树的形状不是预期的四个，实际 {ids}"
-        )
+        assert ids == ["census", "hmr", "include", "timer"], f"{label}：树的形状不是预期的四个，实际 {ids}"
         # ③ 多 insert 块共存：census 来自调用方的 patch，timer/hmr 来自基线那块
-        assert any(e["id"] == "census" for e in entries), (
-            f"{label}：多 insert 块没能共存 —— 拼接方案不成立"
-        )
+        assert any(e["id"] == "census" for e in entries), f"{label}：多 insert 块没能共存 —— 拼接方案不成立"
 
         hmr = next(e for e in entries if e["id"] == "hmr")
         print(f"    hmr：id={hmr['id']} state={hmr['fiberState']} ⊂{hmr['parent']}")
@@ -478,12 +448,18 @@ def test_pending_at_boot_is_fatal(lab_home: LabHome, fixtures_dir: Path, launch)
     """
     census_out = lab_home.root / "census-pending.json"
     witness = lab_home.root / "needy-witness.json"
-    profile = lab_home.make_minimal_profile("pending", patch=census_patch(census_out, extra=f"""
+    profile = lab_home.make_minimal_profile(
+        "pending",
+        patch=census_patch(
+            census_out,
+            extra=f"""
     - id: needy
       name: l00-needy
       config:
         witness: {json.dumps(witness.as_posix())}
-"""))
+""",
+        ),
+    )
     profile.link_plugin("l00-census", fixtures_dir / "l00-census")
     profile.link_plugin("l00-needy", fixtures_dir / "l00-needy")
 

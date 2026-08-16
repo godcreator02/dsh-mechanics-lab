@@ -12,15 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from .core import (
-    FORBIDDEN_PORTS,
-    LAB_PORT_RANGE,
-    TESTHOME_ROOT,
-    LabError,
-    LabHome,
-    LabProfile,
-    dsh_bin,
-)
+from .core import FORBIDDEN_PORTS, LAB_PORT_RANGE, TESTHOME_ROOT, LabError, LabHome, LabProfile, dsh_bin
 
 _LOCK_FILE = TESTHOME_ROOT / ".lab-lock.json"
 
@@ -66,11 +58,7 @@ def acquire_lock(label: str, *, wait: float = 900.0, poll: float = 3.0) -> None:
 
         if held is None:
             _LOCK_FILE.write_text(
-                json.dumps({
-                    "label": label,
-                    "pid": os.getpid(),
-                    "started": time.strftime("%Y-%m-%d %H:%M:%S"),
-                }),
+                json.dumps({"label": label, "pid": os.getpid(), "started": time.strftime("%Y-%m-%d %H:%M:%S")}),
                 encoding="utf-8",
             )
             if started_waiting is not None:
@@ -95,9 +83,7 @@ def release_lock() -> None:
 
 
 def _pid_alive(pid: int) -> bool:
-    result = subprocess.run(
-        ["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True
-    )
+    result = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
     return str(pid) in result.stdout
 
 
@@ -182,12 +168,7 @@ class Instance:
     # ── 等待 ──
 
     def wait_for(
-        self,
-        predicate: Callable[[], Any],
-        *,
-        timeout: float = 10.0,
-        interval: float = 0.5,
-        what: str = "条件",
+        self, predicate: Callable[[], Any], *, timeout: float = 10.0, interval: float = 0.5, what: str = "条件"
     ) -> Any:
         """轮询等一个条件成立。用于「验证**应该**发生的事」—— 比死等更快也更稳。"""
         deadline = time.monotonic() + timeout
@@ -216,11 +197,7 @@ class Instance:
         self._stopped = True
         if self.proc.poll() is None:
             # /T 杀整棵进程树：dsh 会 spawn 子进程（worker thread、shell 等）
-            subprocess.run(
-                ["taskkill", "/PID", str(self.proc.pid), "/T", "/F"],
-                capture_output=True,
-                text=True,
-            )
+            subprocess.run(["taskkill", "/PID", str(self.proc.pid), "/T", "/F"], capture_output=True, text=True)
         try:
             self.proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
@@ -228,11 +205,7 @@ class Instance:
 
 
 def start_instance(
-    profile: LabProfile,
-    *,
-    port: int | None = None,
-    wait_http: bool = True,
-    timeout: float = 60.0,
+    profile: LabProfile, *, port: int | None = None, wait_http: bool = True, timeout: float = 60.0
 ) -> Instance:
     """拉起一个实验实例。
 
@@ -277,14 +250,7 @@ def start_instance(
         stderr=err_fh,
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
     )
-    inst = Instance(
-        home=home,
-        profile_name=profile.name,
-        port=port,
-        proc=proc,
-        out_log=out_log,
-        err_log=err_log,
-    )
+    inst = Instance(home=home, profile_name=profile.name, port=port, proc=proc, out_log=out_log, err_log=err_log)
 
     if not wait_http:
         return inst
@@ -292,9 +258,7 @@ def start_instance(
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.poll() is not None:
-            raise LabError(
-                f"实例 {profile.name} 启动即退出（退出码 {proc.returncode}）：\n{inst.logs()}"
-            )
+            raise LabError(f"实例 {profile.name} 启动即退出（退出码 {proc.returncode}）：\n{inst.logs()}")
         if port is not None and port_listening(port):
             return inst
         time.sleep(0.5)

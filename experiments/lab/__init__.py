@@ -24,15 +24,7 @@ from .core import (
     rmtree_safe,
 )
 from .dump import DumpResult, JsExpr, dump_config
-from .instance import (
-    Instance,
-    acquire_lock,
-    assert_ports_free,
-    http_get,
-    port_listening,
-    release_lock,
-    start_instance,
-)
+from .instance import Instance, acquire_lock, assert_ports_free, http_get, port_listening, release_lock, start_instance
 
 __all__ = [
     "BUNDLE_BASE",

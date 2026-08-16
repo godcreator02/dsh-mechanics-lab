@@ -159,9 +159,7 @@ def test_config_reaches_apply(lab_home, fixtures_dir, launch):
     profile = lab_home.make_profile("l01-config")
     profile.link_plugin("lab-minimal", fixtures_dir / "lab-minimal")
     witness = lab_home.root / "witness-config.json"
-    profile.write_patch(
-        _patch_insert("lab-minimal", "lab-minimal", witness, 口令="洛阳纸贵", 数字=42, 开关=True)
-    )
+    profile.write_patch(_patch_insert("lab-minimal", "lab-minimal", witness, 口令="洛阳纸贵", 数字=42, 开关=True))
 
     got = _run_until_witness(launch, profile, witness)
 
@@ -209,8 +207,7 @@ def test_resolution_is_the_real_boundary(
     )
     (pkg_dir / "package.json").write_text(
         json.dumps(
-            {"name": pkg_name, "version": "0.0.0", "private": True, "type": "module", **manifest_extra},
-            indent=2,
+            {"name": pkg_name, "version": "0.0.0", "private": True, "type": "module", **manifest_extra}, indent=2
         )
         + "\n",
         encoding="utf-8",

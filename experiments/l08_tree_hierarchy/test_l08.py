@@ -63,12 +63,7 @@ def watch(inst: Instance, seconds: float = OBSERVE) -> dict:
             died_at = round(seconds - (deadline - time.monotonic()), 2)
             break
         time.sleep(0.25)
-    return {
-        "alive": inst.alive(),
-        "died_at": died_at,
-        "exit_code": inst.proc.returncode,
-        "logs": inst.logs(tail=40),
-    }
+    return {"alive": inst.alive(), "died_at": died_at, "exit_code": inst.proc.returncode, "logs": inst.logs(tail=40)}
 
 
 def read_census(path: Path) -> list[dict] | None:
@@ -160,7 +155,12 @@ def test_group_builds_nested_subtree(lab_home: LabHome, fixtures_dir: Path, laun
         列表里——「扁平遍历」不是一句空话，深度必须靠 parent 链自己算出来
     """
     census_out = lab_home.root / "census-nesting.json"
-    profile = lab_home.make_minimal_profile("nesting", patch=census_patch("census", census_out, extra="""
+    profile = lab_home.make_minimal_profile(
+        "nesting",
+        patch=census_patch(
+            "census",
+            census_out,
+            extra="""
     - id: outer-group
       name: '@deepseek-ai/cordis-plugin-group'
       group: true
@@ -173,7 +173,9 @@ def test_group_builds_nested_subtree(lab_home: LabHome, fixtures_dir: Path, laun
           config:
             - id: leaf-2
               name: l08-leaf
-"""))
+""",
+        ),
+    )
     profile.link_plugin("l08-census", fixtures_dir / "l08-census")
     profile.link_plugin("l08-leaf", fixtures_dir / "l08-leaf")
 
@@ -292,8 +294,10 @@ def test_disabled_propagation(
     if group_id is not None:
         assert group_id in by_id, f"{kind}：树里找不到 {group_id}"
         group_entry = by_id[group_id]
-        print(f"\n  {group_id}：disabled(原文)={group_entry['disabled']}  hasFiber={group_entry['hasFiber']}"
-              f"  fiberState={group_entry['fiberState']}")
+        print(
+            f"\n  {group_id}：disabled(原文)={group_entry['disabled']}  hasFiber={group_entry['hasFiber']}"
+            f"  fiberState={group_entry['fiberState']}"
+        )
         assert group_entry["disabled"] is True, "前提：group 自己的 options.disabled 原文确实是 true"
         assert group_entry["hasFiber"] is True and group_entry["fiberState"] == 2, (
             "group 自己应当照样激活（ACTIVE）——写了 disabled 对它自己没有效力"
@@ -311,9 +315,7 @@ def test_disabled_propagation(
         plain_entry = by_id[child_id]
         print(f"\n  {child_id}：disabled(原文)={plain_entry['disabled']}  hasFiber={plain_entry['hasFiber']}")
         assert plain_entry["disabled"] is True, "前提：这个条目自己就写了 disabled: true"
-        assert plain_entry["hasFiber"] is False, (
-            "对照组：普通条目被禁用，自己就真的不会激活——默认行为，不是例外"
-        )
+        assert plain_entry["hasFiber"] is False, "对照组：普通条目被禁用，自己就真的不会激活——默认行为，不是例外"
 
 
 def test_isolate_gives_each_group_its_own_service_instance(lab_home: LabHome, fixtures_dir: Path, launch):
@@ -335,7 +337,12 @@ def test_isolate_gives_each_group_its_own_service_instance(lab_home: LabHome, fi
     witness_a = lab_home.root / "witness-flavor-a.json"
     witness_b = lab_home.root / "witness-flavor-b.json"
 
-    profile = lab_home.make_minimal_profile("isolate", patch=census_patch("census", census_out, extra=f"""
+    profile = lab_home.make_minimal_profile(
+        "isolate",
+        patch=census_patch(
+            "census",
+            census_out,
+            extra=f"""
     - id: group-a
       name: '@deepseek-ai/cordis-plugin-group'
       group: true
@@ -365,7 +372,9 @@ def test_isolate_gives_each_group_its_own_service_instance(lab_home: LabHome, fi
           name: lab-flavor-taster
           config:
             witness: {json.dumps(witness_b.as_posix())}
-"""))
+""",
+        ),
+    )
     profile.link_plugin("l08-census", fixtures_dir / "l08-census")
     profile.link_plugin("lab-flavor", fixtures_dir / "lab-flavor")
     profile.link_plugin("lab-flavor-taster", fixtures_dir / "lab-flavor-taster")

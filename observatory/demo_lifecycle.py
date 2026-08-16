@@ -111,8 +111,7 @@ def main() -> int:
         profile = home.make_profile("lifecycle")
         profile.link_plugin("lab-recorder", OBS_DIR / "lab-recorder")
         profile.link_plugin("lab-minimal", FIXTURE)
-        profile.write_patch(patch(
-            {"witness": witness_alpha.as_posix(), "轮次": "第一版"}, False, events_out))
+        profile.write_patch(patch({"witness": witness_alpha.as_posix(), "轮次": "第一版"}, False, events_out))
 
         print("阶段 0 · 拉起实例（只叠 dsh-base，不需要 web）…")
         inst = start_instance(profile, wait_http=False)
@@ -124,15 +123,13 @@ def main() -> int:
 
         # ── 阶段 1：只改 alpha 的 config ──
         print("\n阶段 1 · 改 alpha 的 config（beta 一个字没动）…")
-        profile.write_patch(patch(
-            {"witness": witness_alpha.as_posix(), "轮次": "第二版"}, False, events_out))
+        profile.write_patch(patch({"witness": witness_alpha.as_posix(), "轮次": "第二版"}, False, events_out))
         time.sleep(SETTLE)
         cursor = show(read_events(events_out), cursor, "阶段 1：改 config → 预期原地 reconfigure，不 dispose")
 
         # ── 阶段 2：把 beta 改成 disabled ──
         print("\n阶段 2 · 把 beta 改成 disabled（alpha 一个字没动）…")
-        profile.write_patch(patch(
-            {"witness": witness_alpha.as_posix(), "轮次": "第二版"}, True, events_out))
+        profile.write_patch(patch({"witness": witness_alpha.as_posix(), "轮次": "第二版"}, True, events_out))
         time.sleep(SETTLE)
         cursor = show(read_events(events_out), cursor, "阶段 2：禁用 beta → 预期 UNLOADING → DISPOSED")
 

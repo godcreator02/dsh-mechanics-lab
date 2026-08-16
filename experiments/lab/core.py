@@ -83,11 +83,7 @@ def dsh_bin() -> Path:
 
     npx_root = Path(os.environ.get("LOCALAPPDATA", "")) / "npm-cache" / "_npx"
     if npx_root.is_dir():
-        found = [
-            p
-            for d in npx_root.iterdir()
-            if (p := d / "node_modules/@deepseek-ai/dsh/lib/bin.js").exists()
-        ]
+        found = [p for d in npx_root.iterdir() if (p := d / "node_modules/@deepseek-ai/dsh/lib/bin.js").exists()]
         if found:
             _dsh_bin_cache = max(found, key=lambda p: p.stat().st_mtime)
             return _dsh_bin_cache
@@ -137,9 +133,7 @@ def make_junction(link: Path, target: Path) -> None:
     if link.exists() or link.is_junction():
         rmtree_safe(link)
     result = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(link), str(target.resolve())],
-        capture_output=True,
-        text=True,
+        ["cmd", "/c", "mklink", "/J", str(link), str(target.resolve())], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise LabError(f"建 junction 失败 {link} -> {target}:\n{result.stdout}\n{result.stderr}")
@@ -169,9 +163,7 @@ class LabProfile:
 
         顶层必须是 YAML 数组 —— 空内容要写成 []，只剩注释会让 dsh 启动报错。
         """
-        stripped = "\n".join(
-            line for line in content.splitlines() if line.strip() and not line.strip().startswith("#")
-        )
+        stripped = "\n".join(line for line in content.splitlines() if line.strip() and not line.strip().startswith("#"))
         self.patch_path.write_text(content if stripped else "[]\n", encoding="utf-8")
 
     def read_patch(self) -> str:
@@ -235,12 +227,7 @@ class LabHome:
         return {**os.environ, "DSH_HOME": str(self.root)}
 
     def make_profile(
-        self,
-        name: str,
-        *,
-        bundles: list[str] | None = None,
-        patch: str = "",
-        web: bool = False,
+        self, name: str, *, bundles: list[str] | None = None, patch: str = "", web: bool = False
     ) -> LabProfile:
         """建一个裸 profile。
 
@@ -263,12 +250,7 @@ class LabHome:
         profile.dir.mkdir(parents=True, exist_ok=True)
         (profile.dir / "package.json").write_text(
             json.dumps(
-                {
-                    "name": f"dsh-profile-{name}",
-                    "private": True,
-                    "dsh": {"profile": {"bundles": bundles}},
-                },
-                indent=2,
+                {"name": f"dsh-profile-{name}", "private": True, "dsh": {"profile": {"bundles": bundles}}}, indent=2
             )
             + "\n",
             encoding="utf-8",
@@ -276,13 +258,7 @@ class LabHome:
         profile.write_patch(patch)
         return profile
 
-    def make_minimal_profile(
-        self,
-        name: str,
-        *,
-        patch: str = "",
-        hmr_root: list[str] | None = None,
-    ) -> LabProfile:
+    def make_minimal_profile(self, name: str, *, patch: str = "", hmr_root: list[str] | None = None) -> LabProfile:
         """后面所有课的基线：**不叠任何 bundle，但显式带上 timer 与 hmr**。
 
         不叠 bundle 是为了去噪声——`dsh-base` 那 78 个 entry 里只有两个跟插件
@@ -332,7 +308,5 @@ class LabHome:
         这个函数会递归删目录，判据必须是结构上的，不能靠路径里碰巧有某个词。
         """
         if self.root.resolve().parent != TESTHOME_ROOT.resolve():
-            raise LabError(
-                f"home 不在 {TESTHOME_ROOT} 下面，拒绝删：{self.root}"
-            )
+            raise LabError(f"home 不在 {TESTHOME_ROOT} 下面，拒绝删：{self.root}")
         rmtree_safe(self.root)

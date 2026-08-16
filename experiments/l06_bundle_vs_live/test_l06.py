@@ -68,9 +68,7 @@ def set_profile_bundles(profile, bundles: list[str]) -> None:
     manifest_path = profile.dir / "package.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["dsh"]["profile"]["bundles"] = bundles
-    manifest_path.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def probe(inst: Instance) -> dict | None:
@@ -91,9 +89,7 @@ def test_bundle_patch_and_bundles_list_are_cold(lab_home: LabHome, fixtures_dir:
     SYLLABUS 建议的做法，把重启次数压到最低。
     """
     write_bundle_patch(fixtures_dir, "r1")
-    profile = lab_home.make_profile(
-        "coldbundle", bundles=[BUNDLE_BASE, BUNDLE_WEB, "l06-probe-bundle"], web=True
-    )
+    profile = lab_home.make_profile("coldbundle", bundles=[BUNDLE_BASE, BUNDLE_WEB, "l06-probe-bundle"], web=True)
     profile.link_plugin("l06-probe-bundle", fixtures_dir / "l06-probe-bundle")
 
     port = free_port
@@ -176,9 +172,7 @@ def test_two_registration_paths_are_independent(lab_home: LabHome, fixtures_dir:
     inst = launch(profile, port=port, timeout=START_TIMEOUT)
     got = inst.wait_for(lambda: probe(inst), timeout=20.0, what="探针路由响应")
     print(f"\n活层 insert、包不在 bundles 名单里：{got}")
-    assert got["configRevision"] == "live-insert", (
-        "活层的注册路径应当独立生效——不需要这个包同时是 bundles 名单里的一员"
-    )
+    assert got["configRevision"] == "live-insert", "活层的注册路径应当独立生效——不需要这个包同时是 bundles 名单里的一员"
 
     inst.stop()
     inst = launch(profile, port=port, timeout=START_TIMEOUT)
@@ -187,9 +181,7 @@ def test_two_registration_paths_are_independent(lab_home: LabHome, fixtures_dir:
     assert got_restarted["configRevision"] == "live-insert", "重启后活层这条注册路径应当照样存活"
 
 
-def test_duplicate_id_across_bundle_and_live_layer_kills_boot(
-    lab_home: LabHome, fixtures_dir: Path, free_port
-):
+def test_duplicate_id_across_bundle_and_live_layer_kills_boot(lab_home: LabHome, fixtures_dir: Path, free_port):
     """用例 4（可选）：bundle 层和活层用同一个 id `insert` 同一个包，撞在
     **首次 boot**——整个进程启动失败，不是"打个警告然后活着"。
 

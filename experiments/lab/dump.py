@@ -51,10 +51,7 @@ class _LabLoader(yaml.SafeLoader):
     """SafeLoader 加上 DSH 的 `!!js` 方言。"""
 
 
-_LabLoader.add_constructor(
-    "tag:yaml.org,2002:js",
-    lambda loader, node: JsExpr(loader.construct_scalar(node)),
-)
+_LabLoader.add_constructor("tag:yaml.org,2002:js", lambda loader, node: JsExpr(loader.construct_scalar(node)))
 
 
 #: dump 输出里的来源注释，形如：
@@ -120,11 +117,7 @@ class DumpResult:
 
 
 def dump_config(
-    home: LabHome,
-    profile: str,
-    *,
-    default_only: bool = False,
-    patch_files: tuple[Path, ...] = (),
+    home: LabHome, profile: str, *, default_only: bool = False, patch_files: tuple[Path, ...] = ()
 ) -> DumpResult:
     """跑 `dsh --dump-config`，返回解析后的组合树。
 
@@ -148,13 +141,7 @@ def dump_config(
             overlay。与普通 dump 做差集就能看出「活层贡献了什么」。
         patch_files: 传给 `--patch` 的 overlay 文件，按顺序叠在最后。
     """
-    argv = [
-        "node",
-        str(dsh_bin()),
-        "--profile",
-        profile,
-        "--dump-default-config" if default_only else "--dump-config",
-    ]
+    argv = ["node", str(dsh_bin()), "--profile", profile, "--dump-default-config" if default_only else "--dump-config"]
     for p in patch_files:
         argv += ["--patch", str(p)]
 

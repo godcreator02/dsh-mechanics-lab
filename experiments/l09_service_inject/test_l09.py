@@ -87,15 +87,17 @@ def test_dependency_chain_loads_in_service_order(lab_home, fixtures_dir, launch)
     w_alpha = lab_home.root / "w-alpha.json"
     w_beta = lab_home.root / "w-beta.json"
 
-    profile.write_patch(_patch(
-        _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
-        _entry("lab-alpha", "lab-alpha", config={"witness": w_alpha.as_posix(), "note": "第一层消费者"}),
-        _entry("lab-beta", "lab-beta", config={"witness": w_beta.as_posix()}),
-    ))
+    profile.write_patch(
+        _patch(
+            _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
+            _entry("lab-alpha", "lab-alpha", config={"witness": w_alpha.as_posix(), "note": "第一层消费者"}),
+            _entry("lab-beta", "lab-beta", config={"witness": w_beta.as_posix()}),
+        )
+    )
 
     inst = launch(profile, wait_http=False)
     try:
-        beta = _wait_json(w_beta)          # beta 最后 apply，它到了说明全链通了
+        beta = _wait_json(w_beta)  # beta 最后 apply，它到了说明全链通了
         book = _wait_json(ledger)
     finally:
         inst.stop()
@@ -140,11 +142,13 @@ def test_missing_provider(lab_home, fixtures_dir, launch):
     ledger = lab_home.root / "ledger-noroot.json"
     w_alpha = lab_home.root / "w-alpha-noroot.json"
 
-    profile.write_patch(_patch(
-        _entry("lab-registry", "lab-registry", disabled=True, config={"ledger": ledger.as_posix()}),
-        _entry("lab-alpha", "lab-alpha", config={"witness": w_alpha.as_posix()}),
-        _entry("lab-beta", "lab-beta"),
-    ))
+    profile.write_patch(
+        _patch(
+            _entry("lab-registry", "lab-registry", disabled=True, config={"ledger": ledger.as_posix()}),
+            _entry("lab-alpha", "lab-alpha", config={"witness": w_alpha.as_posix()}),
+            _entry("lab-beta", "lab-beta"),
+        )
+    )
 
     try:
         inst = launch(profile, wait_http=False)
@@ -188,11 +192,13 @@ def test_missing_middle_breaks_only_second_level(lab_home, fixtures_dir, launch)
     ledger = lab_home.root / "ledger-nomid.json"
     w_beta = lab_home.root / "w-beta-nomid.json"
 
-    profile.write_patch(_patch(
-        _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
-        _entry("lab-alpha", "lab-alpha", disabled=True),
-        _entry("lab-beta", "lab-beta", config={"witness": w_beta.as_posix()}),
-    ))
+    profile.write_patch(
+        _patch(
+            _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
+            _entry("lab-alpha", "lab-alpha", disabled=True),
+            _entry("lab-beta", "lab-beta", config={"witness": w_beta.as_posix()}),
+        )
+    )
 
     try:
         inst = launch(profile, wait_http=False)
@@ -206,11 +212,10 @@ def test_missing_middle_breaks_only_second_level(lab_home, fixtures_dir, launch)
 
     try:
         time.sleep(12)
-        book = _wait_json(ledger, timeout=5)   # 根还在，账本文件应该被创建
+        book = _wait_json(ledger, timeout=5)  # 根还在，账本文件应该被创建
         if w_beta.exists():
             got = json.loads(w_beta.read_text(encoding="utf-8"))
-            print(f"\n  实例照常启动；lab-beta apply 了："
-                  f"gotRegistry={got['gotRegistry']}  gotAlpha={got['gotAlpha']}")
+            print(f"\n  实例照常启动；lab-beta apply 了：gotRegistry={got['gotRegistry']}  gotAlpha={got['gotAlpha']}")
             print(f"    账本：{[e['who'] for e in book['entries']]}")
         else:
             print("\n  实例照常启动；lab-beta **没有 apply**")
@@ -237,10 +242,12 @@ def test_entry_level_inject_vs_code_level(lab_home, fixtures_dir, launch):
     _link_all(profile, fixtures_dir)
     ledger = lab_home.root / "ledger-inject.json"
 
-    profile.write_patch(_patch(
-        _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
-        _entry("lab-alpha", "lab-alpha", inject=[]),
-    ))
+    profile.write_patch(
+        _patch(
+            _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
+            _entry("lab-alpha", "lab-alpha", inject=[]),
+        )
+    )
 
     dump = dump_config(lab_home, profile.name)
     assert dump.require("lab-alpha")["inject"] == [], "条目级 inject 应原样进组合树"
@@ -278,11 +285,13 @@ def test_write_order_does_not_decide_load_order(lab_home, fixtures_dir, launch):
     ledger = lab_home.root / "ledger-reverse.json"
     w_beta = lab_home.root / "w-beta-reverse.json"
 
-    profile.write_patch(_patch(
-        _entry("lab-beta", "lab-beta", config={"witness": w_beta.as_posix()}),
-        _entry("lab-alpha", "lab-alpha"),
-        _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
-    ))
+    profile.write_patch(
+        _patch(
+            _entry("lab-beta", "lab-beta", config={"witness": w_beta.as_posix()}),
+            _entry("lab-alpha", "lab-alpha"),
+            _entry("lab-registry", "lab-registry", config={"ledger": ledger.as_posix()}),
+        )
+    )
 
     inst = launch(profile, wait_http=False)
     try:
@@ -319,12 +328,13 @@ def test_pending_dependent_seen_through_recorder(lab_home, fixtures_dir, launch)
     events = lab_home.root / "events.jsonl"
     ledger = lab_home.root / "ledger-observed.json"
 
-    profile.write_patch(_patch(
-        _entry("lab-recorder", "lab-recorder",
-               config={"out": events.as_posix(), "flushMs": 100}),
-        _entry("lab-registry", "lab-registry", disabled=True, config={"ledger": ledger.as_posix()}),
-        _entry("lab-alpha", "lab-alpha"),
-    ))
+    profile.write_patch(
+        _patch(
+            _entry("lab-recorder", "lab-recorder", config={"out": events.as_posix(), "flushMs": 100}),
+            _entry("lab-registry", "lab-registry", disabled=True, config={"ledger": ledger.as_posix()}),
+            _entry("lab-alpha", "lab-alpha"),
+        )
+    )
 
     inst = launch(profile, wait_http=False)
     try:
@@ -342,8 +352,10 @@ def test_pending_dependent_seen_through_recorder(lab_home, fixtures_dir, launch)
         if e["kind"] == "status":
             print(f"    +{e['ms']:8.3f}ms  {e['from']:>9} → {e['to']}")
         elif e["kind"] == "snapshot":
-            print(f"    +{e['ms']:8.3f}ms  snapshot  fiberState={e.get('to')}  "
-                  f"hasFiber={e.get('hasFiber')}  disabled={e.get('disabled')}")
+            print(
+                f"    +{e['ms']:8.3f}ms  snapshot  fiberState={e.get('to')}  "
+                f"hasFiber={e.get('hasFiber')}  disabled={e.get('disabled')}"
+            )
         else:
             print(f"    +{e['ms']:8.3f}ms  {e['kind']}  uid={e.get('uid')}")
     if not mine:
@@ -360,10 +372,7 @@ def test_pending_dependent_seen_through_recorder(lab_home, fixtures_dir, launch)
 
 @pytest.mark.parametrize(
     ("variant", "service_name"),
-    [
-        ("提供者被禁用", "labRegistry"),
-        ("服务名从不存在", "从来没有人提供过这个服务"),
-    ],
+    [("提供者被禁用", "labRegistry"), ("服务名从不存在", "从来没有人提供过这个服务")],
     ids=["provider-disabled", "never-exists"],
 )
 def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, variant, service_name):
@@ -404,8 +413,7 @@ def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, v
         _entry("lab-alpha", "lab-alpha", inject=[service_name]),
     ]
     if service_name == "labRegistry":
-        entries.insert(1, _entry("lab-registry", "lab-registry", disabled=True,
-                                 config={"ledger": ledger.as_posix()}))
+        entries.insert(1, _entry("lab-registry", "lab-registry", disabled=True, config={"ledger": ledger.as_posix()}))
 
     profile.write_patch(_patch(*entries))
 
@@ -416,11 +424,9 @@ def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, v
     inst.stop()
     time.sleep(1)
 
-    print(f"\n  [{variant}] → **{'启动成功' if alive else '启动失败'}**"
-          f"（退出码 {inst.proc.returncode}）")
+    print(f"\n  [{variant}] → **{'启动成功' if alive else '启动失败'}**（退出码 {inst.proc.returncode}）")
     verdicts = dict.fromkeys(
-        ln.strip() for ln in logs.splitlines()
-        if "pending (waiting" in ln or "did not activate" in ln
+        ln.strip() for ln in logs.splitlines() if "pending (waiting" in ln or "did not activate" in ln
     )
     for line in verdicts:
         print("    " + line)

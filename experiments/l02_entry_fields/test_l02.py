@@ -97,10 +97,7 @@ def test_unknown_field_is_carried_but_ignored(lab_home, fixtures_dir, launch):
     witness = lab_home.root / "w-unknown.json"
     profile.write_patch(
         _insert(
-            "lab-fields",
-            "lab-fields",
-            extra_lines='野字段: "loader 不认识我"',
-            config={"witness": witness.as_posix()},
+            "lab-fields", "lab-fields", extra_lines='野字段: "loader 不认识我"', config={"witness": witness.as_posix()}
         )
     )
 
@@ -131,12 +128,7 @@ def test_disabled_keeps_entry_but_skips_apply(lab_home, fixtures_dir, launch):
     profile.link_plugin("lab-fields", fixtures_dir / "lab-fields")
     witness = lab_home.root / "w-disabled.json"
     profile.write_patch(
-        _insert(
-            "lab-fields",
-            "lab-fields",
-            extra_lines="disabled: true",
-            config={"witness": witness.as_posix()},
-        )
+        _insert("lab-fields", "lab-fields", extra_lines="disabled: true", config={"witness": witness.as_posix()})
     )
 
     dump = dump_config(lab_home, profile.name)
@@ -162,9 +154,7 @@ def test_disabled_keeps_entry_but_skips_apply(lab_home, fixtures_dir, launch):
     ],
     ids=["expr-true", "expr-false"],
 )
-def test_disabled_accepts_js_expression(
-    lab_home, fixtures_dir, launch, variant, expr, should_load
-):
+def test_disabled_accepts_js_expression(lab_home, fixtures_dir, launch, variant, expr, should_load):
     """`disabled` 不止能写布尔值，还能写 `!!js` 表达式，激活时求值。
 
     这是 DSH 的 patch 方言：`!!js` 标量不在解析时求值，而是延迟到条目激活时、
@@ -180,10 +170,7 @@ def test_disabled_accepts_js_expression(
     witness = lab_home.root / f"w-expr-{tag}.json"
     profile.write_patch(
         _insert(
-            "lab-fields",
-            "lab-fields",
-            extra_lines=f"disabled: !!js {expr}",
-            config={"witness": witness.as_posix()},
+            "lab-fields", "lab-fields", extra_lines=f"disabled: !!js {expr}", config={"witness": witness.as_posix()}
         )
     )
 

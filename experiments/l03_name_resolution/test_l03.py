@@ -140,8 +140,7 @@ def test_loader_internal_activated(lab_home: LabHome, fixtures_dir: Path, launch
         print("  → 拿不到判定结果（loader 服务本身取不到）")
 
     assert got["loaderInternal"] is not None, (
-        "探针应当能测到这个字段——拿到 None 说明连 loader 服务本身都取不到，"
-        "那是比「internal 激不激活」更严重的问题"
+        "探针应当能测到这个字段——拿到 None 说明连 loader 服务本身都取不到，那是比「internal 激不激活」更严重的问题"
     )
 
 
@@ -236,9 +235,7 @@ def test_nonexistent_bare_package(lab_home: LabHome, fixtures_dir: Path, launch)
     fiber）；这条走的是 Node 标准的包解析失败。两者表现都是"启动失败"，
     但成因完全不同——报错文本必须分开记录、分开断言，不能只判断"有没有报错"。
     """
-    profile = lab_home.make_minimal_profile(
-        "nopkg", patch=_insert_bare("missing", "l03-definitely-does-not-exist")
-    )
+    profile = lab_home.make_minimal_profile("nopkg", patch=_insert_bare("missing", "l03-definitely-does-not-exist"))
 
     inst = launch(profile, wait_http=False)
     got = _observe_fixed(inst, seconds=8.0)
@@ -253,8 +250,7 @@ def test_nonexistent_bare_package(lab_home: LabHome, fixtures_dir: Path, launch)
     cordis_text = 'expect function or object with an "apply" method'
     assert not got["alive"], "预期找不到的裸包名也会让启动失败"
     assert cordis_text not in got["logs"], (
-        "报错文本不该是 cordis 自造的那句——这条应该是 Node 标准的包解析失败，"
-        "跟 cordis: 未知 builtin 那条不是一回事"
+        "报错文本不该是 cordis 自造的那句——这条应该是 Node 标准的包解析失败，跟 cordis: 未知 builtin 那条不是一回事"
     )
     print("  → 报错文本与 cordis: 未知 builtin 那条不同（分类断言通过）")
 
@@ -264,10 +260,7 @@ def test_nonexistent_bare_package(lab_home: LabHome, fixtures_dir: Path, launch)
 
 @pytest.mark.parametrize(
     "pkg, should_load",
-    [
-        ("l03-subpath-declared", True),
-        ("l03-subpath-undeclared", False),
-    ],
+    [("l03-subpath-declared", True), ("l03-subpath-undeclared", False)],
     ids=["declared", "undeclared"],
 )
 def test_exports_subpath(lab_home: LabHome, fixtures_dir: Path, launch, pkg: str, should_load: bool):
@@ -328,9 +321,7 @@ def test_relative_path_has_no_fallback_chain(lab_home: LabHome, fixtures_dir: Pa
 
     # 分支 B：同一份代码，走包名解析
     witness_pkg = lab_home.root / "witness-fallback-pkg.json"
-    profile_pkg = lab_home.make_minimal_profile(
-        "fallback-pkg", patch=_insert("plugin", "l03-fallback", witness_pkg)
-    )
+    profile_pkg = lab_home.make_minimal_profile("fallback-pkg", patch=_insert("plugin", "l03-fallback", witness_pkg))
     profile_pkg.link_plugin("l03-fallback", fixtures_dir / "l03-fallback")
 
     inst_pkg = launch(profile_pkg, wait_http=False)

@@ -82,9 +82,7 @@ def _clean_home_patch(lab_home: LabHome):
     lab_home.clear_home_patch()
 
 
-def make_layer_profile(
-    lab_home: LabHome, fixtures_dir: Path, name: str, *, profile_patch: str = ""
-) -> LabProfile:
+def make_layer_profile(lab_home: LabHome, fixtures_dir: Path, name: str, *, profile_patch: str = "") -> LabProfile:
     """建一个叠了 `l04-bundle-a` 的 profile——四层里的「第 1 层」由它提供。"""
     profile = lab_home.make_profile(name, bundles=[BUNDLE_NAME], patch=profile_patch)
     profile.link_plugin(BUNDLE_NAME, fixtures_dir / BUNDLE_NAME)
@@ -144,18 +142,14 @@ def test_four_layers_identifiable(lab_home: LabHome, fixtures_dir: Path):
         print(f"  {entry_id:<14} 来源 = {dumped.source_of(entry_id)}")
         assert entry_id in dumped.ids(), f"{entry_id} 应当出现在组合树里"
 
-    assert dumped.source_of("from-bundle") == BUNDLE_NAME, (
-        "第 1 层（bundle 层）的来源应当是包名"
-    )
+    assert dumped.source_of("from-bundle") == BUNDLE_NAME, "第 1 层（bundle 层）的来源应当是包名"
     assert same_path(dumped.source_of("from-profile"), profile.patch_path), (
         "第 2 层（profile 活层）的来源应当是它自己 cordis.patch.yml 的绝对路径"
     )
     assert same_path(dumped.source_of("from-home"), lab_home.patch_path), (
         "第 3 层（home 层）的来源应当是 home 级 cordis.patch.yml 的绝对路径"
     )
-    assert same_path(dumped.source_of("from-overlay"), overlay), (
-        "第 4 层（overlay）的来源应当是 --patch 指向的文件路径"
-    )
+    assert same_path(dumped.source_of("from-overlay"), overlay), "第 4 层（overlay）的来源应当是 --patch 指向的文件路径"
     print("\n  → 四层各自的来源与文档描述一致：包名 / profile 活层路径 / home 层路径 / overlay 路径")
 
 
@@ -353,14 +347,7 @@ def test_running_overlay_not_hot_reloaded(lab_home: LabHome, fixtures_dir: Path,
         stderr=err_log.open("w", encoding="utf-8"),
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
     )
-    inst = Instance(
-        home=lab_home,
-        profile_name=profile.name,
-        port=None,
-        proc=proc,
-        out_log=out_log,
-        err_log=err_log,
-    )
+    inst = Instance(home=lab_home, profile_name=profile.name, port=None, proc=proc, out_log=out_log, err_log=err_log)
     running.append(inst)  # 保证测完自动 stop，异常路径也不例外
 
     def read_witness() -> list[dict] | None:
@@ -377,8 +364,10 @@ def test_running_overlay_not_hot_reloaded(lab_home: LabHome, fixtures_dir: Path,
     assert len(got) == 1 and got[0]["value"] == "initial"
 
     write_overlay("changed")
-    print("已把 overlay 文件里的 value 改成 changed。固定等待 10 秒——这是「验证什么都不该"
-          "发生」，不能用轮询提前退出，提前退出只能证明「此刻还没发生」")
+    print(
+        "已把 overlay 文件里的 value 改成 changed。固定等待 10 秒——这是「验证什么都不该"
+        "发生」，不能用轮询提前退出，提前退出只能证明「此刻还没发生」"
+    )
     Instance.settle(10.0)
 
     after = read_witness()
@@ -386,8 +375,7 @@ def test_running_overlay_not_hot_reloaded(lab_home: LabHome, fixtures_dir: Path,
 
     assert inst.alive(), f"进程不该崩：\n{inst.logs()}"
     assert after is not None and len(after) == 1, (
-        "见证文件多出了新记录——说明 overlay 文件的改动被热重放拾到了，"
-        "这跟「已完成的调研②」的推论相反，是重大发现"
+        "见证文件多出了新记录——说明 overlay 文件的改动被热重放拾到了，这跟「已完成的调研②」的推论相反，是重大发现"
     )
     assert after[0]["value"] == "initial", (
         f"value 变成了 {after[0]['value']!r}——overlay 改动生效了，"

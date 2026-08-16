@@ -45,14 +45,16 @@ def list_runs() -> list[dict]:
         witnesses = sorted(home.glob("witness*.json"))
         if not events.exists() and not witnesses:
             continue
-        runs.append({
-            "label": home.name,
-            "hasEvents": events.exists(),
-            "eventBytes": events.stat().st_size if events.exists() else 0,
-            "eventMtime": events.stat().st_mtime if events.exists() else None,
-            "witnessCount": len(witnesses),
-            "witnessNames": [w.name for w in witnesses],
-        })
+        runs.append(
+            {
+                "label": home.name,
+                "hasEvents": events.exists(),
+                "eventBytes": events.stat().st_size if events.exists() else 0,
+                "eventMtime": events.stat().st_mtime if events.exists() else None,
+                "witnessCount": len(witnesses),
+                "witnessNames": [w.name for w in witnesses],
+            }
+        )
     return runs
 
 
@@ -124,8 +126,7 @@ class BoardHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _json(self, payload) -> None:
-        self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                   "application/json; charset=utf-8")
+        self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)

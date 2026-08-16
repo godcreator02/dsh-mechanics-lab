@@ -86,12 +86,14 @@ def pytest_runtest_makereport(item, call):
     """收集每个用例的结果与输出，供归档用。"""
     report = yield
     if report.when == "call":
-        _reports[item.module.__name__].append({
-            "name": item.name,
-            "outcome": report.outcome,
-            "duration": report.duration,
-            "stdout": getattr(report, "capstdout", ""),
-        })
+        _reports[item.module.__name__].append(
+            {
+                "name": item.name,
+                "outcome": report.outcome,
+                "duration": report.duration,
+                "stdout": getattr(report, "capstdout", ""),
+            }
+        )
     return report
 
 
@@ -117,14 +119,7 @@ def _archive(home: LabHome, label: str, module_name: str) -> Path | None:
         return None
 
     dest.mkdir(parents=True, exist_ok=True)
-    lines = [
-        f"# {label} · {stamp}",
-        "",
-        f"跑于 {time.strftime('%Y-%m-%d %H:%M:%S')}（本地时间）",
-        "",
-        "## 用例",
-        "",
-    ]
+    lines = [f"# {label} · {stamp}", "", f"跑于 {time.strftime('%Y-%m-%d %H:%M:%S')}（本地时间）", "", "## 用例", ""]
     for r in rows:
         mark = {"passed": "✅", "failed": "❌", "skipped": "⏭️"}.get(r["outcome"], r["outcome"])
         lines.append(f"### {mark} `{r['name']}`  ·  {r['duration']:.2f}s")
@@ -156,7 +151,7 @@ def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
     label = _label_of(request)
     home = LabHome(label)
     try:
-        home.clean()           # 起手清干净，保证可重复跑
+        home.clean()  # 起手清干净，保证可重复跑
         home = LabHome(label)  # clean 会把目录删掉，重建骨架
         yield home
     finally:

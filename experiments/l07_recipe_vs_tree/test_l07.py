@@ -31,13 +31,7 @@ from lab import PKG_HMR, PKG_TIMER, Instance, LabHome, LabProfile, dump_config
 # ── 辅助 ────────────────────────────────────────────────────────────────────
 
 
-def census_patch(
-    out: Path,
-    *,
-    delay_ms: int = 2000,
-    delay_ms2: int | None = None,
-    extra: str = "",
-) -> str:
+def census_patch(out: Path, *, delay_ms: int = 2000, delay_ms2: int | None = None, extra: str = "") -> str:
     """只挂一个普查员的活层。extra 原样追加（同一个 insert 列表里的更多条目）。"""
     lines = [
         "# L7 活层",
@@ -204,9 +198,7 @@ def test_include_config_holds_full_recipe(lab_home: LabHome, fixtures_dir: Path,
     profile = _recipe_profile(lab_home, fixtures_dir, "recipe-static", census_out)
 
     inst = launch(profile, wait_http=False)
-    settle = inst.wait_for(
-        lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照"
-    )
+    settle = inst.wait_for(lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照")
     show_entries(settle, "settle：静态构成")
 
     inc = find_entry(settle, name="cordis:include")
@@ -236,14 +228,10 @@ def test_recipe_hot_reload_updates_include_config(lab_home: LabHome, fixtures_di
     （那是 L14 的事）。
     """
     census_out = lab_home.root / "census-recipe-hot.json"
-    profile = _recipe_profile(
-        lab_home, fixtures_dir, "recipe-hot", census_out, delay_ms=2000, delay_ms2=8000
-    )
+    profile = _recipe_profile(lab_home, fixtures_dir, "recipe-hot", census_out, delay_ms=2000, delay_ms2=8000)
 
     inst = launch(profile, wait_http=False)
-    settle = inst.wait_for(
-        lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照"
-    )
+    settle = inst.wait_for(lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照")
     ids_before = include_patch_ids(settle)
     print(f"\n  改动前 include.config.patches 里的 id：{ids_before}")
     assert "profile-marker-2" not in ids_before, "前提：改动前不该有这个标记"
@@ -267,16 +255,13 @@ def test_recipe_hot_reload_updates_include_config(lab_home: LabHome, fixtures_di
     )
     print("  活层文件已改动，多插了 profile-marker-2，等第二张快照…")
 
-    settle2 = inst.wait_for(
-        lambda: phase(read_census(census_out), "settle2"), timeout=20.0, what="settle2 快照"
-    )
+    settle2 = inst.wait_for(lambda: phase(read_census(census_out), "settle2"), timeout=20.0, what="settle2 快照")
     show_entries(settle2, "settle2：改动之后")
     ids_after = include_patch_ids(settle2)
     print(f"\n  改动之后 include.config.patches 里的 id：{ids_after}")
 
     assert "profile-marker-2" in ids_after, (
-        "活层文件改了之后，include 的 config.patches 应该跟着更新——"
-        "这就是『配方热重放＝改 include 的 config』"
+        "活层文件改了之后，include 的 config.patches 应该跟着更新——这就是『配方热重放＝改 include 的 config』"
     )
     for expect in ("census", "home-marker", "profile-marker"):
         assert expect in ids_after, f"{expect} 改动之后不该消失，实际 {ids_after}"
@@ -307,9 +292,7 @@ def test_include_is_the_only_ghost(lab_home: LabHome, fixtures_dir: Path, launch
     print(f"\n  effective config 里的 id（{len(recipe_ids)} 个）：{sorted(recipe_ids)}")
 
     inst = launch(profile, wait_http=False)
-    settle = inst.wait_for(
-        lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照"
-    )
+    settle = inst.wait_for(lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照")
     show_entries(settle, "entry tree")
 
     tree_ids = {e["id"] for e in settle["entries"]}
@@ -317,10 +300,7 @@ def test_include_is_the_only_ghost(lab_home: LabHome, fixtures_dir: Path, launch
     print(f"\n  树上有、config 里没有的 id：{sorted(ghosts)}")
 
     assert ghosts == {"include"}, (
-        f"预期只剩 include 一个，实际 {sorted(ghosts)}——"
-        "多出来的说明基线没把基础设施带全，或者框架又补了别的"
+        f"预期只剩 include 一个，实际 {sorted(ghosts)}——多出来的说明基线没把基础设施带全，或者框架又补了别的"
     )
     # 反过来也要成立：config 里的每一行都在树上找得到，没有谁被悄悄丢掉
-    assert recipe_ids <= tree_ids, (
-        f"config 里有、树上没有的：{sorted(recipe_ids - tree_ids)}"
-    )
+    assert recipe_ids <= tree_ids, f"config 里有、树上没有的：{sorted(recipe_ids - tree_ids)}"

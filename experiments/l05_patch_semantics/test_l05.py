@@ -39,10 +39,7 @@ class _L05Loader(yaml.SafeLoader):
     """跟 lab.dump._LabLoader 一样的 `!!js` 方言注册，本课自己留一份。"""
 
 
-_L05Loader.add_constructor(
-    "tag:yaml.org,2002:js",
-    lambda loader, node: JsExpr(loader.construct_scalar(node)),
-)
+_L05Loader.add_constructor("tag:yaml.org,2002:js", lambda loader, node: JsExpr(loader.construct_scalar(node)))
 
 
 def dump_with_warnings(home, profile_name: str) -> tuple[DumpResult, str]:
@@ -56,14 +53,7 @@ def dump_with_warnings(home, profile_name: str) -> tuple[DumpResult, str]:
     `name` 字段可以随便写，不需要 `link_plugin` 出一个真能解析的包。
     """
     argv = ["node", str(dsh_bin()), "--profile", profile_name, "--dump-config"]
-    proc = subprocess.run(
-        argv,
-        env=home.env(),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    proc = subprocess.run(argv, env=home.env(), capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         raise LabError(f"dump-config 失败：\n--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}")
     parsed = yaml.load(proc.stdout, Loader=_L05Loader)
@@ -104,12 +94,7 @@ def _watch_alive(inst, seconds: float) -> dict:
             died_at = round(seconds - (deadline - time.monotonic()), 2)
             break
         time.sleep(0.25)
-    return {
-        "alive": inst.alive(),
-        "died_at": died_at,
-        "exit_code": inst.proc.returncode,
-        "logs": inst.logs(tail=40),
-    }
+    return {"alive": inst.alive(), "died_at": died_at, "exit_code": inst.proc.returncode, "logs": inst.logs(tail=40)}
 
 
 # ── 用例 1 · insert 不带 id → 追加进根组 ────────────────────────────────────
@@ -163,9 +148,7 @@ def test_insert_with_id_targeting_non_group_warns_and_skips(lab_home, fixtures_d
     assert dump.entry("child") is None, "目标不是 group，子条目不该被创建"
     leaf = dump.require("leaf")
     assert leaf["config"] == {"x": 1}, "leaf 自身应该原封不动"
-    assert 'patch insert: entry "leaf" is not a group' in stderr, (
-        f"应该有「不是 group」的警告，实际 stderr：{stderr!r}"
-    )
+    assert 'patch insert: entry "leaf" is not a group' in stderr, f"应该有「不是 group」的警告，实际 stderr：{stderr!r}"
 
 
 # ── 用例 3 · null 到底删不删键 ───────────────────────────────────────────────
@@ -259,12 +242,8 @@ def test_missing_id_warns_and_skips_rest_still_applies(lab_home, fixtures_dir):
     print(f"  stderr：{stderr.strip() or '（空）'}")
 
     assert dump.entry("no-such-id") is None, "打空的那条 patch 不该凭空造出条目"
-    assert dump.config_of("alpha") == {"x": 99}, (
-        "打空的那条之后，同一批里对 alpha 的覆盖应该照常生效——不是整批作废"
-    )
-    assert 'patch: entry "no-such-id" not found' in stderr, (
-        f"应该有「找不到 id」的警告，实际 stderr：{stderr!r}"
-    )
+    assert dump.config_of("alpha") == {"x": 99}, "打空的那条之后，同一批里对 alpha 的覆盖应该照常生效——不是整批作废"
+    assert 'patch: entry "no-such-id" not found' in stderr, f"应该有「找不到 id」的警告，实际 stderr：{stderr!r}"
 
 
 # ── 用例 6 · 野字段被完整带着走 ───────────────────────────────────────────────
@@ -300,16 +279,9 @@ def test_arbitrary_fields_pass_through_patch(lab_home, fixtures_dir):
 
 @pytest.mark.instance
 @pytest.mark.parametrize(
-    ("expr", "should_load"),
-    [
-        ("false", True),
-        ("true", False),
-    ],
-    ids=["expr-false-loads", "expr-true-disabled"],
+    ("expr", "should_load"), [("false", True), ("true", False)], ids=["expr-false-loads", "expr-true-disabled"]
 )
-def test_disabled_js_expression_is_evaluated(
-    lab_home, fixtures_dir, launch, expr, should_load
-):
+def test_disabled_js_expression_is_evaluated(lab_home, fixtures_dir, launch, expr, should_load):
     """官方 postmortem 0002 记的根因是：`Entry.disabled` 直接读
     `entry.options.disabled`，从不对它插值——`!!js` 表达式解析成一个对象，
     对象恒真，所以文件系统插件永远被判定为「禁用」，不管表达式写的是什么。
@@ -383,7 +355,9 @@ def test_duplicate_id_at_boot_is_fatal(lab_home, fixtures_dir, launch):
     """
     w1 = lab_home.root / "w-dup-1.json"
     w2 = lab_home.root / "w-dup-2.json"
-    profile = lab_home.make_minimal_profile("l05-dup-boot", patch=f"""# L5 用例 8：同 id 双挂载，撞在 boot 期
+    profile = lab_home.make_minimal_profile(
+        "l05-dup-boot",
+        patch=f"""# L5 用例 8：同 id 双挂载，撞在 boot 期
 - insert:
     - id: dup
       name: lab-patch
@@ -394,7 +368,8 @@ def test_duplicate_id_at_boot_is_fatal(lab_home, fixtures_dir, launch):
       name: lab-patch
       config:
         witness: {json.dumps(w2.as_posix())}
-""")
+""",
+    )
     profile.link_plugin("lab-patch", fixtures_dir / "lab-patch")
 
     dump, stderr = dump_with_warnings(lab_home, profile.name)
