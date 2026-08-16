@@ -1,0 +1,461 @@
+<title>让别人能往你这儿挂东西</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --dead:#be123c;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --dead-bg:#ffe4e6;
+  --code-bg:#f2f4f7; --comment:#8b95a3;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+h4{font-size:15px; margin:26px 0 10px; font-weight:600}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+.scroll{overflow-x:auto}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre-wrap; word-break:break-word; color:var(--ink)}
+.cm{color:var(--comment)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.bad{color:var(--dead); font-weight:600}
+.pd{color:var(--pending); font-weight:600}
+.iv{color:var(--instrument); font-weight:600}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.danger{border-left-color:var(--dead); background:var(--dead-bg)}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.key{border-left-color:var(--instrument); background:var(--instrument-bg)}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+@media (max-width:700px){.two{grid-template-columns:1fr}}
+.two h5{margin:0 0 9px; font-size:13px; font-weight:600}
+.states{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-family:var(--mono); font-size:12px; margin-top:10px}
+.st{padding:5px 11px; border-radius:6px; font-weight:600}
+.st.pend{background:var(--pending-bg); color:var(--pending); border:1px solid var(--pending)}
+.st.unl{background:var(--dead-bg); color:var(--dead); border:1px solid var(--dead)}
+.st.disp{background:var(--code-bg); color:var(--ink-faint); border:1px solid var(--line)}
+.st.act{background:var(--active-bg); color:var(--active); border:1px solid var(--active)}
+.st.load{background:var(--loading-bg); color:var(--loading); border:1px solid var(--loading)}
+.st.fail{background:var(--dead-bg); color:var(--dead); border:1px solid var(--dead)}
+.gap{color:var(--ink-faint)}
+.miss{border:1px dashed var(--ink-faint); color:var(--ink-faint); padding:5px 11px; border-radius:6px; font-family:var(--mono); font-size:12px}
+.tl{font-family:var(--mono); font-size:12px; line-height:1.9}
+.tl .t{color:var(--ink-faint)}
+table{border-collapse:collapse; width:100%; font-size:14px; margin-top:14px}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+th{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; border-bottom:1px solid var(--line)}
+td.m,th.m{font-family:var(--mono); font-size:12.5px}
+tr:last-child td{border-bottom:none}
+.roles{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:16px}
+@media (max-width:700px){.roles{grid-template-columns:1fr}}
+.role{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px}
+.role .n{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:6px}
+.role b{display:block; font-size:15px; margin-bottom:5px}
+.role span{font-size:13px; color:var(--ink-soft)}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+.toc{font-family:var(--mono); font-size:13px; line-height:2; margin-top:18px}
+.toc a{color:var(--loading); text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.toc .num{color:var(--ink-faint); margin-right:10px}
+</style>
+
+<div class="wrap">
+<div class="crumb">独立专题 · 不属于教学线的任何一章</div>
+
+<h1>让别人能往你这儿挂东西</h1>
+<p class="sub">
+  前面每一步，你写的插件都在<b>用</b>别人提供的东西。这份报告讲反过来那件事：
+  你自己提供一个，让别的插件来用——以及当两个人想提供同一样东西时会发生什么。
+</p>
+<div class="meta">
+  4 项 · 11 个用例 · 全套约 35 秒 · 都不需要 web<br>
+  experiments/seam_provide_a_service · seam_one_owner · seam_registry · seam_who_decides
+</div>
+
+<section>
+  <h2>先说清楚</h2>
+  <h3>一项能力有三个角色</h3>
+  <div class="roles">
+    <div class="role">
+      <div class="n">01</div>
+      <b>声明的一方</b>
+      <span>占住一个名字，规定这项能力长什么样</span>
+    </div>
+    <div class="role">
+      <div class="n">02</div>
+      <b>实现的一方</b>
+      <span>把活干出来</span>
+    </div>
+    <div class="role">
+      <div class="n">03</div>
+      <b>使用的一方</b>
+      <span><code>inject</code> 那个名字，调它</span>
+    </div>
+  </div>
+  <p class="note">
+    三个齐了才叫一项能力。DSH 管这个整体叫 <b>seam</b>，并且明确规定
+    <b>单独任何一角都不是 seam</b>。这份报告只管前两角怎么写。
+  </p>
+
+  <div class="toc">
+    <div><span class="num">01</span><a href="#p1">提供一个服务</a> — 第一次站到另一侧</div>
+    <div><span class="num">02</span><a href="#p2">一个名字一个主人</a> — 两个人想占同一个名字</div>
+    <div><span class="num">03</span><a href="#p3">别让它们争名字</a> — 想让多个实现并存怎么办</div>
+    <div><span class="num">04</span><a href="#p4">谁说了算</a> — 前三项看到的差别，根子在哪</div>
+  </div>
+</section>
+
+<section id="p1">
+  <h2>01</h2>
+  <h3>提供一个服务</h3>
+  <p>
+    提供有两种写法。先把它们并排放着——做的事完全一样，都是把一个能被
+    <code>inject</code> 到的东西挂到 <code>labSomething</code> 这个名字上。
+  </p>
+
+  <div class="two">
+    <div class="box">
+      <h5 class="hi">写法甲 · 裸对象</h5>
+<pre>const 服务 = {
+  你看得见谁() {
+    return this.ctx?.fiber
+      ?.entry?.options?.id;
+  },
+  ctx,
+};
+
+<span class="hi">ctx.provide("labBare", 服务);</span></pre>
+    </div>
+    <div class="box">
+      <h5 class="iv">写法乙 · 服务基类</h5>
+<pre>class 我的服务 extends <span class="iv">Service</span> {
+  constructor(ctx) {
+    <span class="iv">super(ctx, "labKlass");</span>
+  }
+  你看得见谁() {
+    return this.ctx?.fiber
+      ?.entry?.options?.id;
+  }
+}
+new 我的服务(ctx);</pre>
+    </div>
+  </div>
+  <p class="note">
+    注意两件事：<b>方法体一字不差</b>；<b>两边都自己存了一份 <code>ctx</code></b>。
+    所以答案要是不同，差别就只可能来自框架交接服务的方式。
+  </p>
+
+  <h4>使用方那侧看不出区别</h4>
+  <p>
+    一个使用方同时 <code>inject</code> 两个，向它们问同一个问题：
+    「此刻你手上那份 <code>ctx</code> 属于谁？」
+  </p>
+
+  <div class="card">
+    <div class="filename">使用方写出来的见证文件 · <b>witness-who.json</b></div>
+<pre>{
+  "我是": "使用方",
+  "裸对象":   { "写法": "裸对象",   "它看见谁": <span class="pd">"裸提供方"</span> },
+  "服务基类": { "写法": "服务基类", "它看见谁": <span class="you">"使用方"</span> }
+}</pre>
+    <p class="note">
+      裸对象报出的是<b>它自己</b>；服务基类报出的是<b>调用它的那个条目</b>。
+    </p>
+  </div>
+
+  <p class="punch key">
+    <b>框架把服务交到调用方手上时，会把方法里的那份 <code>ctx</code> 换成调用方的。</b>
+    裸对象没有这个待遇，它手上永远是自己 <code>apply</code> 时拿到的那份。
+    这就是「继承服务基类」换来的东西——<b>知道谁在调我</b>。
+  </p>
+  <p class="note">
+    这条是第 03 项的地基：往一张表里塞东西时，要把表项的寿命挂到塞它的那个插件身上，
+    前提就是能认出塞它的是谁。
+  </p>
+</section>
+
+<section id="p2">
+  <h2>02</h2>
+  <h3>一个名字一个主人</h3>
+  <p>
+    两个插件都想占 <code>labSeat</code> 这个名字，会怎样？
+  </p>
+
+  <div class="card">
+    <div class="filename">启动日志（退出码 1）</div>
+<pre>Error: dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include):
+failed to apply loader entry <span class="bad">裸乙 (./bare-owner.mjs)</span>:
+<span class="bad">service "labSeat" has been registered at &lt;Include&gt;</span></pre>
+  </div>
+
+  <div class="card">
+    <div class="filename">两边各走过什么状态</div>
+    <div class="states">
+      <span style="color:var(--ink-faint); font-size:12px; min-width:5.5em">先到的</span>
+      <span class="st load">LOADING</span><span class="gap">→</span>
+      <span class="st act">ACTIVE</span><span class="gap">→</span>
+      <span class="st unl">UNLOADING</span><span class="gap">→</span>
+      <span class="st disp">DISPOSED</span>
+    </div>
+    <div class="states">
+      <span style="color:var(--ink-faint); font-size:12px; min-width:5.5em">后到的</span>
+      <span class="st load">LOADING</span><span class="gap">→</span>
+      <span class="st unl">UNLOADING</span><span class="gap">→</span>
+      <span class="st fail">FAILED</span>
+      <span class="gap" style="margin-left:10px">|</span>
+      <span class="miss">ACTIVE 从没出现过</span>
+    </div>
+    <p class="note">
+      后到的那个，<code>provide</code> 之后的代码一行都没执行。
+      而先到的那个虽然占上了、也跑到了 <span class="st act" style="padding:2px 7px">ACTIVE</span>，
+      最后照样被拆掉——<b>启动期一条失败，整树陪葬</b>。
+    </p>
+  </div>
+
+  <h4>换成服务基类，还是抢不到</h4>
+  <p>
+    把其中一个换成写法乙，再撞一次。报错文本<b>一字不差</b>：
+  </p>
+  <div class="box">
+<pre><span class="cm">// 两个裸对象相撞</span>
+service "labSeat" has been registered at &lt;Include&gt;
+
+<span class="cm">// 裸对象 vs 服务基类相撞</span>
+service "labSeat" has been registered at &lt;Include&gt;</pre>
+  </div>
+
+  <p class="punch">
+    <b>独占不是「服务基类」那种写法的特性。</b>
+    两种写法最终都落到框架那唯一一条注册通道上，重复检查就长在那条通道里——
+    所以谁能占名只跟<b>名字</b>有关，跟写法无关。
+  </p>
+  <p class="note">
+    对照实验坐实了病因：同样两个插件、同样两种写法，只把名字改成
+    <code>labSeatA</code> / <code>labSeatB</code>，两个都跑到 ACTIVE、实例照常活着。
+  </p>
+
+  <p class="punch warn">
+    <b>排错提醒：报错点得出「谁失败了」，点不出「谁先占的」。</b>
+    失败方的条目 id 和 <code>name</code> 都在（<code>裸乙 (./bare-owner.mjs)</code>），
+    照着能在 patch 文件里找到那一行；但先占者只显示成 <code>&lt;Include&gt;</code>——那是 fiber 名，
+    不是条目 id。想知道先占者，去事件流里找那条「服务出现」，它带着条目 id。
+  </p>
+</section>
+
+<section id="p3">
+  <h2>03</h2>
+  <h3>别让它们争名字</h3>
+  <p>
+    既然一个名字只能有一个主人，那想让多个实现并存怎么办？
+    办法不是去打破那条规矩，是<b>绕开</b>它：只让一个插件占名字，别人往它肚子里的表塞。
+    从头到尾没人跟谁争。
+  </p>
+
+  <div class="box">
+    <div class="filename">名册 · 声明的那一方</div>
+<pre>class 名册 extends Service {
+  constructor(ctx) { super(ctx, "labRoster"); this.表 = new Map(); }
+
+  register(id, 值) {
+    const 表 = this.表;
+    <span class="cm">// this.ctx 属于调用方 —— 所以这个 effect 挂在塞东西的那个插件身上</span>
+    return <span class="iv">this.ctx.effect</span>(function* () {
+      表.set(id, 值);
+      yield () =&gt; 表.delete(id);
+    });
+  }
+}</pre>
+  </div>
+
+  <h4>两个注册方并存，谁也不撞谁</h4>
+  <p>
+    使用方每 300 毫秒把表内容报进事件流，所以表的变化直接读得出来：
+  </p>
+  <div class="card">
+    <div class="tl">
+<pre><span class="t">   4.5ms</span>  贡献甲   我往名册里塞了「贡献甲」  <span class="cm">塞完表里有 ["贡献甲"]</span>
+<span class="t">   4.6ms</span>  贡献乙   我往名册里塞了「贡献乙」  <span class="cm">塞完表里有 ["贡献乙","贡献甲"]</span>
+<span class="t">   5.7ms</span>  使用方   表里现在有  <span class="you">["贡献乙","贡献甲"]</span>
+<span class="t">   6.5ms</span>  贡献甲   LOADING → <span class="you">ACTIVE</span>
+<span class="t">   6.6ms</span>  贡献乙   LOADING → <span class="you">ACTIVE</span>
+<span class="t">   6.6ms</span>  使用方   LOADING → <span class="you">ACTIVE</span></pre>
+    </div>
+    <p class="note">
+      对照第 02 项：那边两个插件抢同一个名字，一个当场失败、整个实例陪葬；
+      这边两个插件往同一张表里塞，两个都活。
+    </p>
+  </div>
+
+  <h4>表是空的，使用方照样活</h4>
+  <p>
+    把注册方全撤掉，只剩名册和使用方：
+  </p>
+  <div class="box">
+<pre>{"我是": "使用方", "apply时表里": <span class="you">[]</span>}
+<span class="cm">使用方走过：LOADING → ACTIVE      实例照常活着</span></pre>
+  </div>
+
+  <p class="punch">
+    <b>这是注册表式跟独占式最要紧的一处分别。</b>
+    独占式的提供方缺席等于名字没人占，使用方 <code>inject</code> 不到就停在 PENDING、
+    启动期还会拖垮整个实例；这边名字有人占着（名册自己），空表不构成任何错误——
+    <b>失败推迟到真正去用表里的东西那一刻</b>。
+  </p>
+
+  <h4>注册方下线，只少它那一行</h4>
+  <p>
+    实例跑着的时候把「贡献乙」禁用掉（改活层，热重放），同时看两件事：
+  </p>
+  <div class="card">
+    <div class="filename">该变的变了，不该变的没变</div>
+    <table>
+      <tr><th>谁</th><th class="m">改动前</th><th class="m">改动后</th></tr>
+      <tr><td>表内容</td><td class="m">["贡献乙","贡献甲"]</td><td class="m you">["贡献甲"]</td></tr>
+      <tr><td>贡献乙</td><td class="m">LOADING → ACTIVE</td><td class="m bad">…→ UNLOADING → DISPOSED</td></tr>
+      <tr><td>名册</td><td class="m">LOADING → ACTIVE</td><td class="m">LOADING → ACTIVE <span class="you">一个字没多</span></td></tr>
+      <tr><td>使用方</td><td class="m">LOADING → ACTIVE</td><td class="m">LOADING → ACTIVE <span class="you">一个字没多</span></td></tr>
+    </table>
+  </div>
+
+  <p class="punch key">
+    <b>表项的寿命跟着塞它的那个插件走，不跟着名册走。</b>
+    靠的正是第 01 项那条：<code>register()</code> 里那句 <code>this.ctx.effect(...)</code>，
+    <code>this.ctx</code> 属于调用方，所以 effect 挂在注册方的 fiber 上——它下线，
+    它那一行自己就没了，名册不用管。
+  </p>
+  <p class="note">
+    观测手法：<b>该变的</b>（表少一行）用轮询等，<b>不该变的</b>（名册与使用方的状态序列）
+    用改动前后两次快照对比。两个判定用的手段不同，因为「验证发生了」和「验证没发生」
+    本来就不是同一种等法。
+  </p>
+</section>
+
+<section id="p4">
+  <h2>04</h2>
+  <h3>谁说了算</h3>
+  <p>
+    前三项读下来很容易得出一个印象：<b>独占式</b>的提供方缺席，使用方卡住、整个实例陪葬；
+    <b>注册表式</b>的表空着，使用方照样活。好像命运是由「怎么安排多个实现」决定的。
+  </p>
+  <p>
+    这一项拆穿它。三个用例共用同一个使用方文件、<b>一个字都不改</b>，换的只是对面那份名册；
+    而两份名册之间只差一个方法：
+  </p>
+
+  <div class="box">
+    <div class="filename">严格版比宽松版多出来的全部内容</div>
+<pre><span class="iv">[Service.check]() { return this.表.size &gt; 0 }</span>
+<span class="cm">// 框架在决定「等着这个服务的插件能不能开跑」之前会问一次，答否就当它不在</span></pre>
+  </div>
+
+  <div class="card">
+    <div class="filename">三次运行，使用方那个文件全程没改过</div>
+    <table>
+      <tr><th>名册</th><th>表</th><th>使用方</th><th>实例</th></tr>
+      <tr>
+        <td>严格版<br><span style="font-size:12px;color:var(--ink-faint)">有判据</span></td>
+        <td class="m">空</td>
+        <td class="pd">卡在 PENDING，apply 一次没跑</td>
+        <td class="bad">起不来，退出码 1</td>
+      </tr>
+      <tr>
+        <td>严格版<br><span style="font-size:12px;color:var(--ink-faint)">有判据</span></td>
+        <td class="m">有一行</td>
+        <td class="m you">LOADING → ACTIVE</td>
+        <td class="you">活</td>
+      </tr>
+      <tr>
+        <td>宽松版<br><span style="font-size:12px;color:var(--ink-faint)">无判据</span></td>
+        <td class="m">空</td>
+        <td class="m you">LOADING → ACTIVE，拿到空表</td>
+        <td class="you">活</td>
+      </tr>
+    </table>
+    <p class="note">
+      第一行和第三行的表<b>同样是空的</b>，使用方<b>同样一个字没改</b>——
+      差别只在名册那边多写／少写一个方法。第一行里名册自己还是
+      <span class="st act" style="padding:2px 7px">ACTIVE</span> 的：
+      卡住使用方的不是「名册没起来」。
+    </p>
+  </div>
+
+  <p class="punch key">
+    <b>「独占还是注册表」不决定使用方的命运，那一刻的可用性判据才决定。</b>
+    前三项看到的所有差别，根子都在这儿。
+  </p>
+
+  <h4>但判据造成的 PENDING，日志不告诉你在等谁</h4>
+  <p>
+    两种 PENDING 的判词不一样，而且是往难查的方向不一样：
+  </p>
+  <div class="box">
+<pre><span class="cm">// 压根没人提供这个名字 —— 点得出名字</span>
+./locked.mjs: pending (waiting for service: <span class="pd">开锁服务</span>)
+
+<span class="cm">// 有人占着，判据说不可用 —— 点不出名字</span>
+./roster-user.mjs: pending (waiting for services: <span class="bad">unknown</span>)</pre>
+  </div>
+
+  <p class="punch danger">
+    <b>看到 <code>waiting for services: unknown</code> 时，方向不是「去找谁没提供这个服务」，
+    而是「去找哪个服务的可用性判据正在返回否」。</b>
+    名字确实被占着，启动期审计那一侧看不出缺的是谁。
+  </p>
+  <p class="note">
+    判词前半截打的是条目的 <code>name</code>（<code>./roster-user.mjs</code>）而不是 id——
+    排错时拿 name 回 patch 文件里找。
+  </p>
+</section>
+
+<section>
+  <h2>收口</h2>
+  <h3>四项合起来是一句话</h3>
+
+  <div class="card">
+    <table>
+      <tr><th style="width:8em">一条铁律</th><td>一个名字只有一个主人，第二个来占的当场失败。跟你用哪种写法无关。</td></tr>
+      <tr><th>一个绕法</th><td>想让多个实现并存，就别让它们争名字——只让一个占名，其余住进它的表里。</td></tr>
+      <tr><th>一个开关</th><td>使用方能不能开跑，由服务那一刻的可用性判据说了算，两种安排都能挂。</td></tr>
+    </table>
+  </div>
+
+  <p class="punch">
+    继承服务基类换来的不是「独占」——那是所有写法都有的。
+    换来的是<b>知道谁在调我</b>，而整个注册表式的安排都架在这一条上。
+  </p>
+</section>
+
+<div class="foot">
+  全部数字、报错原文、状态序列与时间线取自 out/results/seam_*，未经改写。<br>
+  第 04 项只覆盖静态场景（名册开张时表里有没有东西）；「表在运行期从空变非空，等着的插件会不会被唤醒」不在本报告的装置范围内。
+</div>
+</div>
