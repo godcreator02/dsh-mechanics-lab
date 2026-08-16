@@ -1,26 +1,26 @@
-<title>DSH 插件系统 · 九步</title>
+<title>DSH 插件系统 · 六章</title>
 <style>
 :root{
   --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
   --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9;
-  --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --pending:#b45309; --dead:#be123c;
-  --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe;
-  --code-bg:#f2f4f7; --comment:#8b95a3;
+  --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --pending:#b45309;
+  --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --pending-bg:#fef3c7;
+  --code-bg:#f2f4f7; --comment:#8b95a3; --todo:#a3adba;
   --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
   --paper:#0d1117; --card:#151a22; --line:#262d38;
-  --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --pending:#fbbf24; --dead:#fb7185;
-  --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
-  --code-bg:#10151c; --comment:#5d6773;
+  --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --pending:#fbbf24;
+  --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --pending-bg:#3b2f0d;
+  --code-bg:#10151c; --comment:#5d6773; --todo:#4d5765;
 }}
 :root[data-theme="dark"]{
   --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
   --paper:#0d1117; --card:#151a22; --line:#262d38;
-  --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --pending:#fbbf24; --dead:#fb7185;
-  --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
-  --code-bg:#10151c; --comment:#5d6773;
+  --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --pending:#fbbf24;
+  --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --pending-bg:#3b2f0d;
+  --code-bg:#10151c; --comment:#5d6773; --todo:#4d5765;
 }
 *{box-sizing:border-box}
 body{margin:0; background:var(--paper); color:var(--ink);
@@ -29,32 +29,32 @@ body{margin:0; background:var(--paper); color:var(--ink);
 h1{font-size:clamp(30px,5.4vw,48px); line-height:1.12; margin:0 0 12px; letter-spacing:-.035em; font-weight:660; text-wrap:balance}
 .sub{color:var(--ink-soft); font-size:17.5px; margin:0 0 10px; max-width:60ch}
 .meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:26px}
-h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 14px}
+h2{font-size:19px; font-weight:640; letter-spacing:-.01em; margin:0 0 4px}
+h2 .n{font-family:var(--mono); font-size:12px; color:var(--ink-faint); font-weight:500; letter-spacing:.1em; display:block; margin-bottom:5px; text-transform:uppercase}
+.chdesc{color:var(--ink-soft); font-size:14px; margin:0 0 14px}
 p{margin:0 0 14px; max-width:64ch}
-section{margin-top:56px}
+section{margin-top:44px}
 code{font-family:var(--mono); font-size:.9em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
-
-.steps{display:grid; gap:10px}
-.step{
-  display:grid; grid-template-columns:44px 1fr auto; gap:16px; align-items:center;
-  padding:15px 18px; border:1px solid var(--line); border-radius:11px; background:var(--card);
+.items{display:grid; gap:7px}
+.it{
+  display:grid; grid-template-columns:46px 1fr auto; gap:14px; align-items:center;
+  padding:12px 16px; border:1px solid var(--line); border-radius:10px; background:var(--card);
   text-decoration:none; color:inherit; transition:border-color .15s, transform .15s;
 }
-.step:hover{border-color:var(--loading); transform:translateX(3px)}
-.num{
-  font-family:var(--mono); font-size:15px; font-weight:700; color:var(--loading);
-  background:var(--loading-bg); border-radius:8px; text-align:center; padding:7px 0;
-}
-.what{font-size:16.5px; font-weight:600; letter-spacing:-.01em}
-.gets{font-size:13px; color:var(--ink-soft); margin-top:3px}
-.tag{
-  font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:5px;
-  background:var(--code-bg); color:var(--ink-faint); white-space:nowrap;
-}
+a.it:hover{border-color:var(--loading); transform:translateX(3px)}
+.it.todo{background:transparent; border-style:dashed; color:var(--todo)}
+.num{font-family:var(--mono); font-size:13.5px; font-weight:700; color:var(--loading);
+  background:var(--loading-bg); border-radius:7px; text-align:center; padding:6px 0}
+.it.todo .num{color:var(--todo); background:transparent; border:1px dashed var(--line)}
+.what{font-size:15.5px; font-weight:600; letter-spacing:-.005em}
+.gets{font-size:12.5px; color:var(--ink-soft); margin-top:2px}
+.it.todo .gets{color:var(--todo)}
+.tag{font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:5px;
+  background:var(--code-bg); color:var(--ink-faint); white-space:nowrap}
 .tag.dbg{background:var(--instrument-bg); color:var(--instrument)}
-
+.tag.todo{background:transparent; border:1px dashed var(--line); color:var(--todo)}
 .pair{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
-@media (max-width:640px){.pair{grid-template-columns:1fr}}
+@media (max-width:640px){.pair{grid-template-columns:1fr} .it{grid-template-columns:40px 1fr}}
 .box{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:16px 18px}
 .box h3{margin:0 0 8px; font-size:15px; font-weight:600}
 .box p{font-size:13.5px; color:var(--ink-soft); margin:0}
@@ -68,19 +68,18 @@ pre{margin:0; font-family:var(--mono); font-size:12px; line-height:1.6; white-sp
 
 <div class="wrap">
 
-<h1>DSH 插件系统 · 九步</h1>
+<h1>DSH 插件系统 · 六章</h1>
 <p class="sub">
-  每一步是一个实验：跑一条命令，看真实输出。不用照着敲、不用自己搭环境——
+  每一项是一个实验：跑一条命令，看真实输出。不用照着敲、不用自己搭环境——
   实验自己起隔离的实例、自己收数据，你只看结果。
 </p>
-<div class="meta">36 个用例 · 全套 56 秒 · 页面上的每个数字都读自实验跑出来的事件流</div>
+<div class="meta">页面上的每个数字、每段报错、每棵文件树，都读自实验跑出来的产物</div>
 
 <section>
-  <h2>怎么读</h2>
   <div class="pair">
     <div class="box">
-      <h3>能跑 → 能配 → 能查 → 能热更</h3>
-      <p>顺序按「你想干什么」排，不按系统结构排。一路走完，能写插件、能自己排错、能热开发。</p>
+      <h3>能跑 → 能交付 → 扛得住出错</h3>
+      <p>顺序按「你想干什么」排，不按系统结构排。每一项都是一个动作或一个具体问题，不是一组概念。</p>
     </div>
     <div class="box">
       <h3>先用后懂</h3>
@@ -90,95 +89,187 @@ pre{margin:0; font-family:var(--mono); font-size:12px; line-height:1.6; white-sp
 </section>
 
 <section>
-  <h2>九步</h2>
-  <div class="steps">
-
-    <a class="step" href="step-1.html">
-      <div class="num">1</div>
-      <div>
-        <div class="what">最小实例与那台仪器</div>
-        <div class="gets">一个实例最少要两条；以及后面每步都靠的那只眼睛怎么工作</div>
-      </div>
-      <span class="tag">timer / hmr</span>
+  <h2><span class="n">第零章</span>准备</h2>
+  <p class="chdesc">把台子搭起来，认识那台后面每一项都要用的仪器。</p>
+  <div class="items">
+    <a class="it" href="setup.html">
+      <div class="num">0-1</div>
+      <div><div class="what">环境与隔离</div>
+        <div class="gets">怎么跑、假 home 在哪、为什么碰不到你自己那个 DSH</div></div>
+      <span class="tag">说明</span>
     </a>
-
-    <a class="step" href="step-2.html">
-      <div class="num">2</div>
-      <div>
-        <div class="what">把自己写的东西挂上去</div>
-        <div class="gets">一个文件就是一个插件；apply 跑在「加载中」而不是「加载完」</div>
-      </div>
-      <span class="tag">apply / insert</span>
+    <a class="it" href="observer.html">
+      <div class="num">0-2</div>
+      <div><div class="what">探查器</div>
+        <div class="gets">它凭什么能看见整棵树；它看不见什么</div></div>
+      <span class="tag">仪器</span>
     </a>
-
-    <a class="step" href="step-3.html">
-      <div class="num">3</div>
-      <div>
-        <div class="what">给它传配置</div>
-        <div class="gets">写什么收什么；键名拼错时没有任何人会告诉你</div>
-      </div>
-      <span class="tag">config</span>
+    <a class="it" href="minimal.html">
+      <div class="num">0-3</div>
+      <div><div class="what">最小实例</div>
+        <div class="gets">timer ＋ hmr，一个实例的下限</div></div>
+      <span class="tag">下限</span>
     </a>
-
-    <a class="step" href="step-4.html">
-      <div class="num">4</div>
-      <div>
-        <div class="what">临时关掉它</div>
-        <div class="gets">留在树上但从不运行；跟「压根没写」是两件事</div>
-      </div>
-      <span class="tag">disabled</span>
-    </a>
-
-    <a class="step" href="step-5.html">
-      <div class="num">5</div>
-      <div>
-        <div class="what">挂不上，怎么查</div>
-        <div class="gets">六种写错的真实报错；module 和 package 这两个词决定往哪查</div>
-      </div>
-      <span class="tag dbg">排错 ①</span>
-    </a>
-
-    <a class="step" href="step-6.html">
-      <div class="num">6</div>
-      <div>
-        <div class="what">改了代码立刻生效</div>
-        <div class="gets">存盘就重来；放大到微秒能看见新旧两个重叠的那 200 微秒</div>
-      </div>
-      <span class="tag">hmr / root</span>
-    </a>
-
-    <a class="step" href="step-7.html">
-      <div class="num">7</div>
-      <div>
-        <div class="what">配置不止一处</div>
-        <div class="gets">home 那处对每个 profile 都生效；两处是拼起来的，同 id 就撞车</div>
-      </div>
-      <span class="tag">两处 patch</span>
-    </a>
-
-    <a class="step" href="step-8.html">
-      <div class="num">8</div>
-      <div>
-        <div class="what">改别人已经挂上的条目</div>
-        <div class="gets">insert 是加、顶格写 id 是改；覆盖是整个换掉不是合并</div>
-      </div>
-      <span class="tag">覆盖</span>
-    </a>
-
-    <a class="step" href="step-9.html">
-      <div class="num">9</div>
-      <div>
-        <div class="what">挂上了但没执行</div>
-        <div class="gets">那行一直照着写的 inject 到底是什么；等不到就全员陪葬</div>
-      </div>
-      <span class="tag dbg">排错 ②</span>
-    </a>
-
   </div>
 </section>
 
 <section>
-  <h2>为什么每个数字都能信</h2>
+  <h2><span class="n">第一章</span>会用</h2>
+  <p class="chdesc">从写出第一个能跑的插件，到遇到问题时知道该查什么。</p>
+  <div class="items">
+    <a class="it" href="mount.html">
+      <div class="num">1</div>
+      <div><div class="what">把自己写的东西挂上去</div>
+        <div class="gets">一个文件就是一个插件；apply 跑在「加载中」而不是「加载完」</div></div>
+      <span class="tag">apply</span>
+    </a>
+    <a class="it" href="config.html">
+      <div class="num">2</div>
+      <div><div class="what">给它传配置</div>
+        <div class="gets">写什么收什么；键名拼错时没有任何人会告诉你</div></div>
+      <span class="tag">config</span>
+    </a>
+    <a class="it" href="disable.html">
+      <div class="num">3</div>
+      <div><div class="what">临时关掉它</div>
+        <div class="gets">留在树上但从不运行；跟「压根没写」是两件事</div></div>
+      <span class="tag">disabled</span>
+    </a>
+    <a class="it" href="wont-load.html">
+      <div class="num">4</div>
+      <div><div class="what">挂不上，怎么查</div>
+        <div class="gets">六种写错的真实报错；module 和 package 这两个词决定往哪查</div></div>
+      <span class="tag dbg">排错 ①</span>
+    </a>
+    <a class="it" href="hot-reload.html">
+      <div class="num">5</div>
+      <div><div class="what">改了代码立刻生效</div>
+        <div class="gets">存盘就重来；放大到微秒能看见新旧两个重叠的那一段</div></div>
+      <span class="tag">hmr</span>
+    </a>
+    <a class="it" href="two-places.html">
+      <div class="num">6</div>
+      <div><div class="what">配置不止一处</div>
+        <div class="gets">两处会拼起来，不是二选一；同 id 就撞车</div></div>
+      <span class="tag">两处</span>
+    </a>
+    <a class="it" href="change-entry.html">
+      <div class="num">7</div>
+      <div><div class="what">改别人已经挂上的条目</div>
+        <div class="gets">insert 是加、顶格写 id 是改；覆盖是整个换掉不是合并</div></div>
+      <span class="tag">覆盖</span>
+    </a>
+    <a class="it" href="never-ran.html">
+      <div class="num">8</div>
+      <div><div class="what">挂上了但没执行</div>
+        <div class="gets">那行一直照着写的 inject 到底是什么；等不到就一条出事全体停摆</div></div>
+      <span class="tag dbg">排错 ②</span>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">第二章</span>交付：把它做成一个真的插件</h2>
+  <p class="chdesc">前面写的插件是「profile 目录里的一个文件」——那不是能给别人的东西。</p>
+  <div class="items">
+    <a class="it" href="four-ways.html">
+      <div class="num">9</div>
+      <div><div class="what">四种交付途径</div>
+        <div class="gets">挂出来的条目一模一样，差别全在痕迹上</div></div>
+      <span class="tag">横向</span>
+    </a>
+    <a class="it" href="bundle-vs-live.html">
+      <div class="num">10</div>
+      <div><div class="what">bundle 层与活层的分水岭</div>
+        <div class="gets">包能自注册；改 bundle 层毫无反应，重启才生效</div></div>
+      <span class="tag">冷与热</span>
+    </a>
+    <a class="it" href="worktree.html">
+      <div class="num">11</div>
+      <div><div class="what">工作副本双线换版本</div>
+        <div class="gets">换 tag 就换版本，进程不重启；一次换一批仍是一次重载</div></div>
+      <span class="tag">发版</span>
+    </a>
+    <div class="it todo">
+      <div class="num">12</div>
+      <div><div class="what">client 半边</div>
+        <div class="gets">一个包活在两侧</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">第三章</span>出错：它挂了会连累谁</h2>
+  <p class="chdesc">启动时一条出事全体停摆——那运行期呢？</p>
+  <div class="items">
+    <div class="it todo">
+      <div class="num">13</div>
+      <div><div class="what">apply 抛错</div>
+        <div class="gets">启动期 vs 运行期，两种下场</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+    <div class="it todo">
+      <div class="num">14</div>
+      <div><div class="what">事务回滚的真实形态</div>
+        <div class="gets">运行期回滚，旧的一个不少吗</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+    <div class="it todo">
+      <div class="num">15</div>
+      <div><div class="what">PENDING 连锁</div>
+        <div class="gets">A 挂不上，inject 了 A 的 B 会不会沉默</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">第四章</span>生死：卸载时到底清了什么</h2>
+  <p class="chdesc">拆掉一个条目，它留下的东西谁来收。</p>
+  <div class="items">
+    <div class="it todo">
+      <div class="num">16</div>
+      <div><div class="what">卸载连锁</div>
+        <div class="gets">孩子和依赖它的各是什么下场</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+    <div class="it todo">
+      <div class="num">17</div>
+      <div><div class="what">effect 与 disposer</div>
+        <div class="gets">路由？定时器？监听器？漏了哪个</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">第五章</span>热：活着的树怎么变</h2>
+  <p class="chdesc">收口。改一处，到底波及多少。</p>
+  <div class="items">
+    <div class="it todo">
+      <div class="num">18</div>
+      <div><div class="what">热重放 vs 热重载</div>
+        <div class="gets">改 patch 和改代码，事件流里怎么分辨</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+    <div class="it todo">
+      <div class="num">19</div>
+      <div><div class="what">改一处波及几个</div>
+        <div class="gets">条目级 diff 到底 diff 在哪一层</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+    <div class="it todo">
+      <div class="num">20</div>
+      <div><div class="what">hmr 自己被重载时</div>
+        <div class="gets">它就住在自己的射程内</div></div>
+      <span class="tag todo">还没做</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 style="font-size:15px">为什么每个数字都能信</h2>
   <p>
     实验里装了一台采集器。它<b>不是外挂的探针，是树上一个普通条目</b>——写在同一个
     patch 文件里，跟被观测的插件平级，没有任何特权。所以你在每张图里都会看到它。
@@ -197,14 +288,22 @@ ctx.<span class="hi">provide</span>("labObserver", { for(callerCtx) { … } });<
   </p>
   <p style="margin-top:16px; font-size:14px; color:var(--ink-soft)">
     它也有能力上限：<b>拿不到自己挂载之前的历史</b>。采集器自己也要被加载，
-    在它睁眼之前发生的事没人记——所有毫秒数都相对它睁眼那一刻，不是进程启动。
+    在它睁眼之前发生的事没人记——<b>这台仪器连自己的出生都没记全</b>。
+    所有毫秒数都相对它睁眼那一刻，不是进程启动。详见 <a href="observer.html" style="color:var(--loading)">0-2 探查器</a>。
+  </p>
+  <p style="margin-top:14px; font-size:14px; color:var(--ink-soft)">
+    ⚠️ <b>你自己跑出来的毫秒数不会跟页面上一模一样</b>，差个一两毫秒是正常的——
+    那是真机上的调度抖动。<b>会一模一样的是结构性的那些</b>：条目有几个、
+    事件有多少条、重载触发几次、谁先谁后、退出码是几。页面上的判定全部落在后者上，
+    没有一条依赖某个精确的毫秒值。
   </p>
 </section>
 
 <div class="foot">
-  跑法：<code>uv run pytest experiments/step1_run_an_instance/ -n 0 -s</code>（每步各自可跑）<br>
-  全套 36 个用例并行跑完 56 秒；每步一个隔离的假 home，互不干扰。<br>
-  页面上的时间线、报错原文、文件树、配置内容，全部取自跑完后的实验产物。
+  跑法：<code>uv run pytest experiments/&lt;某一项的目录&gt;/ -n 0 -s</code>（每项各自可跑）<br>
+  全套并行跑完约 100 秒；每项一个隔离的假 home，互不干扰。<br>
+  第三到五章开工前要先扩观测手段——看「effect 清了什么」得直接读 fiber 的 effect 列表，
+  看「哪些条目被重挂」得有条目级 diff。
 </div>
 
 </div>

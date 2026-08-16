@@ -77,7 +77,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 </style>
 
 <div class="wrap">
-<div class="crumb">第 9 步 / 共 9 步 · 最后一步</div>
+<div class="crumb">第一章 · 第 8 项 / 共 20 项 · 本章最后一项</div>
 
 <h1>挂上了但没执行</h1>
 <p class="sub">
@@ -90,7 +90,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 
 <section>
   <h2>那行 inject</h2>
-  <h3>从第 2 步用到现在，一直没解释</h3>
+  <h3>从第 1 项用到现在，一直没解释</h3>
   <p>
     你写的每个插件开头都有这么一行，一直是「照着写」：
   </p>
@@ -126,7 +126,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
       <span class="miss">ACTIVE 从没出现过</span>
     </div>
     <p class="note">
-      对照第 2 步那个正常的插件：<span class="st pend" style="padding:2px 7px">PENDING</span>
+      对照第 1 项那个正常的插件：<span class="st pend" style="padding:2px 7px">PENDING</span>
       → <span class="st load" style="padding:2px 7px">LOADING</span>（这时 apply 在跑）
       → <span class="st act" style="padding:2px 7px">ACTIVE</span>。
       <b>这次它卡在第一格，一步都没往前走。</b>
@@ -156,7 +156,9 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 
   <p class="punch danger">
     <b>启动时只要有一个条目没能激活，整个实例就起不来。</b>
-    跟第 5 步一样是全员陪葬——只不过那次是「找不到文件」，这次是「等不到东西」。
+    跟第 4 项一样，一条出事全体停摆。但<b>死法并不相同</b>：那次是有条目根本没建起来、
+组合压根没拼成，报错首句是「导入某个条目失败」；这次是全都建好了、只有它一直没能开始跑，
+报错首句是「有 1 个条目没能激活」。<b>看首句就能分辨该往哪查。</b>
   </p>
   <p class="note">
     ⚠️ 判词前半截打的是条目的 <b><code>name</code></b>（这里是 <code>./locked.mjs</code>），
@@ -165,18 +167,18 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 </section>
 
 <section>
-  <h2>回头看第 1 步</h2>
+  <h2>回头看 0-3</h2>
   <h3>你在第一页就见过这句话了</h3>
 
   <div class="card">
     <div class="cmp">
       <div class="h"></div><div class="h">谁在等</div><div class="h">等的是什么</div>
 
-      <div style="color:var(--ink-faint)">第 1 步</div>
+      <div style="color:var(--ink-faint)">0-3 最小实例</div>
       <div>@deepseek-ai/cordis-plugin-hmr</div>
       <div class="pd">timer</div>
 
-      <div style="color:var(--ink-faint)">第 9 步</div>
+      <div style="color:var(--ink-faint)">本项</div>
       <div>./locked.mjs</div>
       <div class="pd">开锁服务</div>
     </div>
@@ -240,7 +242,7 @@ export function apply(ctx) {
   <h3>九步之后你手上有什么</h3>
   <p>
     能写插件、能传配置、能临时关掉、能改别人挂上的条目、能热开发；
-    遇到「没跑起来」时知道分两种查：<b>挂不上</b>（第 5 步，报错在启动日志里，
+    遇到「没跑起来」时知道分两种查：<b>挂不上</b>（第 4 项，报错在启动日志里，
     看 module 还是 package）和<b>挂上了没执行</b>（这一步，看它卡在 PENDING 等谁）。
   </p>
   <p class="note">
@@ -250,8 +252,8 @@ export function apply(ctx) {
 </section>
 
 <div class="nav">
-  <a href="step-8.html"><small>上一步</small>← 第 8 步 · 改别人已经挂上的条目</a>
-  <span class="none"><small>下一步</small>—— 这是最后一步</span>
+  <a href="change-entry.html"><small>上一步</small>← 第 7 项 · 改别人已经挂上的条目</a>
+  <a href="four-ways.html"><small>下一步</small>第 9 项 · 四种交付途径 →</a>
 </div>
 <div class="foot">
   状态序列、事件流与启动日志取自 out/testhome/step9/。<br>

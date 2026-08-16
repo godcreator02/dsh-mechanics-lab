@@ -1,0 +1,11 @@
+# route-d 也声明了 dsh.bundle.patch，长得跟 route-c 一模一样。
+# 但用例不会把 route-d 列进 dsh.profile.bundles ——所以这一叠 patch
+# 永远不会被 boot 读到，下面这条 insert 永远不会叠进配方。
+# 「层版本: d-r1-NEVER-APPLIED」这个值就是活证据：它不该出现在
+# 任何一条事件流里；一旦出现，说明「声明了 dsh.bundle 就会自动生效」
+# 这个错误理解成立了，用例要抓的就是这个反例。
+- insert:
+    - id: route-d-selfmounted
+      name: route-d
+      config:
+        层版本: d-r1-NEVER-APPLIED

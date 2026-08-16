@@ -79,9 +79,7 @@ def build(lab_home: LabHome, name: str, *, mount_yours: bool) -> tuple[LabProfil
     return profile, events
 
 
-def wait_for_events(
-    inst: Instance, path: Path, *, least: int = 5, timeout: float = 40.0
-) -> list[dict]:
+def wait_for_events(inst: Instance, path: Path, *, least: int = 5, timeout: float = 40.0) -> list[dict]:
     deadline = time.monotonic() + timeout
     events: list[dict] = []
     while time.monotonic() < deadline:
@@ -109,9 +107,7 @@ def test_your_plugin_runs_and_says_so(lab_home: LabHome, launch):
     print(f"它走过的状态：{states_of(events, 'hello')}")
 
     assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
-    assert "hello" in entry_ids(events), (
-        f"树上应当有你写的那条，实际 {sorted(entry_ids(events))}"
-    )
+    assert "hello" in entry_ids(events), f"树上应当有你写的那条，实际 {sorted(entry_ids(events))}"
     assert said, "插件的 apply 没说话 —— 它可能压根没被调用"
     assert said[0]["note"] == "我的 apply 被调用了"
 
@@ -128,11 +124,7 @@ def test_apply_runs_while_loading(lab_home: LabHome, launch):
     events = wait_for_events(inst, events_path, least=8)
 
     said = reports(events, who="hello")
-    active = [
-        e
-        for e in events
-        if e.get("kind") == "status" and e.get("id") == "hello" and e.get("to") == "ACTIVE"
-    ]
+    active = [e for e in events if e.get("kind") == "status" and e.get("id") == "hello" and e.get("to") == "ACTIVE"]
     assert said and active, f"该有的事件没齐：说话 {len(said)} 条、ACTIVE {len(active)} 条"
 
     say_ms, active_ms = float(said[0]["ms"]), float(active[0]["ms"])

@@ -70,14 +70,10 @@ def with_observer(patch: str, events_path: Path) -> str:
     patch 文件是 YAML 数组、允许多个 `- insert:` 块，所以直接拼字符串就行——
     不用解析，也不用改前面那段。
     """
-    return patch.format(timer=PKG_TIMER, hmr=PKG_HMR) + OBSERVER_ENTRY.format(
-        out=json.dumps(events_path.as_posix())
-    )
+    return patch.format(timer=PKG_TIMER, hmr=PKG_HMR) + OBSERVER_ENTRY.format(out=json.dumps(events_path.as_posix()))
 
 
-def wait_for_events(
-    inst: Instance, path: Path, *, least: int = 5, timeout: float = 40.0
-) -> list[dict]:
+def wait_for_events(inst: Instance, path: Path, *, least: int = 5, timeout: float = 40.0) -> list[dict]:
     """等采集器把事件刷出来。
 
     等的是**事件条数**而不是文件存在：采集器一挂载就先写一个空文件，
@@ -104,9 +100,7 @@ def test_two_entries_make_an_instance(lab_home: LabHome, launch):
       * 采集器自己也在树上——它没有特权
     """
     events_path = lab_home.root / "events.jsonl"
-    profile = lab_home.make_profile(
-        "minimal", bundles=[], patch=with_observer(MINIMAL, events_path)
-    )
+    profile = lab_home.make_profile("minimal", bundles=[], patch=with_observer(MINIMAL, events_path))
     profile.link_plugin("lab-recorder", OBSERVER)
 
     inst = launch(profile, wait_http=False)
@@ -123,17 +117,13 @@ def test_two_entries_make_an_instance(lab_home: LabHome, launch):
 
     assert inst.alive(), f"实例应当活着，却退了：\n{inst.logs()}"
     assert {"timer", "hmr"} <= ids, f"timer 与 hmr 都该在树上，实际 {sorted(ids)}"
-    assert "lab-recorder" in ids, (
-        "采集器自己也该出现在树上——它是普通条目不是外挂探针，看不到它反而说明观测有问题"
-    )
+    assert "lab-recorder" in ids, "采集器自己也该出现在树上——它是普通条目不是外挂探针，看不到它反而说明观测有问题"
     # 一个最小实例就这四条，多一条都说明有东西没数清楚：
     #   timer / hmr    你写进 patch 的
     #   lab-recorder   仪器，也是你写进 patch 的
     #   include        **框架自己放的**，你没写过它 —— 它是这棵树的根，
     #                  深水区会讲。这里只需要知道：它总在，且不是你放的
-    assert ids == {"timer", "hmr", "lab-recorder", "include"}, (
-        f"预期只有那四条，实际 {sorted(ids)}"
-    )
+    assert ids == {"timer", "hmr", "lab-recorder", "include"}, f"预期只有那四条，实际 {sorted(ids)}"
 
     # timer 先 ACTIVE，hmr 才开始 LOADING —— 依赖顺序在时间线上直接看得到
     def first_ms(entry_id: str, to: str) -> float | None:
@@ -145,9 +135,7 @@ def test_two_entries_make_an_instance(lab_home: LabHome, launch):
     timer_active, hmr_loading = first_ms("timer", "ACTIVE"), first_ms("hmr", "LOADING")
     if timer_active is not None and hmr_loading is not None:
         print(f"\ntimer 变 ACTIVE：{timer_active:.1f}ms    hmr 才开始 LOADING：{hmr_loading:.1f}ms")
-        assert timer_active <= hmr_loading, (
-            "hmr 应当等 timer 就位之后才开始加载，时间线却反过来了"
-        )
+        assert timer_active <= hmr_loading, "hmr 应当等 timer 就位之后才开始加载，时间线却反过来了"
 
 
 def test_hmr_alone_will_not_start(lab_home: LabHome, launch):
@@ -156,9 +144,7 @@ def test_hmr_alone_will_not_start(lab_home: LabHome, launch):
     这条撑住第 1 步唯一的判定——**那两条是捆绑的**。
     """
     events_path = lab_home.root / "events-only-hmr.jsonl"
-    profile = lab_home.make_profile(
-        "only-hmr", bundles=[], patch=with_observer(ONLY_HMR, events_path)
-    )
+    profile = lab_home.make_profile("only-hmr", bundles=[], patch=with_observer(ONLY_HMR, events_path))
     profile.link_plugin("lab-recorder", OBSERVER)
 
     inst = launch(profile, wait_http=False)

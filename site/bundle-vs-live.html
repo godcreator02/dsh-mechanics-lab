@@ -1,0 +1,446 @@
+<title>有一份 patch 文件，改了没反应</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --dead:#be123c;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --dead-bg:#ffe4e6;
+  --code-bg:#f2f4f7; --comment:#8b95a3;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+.scroll{overflow-x:auto}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre-wrap; word-break:break-word; color:var(--ink)}
+.cm{color:var(--comment)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.bad{color:var(--dead); font-weight:600}
+.hm{color:var(--instrument); font-weight:600}
+.cold{color:var(--pending); font-weight:600}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.danger{border-left-color:var(--dead); background:var(--dead-bg)}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.merge{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media (max-width:720px){.merge{grid-template-columns:1fr}}
+.arrow-down{text-align:center; font-family:var(--mono); font-size:20px; color:var(--ink-faint); margin:12px 0}
+.tree{background:var(--card); border:2px solid var(--loading); border-radius:10px; padding:16px 18px}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+@media (max-width:660px){.two{grid-template-columns:1fr}}
+.two .box h5{margin:0 0 9px; font-size:13px; font-weight:600}
+.two .box h5 small{display:block; font-weight:400; font-size:11px; color:var(--ink-faint); font-family:var(--mono); margin-top:2px}
+.side{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+@media (max-width:720px){.side{grid-template-columns:1fr}}
+.side .col{border:1px solid var(--line); border-radius:10px; padding:16px 18px; background:var(--card)}
+.side .col.hot{border-color:var(--active)}
+.side .col.frozen{border-color:var(--pending)}
+.side .col h4{margin:0 0 4px; font-size:17px; font-weight:640}
+.side .col .tag{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px}
+.side dl{display:grid; grid-template-columns:auto 1fr; gap:6px 12px; margin:0; font-size:13px; align-items:baseline}
+.side dt{color:var(--ink-faint); white-space:nowrap; font-family:var(--mono); font-size:11.5px}
+.side dd{margin:0; color:var(--ink-soft)}
+.side dd b{color:var(--ink); font-weight:640}
+.rt{display:grid; gap:10px; margin-top:16px}
+.rrow{display:grid; grid-template-columns:minmax(0,240px) minmax(0,1fr); gap:14px; align-items:start; border:1px solid var(--line); border-radius:9px; padding:13px 16px; background:var(--card)}
+@media (max-width:700px){.rrow{grid-template-columns:1fr}}
+.rq{font-size:14px; font-weight:600; color:var(--ink-soft)}
+.rq::before{content:"「"}
+.rq::after{content:"」"}
+.ra{font-size:13.5px}
+.ra b{font-weight:640}
+.sum{width:100%; border-collapse:collapse; margin-top:16px; font-size:14px}
+.sum th{text-align:left; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; padding:0 12px 8px 0; border-bottom:1px solid var(--line)}
+.sum td{padding:12px 12px 12px 0; border-bottom:1px solid var(--line-soft); vertical-align:top}
+.sum td:first-child{font-family:var(--mono); font-size:12.5px; white-space:nowrap}
+.nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
+.nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
+.nav a:hover{text-decoration:underline}
+.nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+</style>
+
+<div class="wrap">
+<div class="crumb">第二章 · 第 10 项 / 共 20 项</div>
+
+<h1>有一份 patch 文件，改了没反应</h1>
+<p class="sub">
+  前面每次改 patch 文件，一两秒就生效。第 9 项那种「正经安装」进来的插件，
+  它的条目也写在一份 patch 文件里——但那一份你改了，实例当没看见。
+</p>
+<div class="meta">
+  uv run pytest experiments/ch2_bundle_vs_live/ -n 0 -s · 3 个用例 · 约 23 秒
+</div>
+
+<section>
+  <h2>先给两边起个名字</h2>
+  <h3>你一直在改的那个，从现在起叫「活层」</h3>
+  <p>
+    到这里为止，「写 patch 的地方」见过两处：profile 目录里那份、home 目录里那份（第 6 项）。
+    它们是同一种东西，合起来叫<b>活层</b>——不是新冒出来的概念，
+    就是你前面每一次动手改的那个文件。
+  </p>
+  <p>
+    这一项补上第三处：<b>包里那份</b>，叫 <b>bundle 层</b>。它不在你手上，跟着包走。
+  </p>
+
+  <div class="side">
+    <div class="col hot">
+      <h4>活层</h4>
+      <div class="tag">你手上的那两处</div>
+      <dl>
+        <dt>在哪</dt><dd>profile 目录 / home 目录里的 <code>cordis.patch.yml</code></dd>
+        <dt>谁写的</dt><dd>你</dd>
+        <dt>改完</dt><dd><b>一两秒就生效</b>，实例不重启</dd>
+      </dl>
+    </div>
+    <div class="col frozen">
+      <h4>bundle 层</h4>
+      <div class="tag">这一项要补的第三处</div>
+      <dl>
+        <dt>在哪</dt><dd>包根目录里的 <code>cordis.patch.yml</code></dd>
+        <dt>谁写的</dt><dd>写这个包的人</dd>
+        <dt>改完</dt><dd><b>毫无反应</b>，重启才算数</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>包能自注册</h2>
+  <h3>profile 那份 patch 里一个字都没提它</h3>
+  <p>
+    这一项的教学插件 <code>ch2-greeter</code> 自己就是一个包。它比第 9 项那种包多带两样东西：
+  </p>
+
+  <div class="box">
+    <div class="filename"><b>package.json</b> — 多了 <code>dsh.bundle.patch</code> 这一段</div>
+<pre>{
+  "name": "ch2-greeter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  <span class="hi">"dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }</span>
+}</pre>
+  </div>
+
+  <div class="box">
+    <div class="filename">包根目录/<b>cordis.patch.yml</b> — 上面那一段指着的就是它</div>
+<pre><span class="cm"># 这份 patch 文件跟着**包**走 —— 它住在包里，不在 profile 目录里。
+# package.json 的 dsh.bundle.patch 指着它，包一旦进了某个 profile 的 bundle
+# 名单，这里写的条目就自动上树，profile 那边一个字都不用写。</span>
+- insert:
+    - id: <span class="cold">greeter</span>
+      name: ch2-greeter
+      config:
+        版本: 第一版</pre>
+  </div>
+
+  <p style="margin-top:20px">
+    然后我们做的唯一一件事，是把包名写进 profile 的 <code>bundles</code> 名单：
+  </p>
+
+  <div class="two">
+    <div class="box">
+      <h5>profiles/selfmount/package.json<small>bundle 名单 ＋ 依赖</small></h5>
+<pre>"dsh": {
+  "profile": {
+    "bundles": [<span class="cold">"ch2-greeter"</span>]
+  }
+},
+"dependencies": {
+  "lab-recorder": "link:…",
+  "ch2-greeter": "link:…"
+}</pre>
+    </div>
+    <div class="box">
+      <h5>profiles/selfmount/cordis.patch.yml<small>活层——没有 greeter</small></h5>
+<pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config: {root: [], debounce: 100}
+
+    - id: lab-recorder
+      name: lab-recorder
+      config: {out: "…", flushMs: 100}</pre>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓ 起实例 ↓</div>
+
+  <div class="tree">
+<pre>树上：include   <span class="cold">greeter</span>   timer   hmr   lab-recorder
+
+    2.7ms  report   <span class="cold">greeter</span>   我跑起来了  {"版本": "<span class="cold">第一版</span>"}</pre>
+  </div>
+
+  <p class="punch">
+    <b>没人替它写 <code>insert</code>，它自己带来的。</b>
+    条目上了树、<code>apply</code> 跑了、<code>config</code> 也收到了——收到的正是包里那份 patch 写的「第一版」。
+  </p>
+
+  <p class="note">
+    注意 <code>package.json</code> 里是两件事：<b>进 <code>bundles</code> 名单</b>和<b>装进这个 profile</b>
+    （依赖声明一行 ＋ <code>node_modules</code> 里一条链接，第 9 项那套）。少了后者，
+    <code>name: ch2-greeter</code> 根本找不到东西。
+  </p>
+</section>
+
+<section>
+  <h2>主证据</h2>
+  <h3>同一时刻，两份文件各改一处</h3>
+  <p>
+    同一个实例上挂着<b>同一个插件的两个条目</b>——一个来自 bundle 层，一个来自活层。
+    两边的 <code>config</code> 里都写着一个「版本」，插件跑起来就把自己收到的那一版报出来。
+  </p>
+
+  <div class="two">
+    <div class="box">
+      <h5>包根目录/cordis.patch.yml<small>bundle 层</small></h5>
+<pre>- insert:
+    - id: <span class="cold">greeter</span>
+      name: ch2-greeter
+      config:
+        版本: 第一版  <span class="cm">→ 改成「第二版」</span></pre>
+    </div>
+    <div class="box">
+      <h5>profiles/coldhot/cordis.patch.yml<small>活层</small></h5>
+<pre>- insert:
+    - id: <span class="you">greeter-live</span>
+      name: ch2-greeter
+      config:
+        版本: 活层第一版  <span class="cm">→ 改成「活层第二版」</span></pre>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓ 两处同时存盘，然后固定等 15 秒 ↓</div>
+
+  <div class="card">
+    <div class="filename">事件流（读自 events-coldhot-run1.jsonl）</div>
+<pre>    1.4ms  report   <span class="cold">greeter</span>        我跑起来了  {"版本": "第一版"}
+    1.5ms  report   <span class="you">greeter-live</span>   我跑起来了  {"版本": "活层第一版"}
+  416.6ms  report   <span class="you">greeter-live</span>   我跑起来了  {"版本": "<span class="you">活层第二版</span>"}
+
+<span class="cm">—— 15 秒到了，再没有第四行 ——</span></pre>
+  </div>
+
+  <div class="two">
+    <div class="box">
+      <h5><span class="cold">greeter</span>（bundle 层）</h5>
+<pre>报过：['第一版']
+跑起来：<span class="cold">1 次</span></pre>
+    </div>
+    <div class="box">
+      <h5><span class="you">greeter-live</span>（活层）</h5>
+<pre>报过：['活层第一版', '活层第二版']
+跑起来：<span class="you">2 次</span></pre>
+    </div>
+  </div>
+
+  <p class="punch">
+    <b>同一个实例、同一条时间线、同一种改法，两种下场。</b>
+    活层那条被拆了重来一遍，报出了新值；bundle 层那条从头到尾一声不吭，
+    还挂着启动时那个「第一版」。
+  </p>
+
+  <p class="note">
+    「跑起来几次」比「报了几次话」更硬：报话是插件自己的事，跑起来几次是框架记的账。
+  </p>
+</section>
+
+<section>
+  <h2>「什么都没发生」怎么证</h2>
+  <h3>三个能想到的疑问，同一份事件流全堵死</h3>
+
+  <div class="rt">
+    <div class="rrow">
+      <div class="rq">是不是等得不够久</div>
+      <div class="ra">
+        两条摆在<b>同一条时间线</b>上。活层那条在第 <b>416.6 毫秒</b>就已经重来完了，
+        而这一等等满了 <b>15 秒</b>——快了三十多倍的事都办完了，慢的那件根本不是「还没轮到」。
+      </div>
+    </div>
+    <div class="rrow">
+      <div class="rq">是不是没人盯着那个目录</div>
+      <div class="ra">
+        这次 <code>hmr</code> 的 <code>root</code> <b>特意指着包所在的目录</b>：
+        <code>…/pkg-coldhot</code>，包就在里面。结果事件流里 <code>hmr</code> 报的动静是
+        <b>0 条</b>——目录被盯着，文件也确实改了，它就是没当回事。
+      </div>
+    </div>
+    <div class="rrow">
+      <div class="rq">是不是那次重来压根没波及它</div>
+      <div class="ra">
+        <b>恰恰相反。</b>那一次重来把<b>每一个条目都重新过了一遍</b>，
+        <code>greeter</code> 也在名单里——只是过它的时候，手里拿的还是启动时读到的那份内容。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="filename">那次重来的原始事件（seq 27–35，摘自同一份事件流）</div>
+<pre>416.4ms  status         <span class="you">greeter-live</span>   ACTIVE → UNLOADING
+416.5ms  status         <span class="you">greeter-live</span>   UNLOADING → LOADING
+416.6ms  report         <span class="you">greeter-live</span>   我跑起来了  {"版本": "活层第二版"}
+416.8ms  entry-dispose  <span class="cold">greeter</span>        legacy: {config: {"版本": "<span class="cold">第一版</span>"}}   <span class="cm">← 过了，但拿的是旧的</span>
+416.8ms  entry-dispose  timer          legacy: {…}
+416.8ms  entry-dispose  hmr            legacy: {…}
+416.9ms  entry-dispose  lab-recorder   legacy: {…}
+416.9ms  status         <span class="you">greeter-live</span>   LOADING → ACTIVE
+416.9ms  entry-dispose  <span class="you">greeter-live</span>   legacy: {config: {"版本": "活层第一版"}}</pre>
+  </div>
+
+  <p class="punch warn">
+    <b>准确的说法不是「那次重来没波及它」，而是「重来确实把整套条目过了一遍，
+    但包里那份 patch 文件根本没被重新读一眼」。</b>
+    实例手上那份内容，还是启动那一刻读进去的。
+  </p>
+</section>
+
+<section>
+  <h2>那什么时候才算数</h2>
+  <h3>重启一次，新进程重新读盘</h3>
+  <p>
+    什么都不再改，把实例停掉再拉起来——这一次它把包里那份 patch 文件重新读了一遍。
+  </p>
+
+  <div class="card">
+    <div class="filename">重启之后的事件流（读自 events-coldhot.jsonl）</div>
+<pre>    1.4ms  report   <span class="cold">greeter</span>        我跑起来了  {"版本": "<span class="cold">第二版</span>"}
+    1.4ms  report   <span class="you">greeter-live</span>   我跑起来了  {"版本": "活层第二版"}</pre>
+  </div>
+
+  <p class="punch">
+    <b>改动一直都在，只是没人再读它。</b>
+    bundle 层不是「改了不算数」，是「只在启动那一下算数」——实例活着的这段时间里，
+    它手上捏的是一张启动时拍下来的定格照。
+  </p>
+</section>
+
+<section>
+  <h2>撞车</h2>
+  <h3>两层写了同一个 id，实例起不来</h3>
+  <p>
+    包进了 <code>bundles</code> 名单，你又在活层 <code>insert</code> 了一个同名的 <code>id</code>：
+  </p>
+
+  <div class="two">
+    <div class="box">
+      <h5>bundle 层（包里那份）</h5>
+<pre>- insert:
+    - id: <span class="bad">greeter</span>
+      name: ch2-greeter
+      config:
+        版本: 第一版</pre>
+    </div>
+    <div class="box">
+      <h5>活层（profile 那份）</h5>
+<pre>- insert:
+    - id: <span class="bad">greeter</span>
+      name: ch2-greeter
+      config:
+        版本: 活层写的</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="filename">启动日志（退出码 1，插件一句话都没说过）</div>
+<pre>Error: dsh: plugin tree failed to load:
+  failed to apply loader entry include (cordis:include):
+  <span class="bad">duplicate loader entry id: greeter</span></pre>
+  </div>
+
+  <p class="punch danger">
+    <b>跟第 6 项撞的是同一堵墙。</b>
+    两层也是拼起来的，同一个 <code>id</code> 出现两次就成了两个条目，挂载时查重，当场抛错。
+  </p>
+
+  <p class="note">
+    差别只在于：这次撞车的一边<b>在包里</b>，那个 <code>id</code> 是写包的人定的，你未必知道。
+    在活层随手写一个同名的，撞得毫无征兆。要看它占了哪些 <code>id</code>，
+    只能去翻包根目录那份 <code>cordis.patch.yml</code>。
+  </p>
+</section>
+
+<section>
+  <h2>分水岭</h2>
+  <h3>一句话：谁热谁冷</h3>
+
+  <table class="sum">
+    <tr>
+      <th>你改了什么</th>
+      <th>实例的反应</th>
+    </tr>
+    <tr>
+      <td class="you">活层<br><span class="cm">profile 那份 / home 那份</span></td>
+      <td>一两秒后那个条目被拆了重来，<b>进程不动</b></td>
+    </tr>
+    <tr>
+      <td class="cold">bundle 层<br><span class="cm">包根目录那份</span></td>
+      <td>什么都不发生。<b>要生效必须重启</b></td>
+    </tr>
+  </table>
+
+  <p class="punch">
+    <b>这就是第 9 项那张表里「正经安装：必须重启」的全部原因</b>——
+    官方安装命令把包写进 <code>bundles</code> 名单，插件的条目就来自 bundle 层，
+    而 bundle 层是启动时定格的。
+  </p>
+
+  <p class="note">
+    第 9 项还有一条路没这个毛病：依赖指向一个工作副本，条目一直待在活层，
+    换版本只是换那个副本指向哪儿。那是下一项的事。
+  </p>
+</section>
+
+<div class="nav">
+  <a href="four-ways.html"><small>上一步</small>← 第 9 项 · 四种交付途径</a>
+  <a href="worktree.html"><small>下一步</small>第 11 项 · 工作副本双线换版本 →</a>
+</div>
+<div class="foot">
+  两份包内文件原样取自 experiments/ch2_bundle_vs_live/fixtures/ch2-greeter/。<br>
+  事件流、条目次数与启动日志取自 out/results/ch2_bundle_vs_live-20260817-014052/<br>
+  （events-selfmount.jsonl · events-coldhot-run1.jsonl · events-coldhot.jsonl，3 个用例全绿）。<br>
+  「什么都没发生」那三条是固定等满 15 秒之后才判的——验这类事不能轮询提前退出，
+  提前退出只能证明「此刻还没发生」。
+</div>
+</div>

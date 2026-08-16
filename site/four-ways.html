@@ -1,0 +1,440 @@
+<title>四种交付途径</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --dead:#be123c;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --dead-bg:#ffe4e6;
+  --code-bg:#f2f4f7; --comment:#8b95a3; --auto:#94a3b8;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre-wrap; word-break:break-word; color:var(--ink)}
+.cm{color:var(--comment)} .auto{color:var(--auto)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.bad{color:var(--dead); font-weight:600}
+.p{color:var(--pending); font-weight:600}
+.hm{color:var(--instrument); font-weight:600}
+.add{color:var(--active); font-weight:600}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.danger{border-left-color:var(--dead); background:var(--dead-bg)}
+.good{border-left-color:var(--active); background:var(--active-bg)}
+.big{font-size:16px; text-align:center; padding:16px; border:1px dashed var(--line); border-radius:10px; margin:20px 0; font-family:var(--mono); line-height:1.9}
+.big b{color:var(--loading)}
+
+/* 四条路的名片 */
+.ways{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px}
+@media (max-width:720px){.ways{grid-template-columns:1fr}}
+.way{border:1px solid var(--line); border-radius:10px; padding:15px 17px; background:var(--card)}
+.way h4{margin:0 0 4px; font-size:15px; font-weight:640}
+.way .how{font-size:13px; color:var(--ink-soft); margin:0 0 10px}
+.way .nm{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint)}
+.way .nm b{color:var(--ink); font-weight:600}
+
+/* 四列对比表 */
+.scroll{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); margin-top:18px}
+table{border-collapse:collapse; width:100%; min-width:660px; font-size:12.6px}
+th,td{text-align:left; padding:9px 14px; border-bottom:1px solid var(--line-soft); white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+thead th{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); font-weight:600; border-bottom:1px solid var(--line); background:var(--code-bg)}
+th.k{color:var(--ink-soft); font-weight:600; font-family:system-ui,sans-serif; font-size:12.5px}
+td{font-family:var(--mono); color:var(--ink)}
+tr.diff td{background:var(--pending-bg)}
+tr.diff th.k{background:var(--pending-bg)}
+
+/* 痕迹分诊 */
+.tri{display:grid; gap:12px; margin-top:18px}
+.row{display:grid; grid-template-columns:minmax(0,190px) minmax(0,1fr); gap:16px; border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--card); align-items:start}
+@media (max-width:720px){.row{grid-template-columns:1fr}}
+.row .name{font-size:14.5px; font-weight:640}
+.row .why{font-size:12.5px; color:var(--ink-soft); margin-top:5px}
+.row .msg{font-family:var(--mono); font-size:11.8px; line-height:1.85; word-break:break-word}
+.tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:5px; margin-top:8px; font-weight:600}
+.tag.need{background:var(--pending-bg); color:var(--pending)}
+.tag.free{background:var(--active-bg); color:var(--active)}
+.merge{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media (max-width:760px){.merge{grid-template-columns:1fr}}
+.silent{border:2px dashed var(--pending); border-radius:10px; padding:18px; text-align:center; font-family:var(--mono); color:var(--pending); font-size:13.5px; background:var(--pending-bg); line-height:2}
+.pick{display:grid; gap:10px; margin-top:16px}
+.pick div{border:1px solid var(--line); border-radius:9px; padding:12px 15px; background:var(--card); font-size:14px}
+.pick b{font-weight:640}
+.pick .t{font-family:var(--mono); font-size:12px; color:var(--loading); display:block; margin-bottom:3px}
+.nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
+.nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
+.nav a:hover{text-decoration:underline}
+.nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+</style>
+
+<div class="wrap">
+<div class="crumb">第二章 · 第 9 项 / 共 20 项</div>
+
+<h1>四种交付途径</h1>
+<p class="sub">
+  第一章教出来的插件是 profile 目录里的一个文件——那不是能给别人的东西。
+  同一个插件换四种挂法：挂出来的条目一模一样，<b>要付的代价差得很远</b>。
+</p>
+<div class="meta">
+  uv run pytest experiments/ch2_four_ways/ -n 0 -s · 3 个用例 · 约 39 秒
+</div>
+
+<section>
+  <h2>四条路</h2>
+  <h3>同一个包，四种挂法</h3>
+
+  <p>
+    这个包一共三个文件：<code>index.mjs</code>、<code>package.json</code>、
+    还有一份包自己带的 patch 文件。四条路上跑的插件源码一个字节都不差——
+    途径① 拷进 profile 目录的，就是这个包里的 <code>index.mjs</code> 本尊。
+  </p>
+
+  <div class="ways">
+    <div class="way">
+      <h4>① 单文件</h4>
+      <p class="how">把那个 <code>.mjs</code> 扔进 profile 目录，自己在 patch 文件里写一条 insert。</p>
+      <div class="nm">条目上的 name：<b>./courier.mjs</b></div>
+    </div>
+    <div class="way">
+      <h4>② 目录链接</h4>
+      <p class="how">在 <code>node_modules</code> 里建一条指向包目录的链接，<code>dependencies</code> 里补一行声明，patch 文件里自己写 insert。</p>
+      <div class="nm">条目上的 name：<b>ch2-courier</b></div>
+    </div>
+    <div class="way">
+      <h4>③ 正经安装</h4>
+      <p class="how">跑官方命令 <code>dsh plugin --profile &lt;名&gt; add &lt;包目录&gt;</code>，patch 文件里<b>一个字都不写</b>。</p>
+      <div class="nm">条目上的 name：<b>ch2-courier</b></div>
+    </div>
+    <div class="way">
+      <h4>④ 工作副本</h4>
+      <p class="how">跟途径② 同一套写法，只是链接指向一份 git 工作副本（worktree），而不是仓库本体。</p>
+      <div class="nm">条目上的 name：<b>ch2-courier</b></div>
+    </div>
+  </div>
+
+  <p class="note">
+    四条路各起一个实例，一条路一个 profile，互不干扰。下面所有对照都出自这四次运行。
+  </p>
+</section>
+
+<section>
+  <h2>结论一</h2>
+  <h3>挂出来的条目一模一样</h3>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th></th><th>① 单文件</th><th>② 目录链接</th><th>③ 正经安装</th><th>④ 工作副本</th></tr>
+      </thead>
+      <tbody>
+        <tr><th class="k">在树上</th><td class="you">true</td><td class="you">true</td><td class="you">true</td><td class="you">true</td></tr>
+        <tr><th class="k">走过的状态</th><td>LOADING → ACTIVE</td><td>LOADING → ACTIVE</td><td>LOADING → ACTIVE</td><td>LOADING → ACTIVE</td></tr>
+        <tr><th class="k">说的话</th><td>"我跑起来了"</td><td>"我跑起来了"</td><td>"我跑起来了"</td><td>"我跑起来了"</td></tr>
+        <tr><th class="k">apply 早于 ACTIVE</th><td class="you">true</td><td class="you">true</td><td class="you">true</td><td class="you">true</td></tr>
+        <tr><th class="k">disabled</th><td>false</td><td>false</td><td>false</td><td>false</td></tr>
+        <tr><th class="k">报出来的 config</th><td>{"途径": "单文件"}</td><td>{"途径": "目录链接"}</td><td>{"途径": "正经安装"}</td><td>{"途径": "工作副本"}</td></tr>
+        <tr class="diff"><th class="k">条目上的 name</th><td>"./courier.mjs"</td><td>"ch2-courier"</td><td>"ch2-courier"</td><td>"ch2-courier"</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="punch">
+    <b>条目身上不带「我是怎么被挂上来的」这种标记。</b>
+    状态怎么走、<code>apply</code> 跑在什么时候、<code>config</code> 收到了什么、
+    <code>disabled</code> 是什么——四条路没有任何区别。树上看不出来，插件自己也看不出来。
+  </p>
+
+  <p class="note">
+    表里唯一那一格黄的，是 <code>name</code> 写路径还是写包名。
+    那是<b>你自己写的那一行</b>，不是框架给条目盖的章：途径③ 那行写在包自带的 patch 文件里，
+    照样是人写的。<code>config</code> 那一行也一样，四份各不相同是因为四份就那么写的。
+  </p>
+</section>
+
+<section>
+  <h2>结论二</h2>
+  <h3>差别全在 profile 目录留下的痕迹上</h3>
+
+  <p>
+    实例跑过一轮之后，什么都不挂的 profile 目录里是这三样（<code>node_modules</code> 另算）：
+    <code>cordis.patch.yml</code>、<code>cordis.yml</code>、<code>package.json</code>。
+    四条路各自往上加了什么，一条一条看。
+  </p>
+
+  <div class="tri">
+    <div class="row">
+      <div>
+        <div class="name">① 单文件</div>
+        <div class="why">代价最小的一条</div>
+        <span class="tag need">patch 文件要手写 insert</span>
+      </div>
+      <div class="msg">
+        profile 目录里　<span class="add">多一个 courier.mjs</span><br>
+        node_modules 里　["lab-recorder"]　<span class="cm">← 只有观察器，没动过</span><br>
+        dependencies　　["lab-recorder"]　<span class="cm">← 没动过</span><br>
+        dsh.profile.bundles　[]　<span class="cm">← 没动过</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="name">② 目录链接</div>
+        <div class="why">不往 profile 目录里塞文件</div>
+        <span class="tag need">patch 文件要手写 insert</span>
+      </div>
+      <div class="msg">
+        profile 目录里　<span class="cm">三样原封不动，没有新文件</span><br>
+        node_modules 里　["<span class="add">ch2-courier</span>", "lab-recorder"]<br>
+        dependencies　　["<span class="add">ch2-courier</span>", "lab-recorder"]<br>
+        dsh.profile.bundles　[]　<span class="cm">← 没动过</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="name">③ 正经安装</div>
+        <div class="why">痕迹最重的一条</div>
+        <span class="tag free">patch 文件一个字不用写</span>
+      </div>
+      <div class="msg">
+        profile 目录里　<span class="p">多一个 pnpm-lock.yaml</span><br>
+        node_modules 里　[".package-map.json", ".pnpm", ".pnpm-workspace-state-v1.json",<br>
+        　　　　　　　　　 "<span class="add">ch2-courier</span>", "lab-recorder"]<br>
+        dependencies　　["<span class="add">ch2-courier</span>", "lab-recorder"]<br>
+        dsh.profile.bundles　["<span class="p">ch2-courier</span>"]　<span class="cm">← 只有这条路动了它</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="name">④ 工作副本</div>
+        <div class="why">痕迹跟② 一模一样</div>
+        <span class="tag need">patch 文件要手写 insert</span>
+      </div>
+      <div class="msg">
+        profile 目录里　<span class="cm">三样原封不动，没有新文件</span><br>
+        node_modules 里　["<span class="add">ch2-courier</span>", "lab-recorder"]<br>
+        dependencies　　["<span class="add">ch2-courier</span>", "lab-recorder"]<br>
+        dsh.profile.bundles　[]　<span class="cm">← 没动过</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="punch">
+    <b>四条路里只有③ 免了你手写 insert，代价是它在 profile 目录里留下的东西最多</b>——
+    多一个锁文件、多三样 pnpm 自己的内部条目，还改了 <code>package.json</code> 里
+    <code>dsh.profile.bundles</code> 这个键。其余三条谁都没碰过那个键。
+  </p>
+  <p class="note">
+    ②④ 的痕迹逐项相同——它们本来就是同一套写法，区别只在链接指向哪个目录。
+    对 DSH 来说「那头是不是 git 工作副本」根本不是它关心的事。
+  </p>
+</section>
+
+<section>
+  <h2>那条命令改了什么</h2>
+  <h3>package.json 执行前后，原样摆一起</h3>
+
+  <div class="merge">
+    <div class="box">
+      <div class="filename">profile 的 <b>package.json</b>：执行前</div>
+<pre>{
+  "name": "dsh-profile-manifest",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/…/observatory/lab-recorder"
+  }
+}</pre>
+    </div>
+    <div class="box">
+      <div class="filename">profile 的 <b>package.json</b>：执行后</div>
+<pre>{
+  "name": "dsh-profile-manifest",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        <span class="p">"ch2-courier"</span>
+      ]
+    }
+  },
+  "dependencies": {
+    <span class="add">"ch2-courier": "link:D:/…/fixtures/courier",</span>
+    "lab-recorder": "link:D:/…/observatory/lab-recorder"
+  }
+}</pre>
+    </div>
+  </div>
+
+  <p class="punch">
+    <b>两处：<code>dependencies</code> 多一行，<code>dsh.profile.bundles</code> 这个键的名单里多一个包名。</b>
+    第二处是四条路里独一份的——它就是这条命令替你办的那件事。
+  </p>
+  <p class="note">
+    这个键为什么会让条目出现、它跟你手写的那条有什么不一样，是下一项的事，这里先记住
+    「有这么一个键、装的时候被改了」。
+  </p>
+
+  <div class="card">
+    <div class="filename">命令回显（退出码 0）</div>
+<pre>dsh plugin --profile manifest add &lt;包目录&gt;
+
+  <span class="cm">| Already up to date</span>
+  | dependencies:
+  | + ch2-courier 1.0.0 &lt;- <span class="hi">..\..\..\..\..\experiments\ch2_four_ways\fixtures\courier</span>
+  | Done in 402ms using pnpm v11.21.0</pre>
+    <p class="note">
+      profile 目录：执行前 <code>['cordis.patch.yml', 'node_modules', 'package.json']</code>，
+      执行后多一个 <code>pnpm-lock.yaml</code>。patch 文件从头到尾一个字没变——
+      这条命令不写 insert，也不替你写。
+    </p>
+  </div>
+
+  <p class="punch good">
+    <b>它只动了 profile 目录，插件源码目录一个字节都没写。</b>
+    那边既没多出 <code>node_modules</code>，也没多出锁文件。
+    全程也不上网：传进去的是本地路径，记下来的依赖是一条 <code>link:</code>，没有任何东西要从远处拉。
+  </p>
+</section>
+
+<section>
+  <h2>包能自注册，靠的是什么</h2>
+  <h3>包摆在那儿不装，什么都不会发生</h3>
+
+  <p>
+    途径③ 之所以不用手写 insert，是因为这个包自己带了一份 patch 文件，
+    <code>package.json</code> 里用 <code>dsh.bundle.patch</code> 指向它。
+    那么问题来了：让条目出现的，是「包目录里躺着这份文件」，还是「装」这个动作？
+  </p>
+
+  <div class="card">
+    <div class="filename">对照组：链接建好了，patch 文件也在包根躺着，就是没跑那条安装命令</div>
+<pre>实例还活着？    True
+树上的条目：    ['hmr', 'include', 'lab-recorder', 'timer']
+它说的话：      <span class="bad">（一句都没有）</span>
+那份名单：      dsh.profile.bundles = []</pre>
+  </div>
+
+  <div class="silent">
+    包链接进去了 · patch 文件就在包根 · <b>树上一个 courier 都没有</b>
+  </div>
+
+  <p class="punch danger">
+    <b>自注册靠的是「装」这个动作把包名写进那个键，不是「包目录里有那份文件」。</b>
+    文件躺在那儿，没人会去读它。
+  </p>
+  <p class="note">
+    实例照常活着——少挂一个插件不是错误，也没有任何提示。
+    跟第 7 项那个「id 打错全程静默」是同一副脾气：<b>没生效的时候，你得自己回去确认</b>。
+  </p>
+</section>
+
+<section>
+  <h2>用途径③ 要当心的三处</h2>
+  <h3>都不报错，所以都得自己盯</h3>
+
+  <div class="tri">
+    <div class="row">
+      <div><div class="name">相对路径会重锚</div></div>
+      <div class="msg">
+        包目录那个参数是<b>按你敲命令时所在的目录</b>算的。
+        换个目录敲同一条命令，算出来的就是另一个地方。<br>
+        <span class="you">→ 传绝对路径，就没有「算到哪去了」这个问题</span>
+      </div>
+    </div>
+    <div class="row">
+      <div><div class="name">profile 名打错不报错</div></div>
+      <div class="msg">
+        <code>--profile</code> 后面写错一个字母，它不会说「没这个 profile」，
+        而是<b>新建一个</b>然后把包装进去。<br>
+        <span class="you">→ 装完回去看一眼是不是装到了你要的那个 profile</span>
+      </div>
+    </div>
+    <div class="row">
+      <div><div class="name">回显跟落盘的不是一个东西</div></div>
+      <div class="msg">
+        回显打的是相对路径 <code>..\..\..\..\..\experiments\…\courier</code>，
+        写进 <code>package.json</code> 的却是绝对路径 <code>link:D:/…/fixtures/courier</code>。<br>
+        <span class="you">→ 要核对装了什么，看 package.json，别看回显</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    另外那句 <code>Already up to date</code> 是 pnpm 的口头禅，跟这次装没装上无关——
+    以 <code>package.json</code> 和 <code>node_modules</code> 里的实际情况为准。
+  </p>
+</section>
+
+<section>
+  <h2>怎么选</h2>
+  <h3>结果既然一样，就只挑代价</h3>
+
+  <div class="big">
+    四条路挂出来的条目 <b>完全一样</b>　·　差的只有你要付的东西
+  </div>
+
+  <div class="pick">
+    <div><span class="t">① 单文件</span>
+      <b>自己试一个想法。</b>一个文件、拷进去、写条 insert 就完事——
+      但这份东西只存在于这个 profile 目录里，给不了别人。</div>
+    <div><span class="t">② 目录链接</span>
+      <b>已经做成包了，但还在自己机器上改。</b>
+      源码在哪就在哪改，profile 目录里干干净净不留文件。</div>
+    <div><span class="t">③ 正经安装</span>
+      <b>要交给别人用。</b>对方只需敲一条命令，不用被告知「还得去 patch 文件里写一条」——
+      代价是它会改 profile 的 <code>package.json</code>，还留下锁文件和一堆 pnpm 内部文件。</div>
+    <div><span class="t">④ 工作副本</span>
+      <b>要钉在某个版本上。</b>写法跟② 完全一样，只是链接指向一份钉住的 git 工作副本。
+      钉在哪、换版本会怎样，是第 11 项的事。</div>
+  </div>
+</section>
+
+<div class="nav">
+  <a href="never-ran.html"><small>上一步</small>← 第 8 项 · 挂上了但没执行</a>
+  <a href="bundle-vs-live.html"><small>下一步</small>第 10 项 · bundle 层与活层的分水岭 →</a>
+</div>
+<div class="foot">
+  四条路各起一个实例，事件流与 profile 目录快照取自 out/testhome/ch2_four_ways/，长路径已缩成 D:/…/。<br>
+  package.json 前后对照与命令回显出自单独一个不起实例的用例；对照组固定等满 10 秒后再看，不是轮询提前收工。
+</div>
+</div>

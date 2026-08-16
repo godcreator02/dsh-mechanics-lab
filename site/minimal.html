@@ -1,4 +1,4 @@
-<title>最小实例与那台仪器</title>
+<title>一个实例的下限</title>
 <style>
 :root{
   --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
@@ -90,74 +90,20 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 </style>
 
 <div class="wrap">
-<div class="crumb">第 1 步 / 共 9 步</div>
+<div class="crumb">第零章 · 0-3 · 准备</div>
 
-<h1>最小实例与那台仪器</h1>
+<h1>一个实例的下限</h1>
 <p class="sub">
-  一个 DSH 实例能瘦到什么程度？顺便把后面每一步都要用的那只眼睛装上——
-  它是树上的一条，不是外挂的探针。
+  一个 DSH 实例能瘦到什么程度？<b>那台仪器是上一项讲过的</b>——
+  这一页它照旧挂着，但它是装好的设备，不是这一页的内容。
 </p>
 <div class="meta">
-  uv run pytest experiments/step1_run_an_instance/ -n 0 -s · 2 个用例 · 约 5 秒
+  uv run pytest experiments/ch0_minimal/ -n 0 -s · 2 个用例 · 约 3 秒
 </div>
-
-<!-- ── 仪器 ── -->
-<section>
-  <h2>先说仪器</h2>
-  <h3>它凭什么能看见</h3>
-  <p>
-    要看清插件加载时发生了什么，得有个东西在进程里听着。这台采集器叫
-    <code>lab-recorder</code>，它<b>本身就是一个普通插件条目</b>——写在同一个 patch 文件里，
-    跟被观测的东西平级，没有任何特权。所以后面每张图里你都会看到它。
-  </p>
-
-  <div class="card">
-    <h4 style="margin-top:0">它怎么听见框架说话</h4>
-    <pre><span class="cm">// fiber 每次状态变化触发一次，带旧状态。</span>
-<span class="cm">// 这是抓住 LOADING 这种几毫秒窄窗口的唯一办法 —— 轮询必然错过。</span>
-ctx.on(<span class="hi">"internal/status"</span>, (fiber, oldValue) =&gt; {
-  push("status", {
-    id:   fiber.entry?.options?.id,
-    from: FIBER_STATE[oldValue],
-    to:   FIBER_STATE[fiber.state],
-  });
-});</pre>
-    <p class="note">
-      <code>FIBER_STATE</code> 那张数字→名字的表得手写死在代码里：它在 cordis 里是
-      TypeScript 的 <code>const enum</code>，编译后被内联成数字字面量，
-      <b>运行时根本不存在这个对象</b>，import 不到。
-    </p>
-  </div>
-
-  <div class="card">
-    <h4 style="margin-top:0">它怎么让别的插件也能说话</h4>
-    <pre><span class="cm">// 框架事件只回答「框架对这个条目做了什么」，</span>
-<span class="cm">// 回答不了「这个插件自己拿到了什么」—— 那只有插件自己知道。</span>
-ctx.<span class="hi">provide</span>("labObserver", {
-  <span class="cm">// 传一次自己的 ctx，采集器反查你在树上的 id ——</span>
-  <span class="cm">// 比让插件自报名字可靠：它写死的名字未必等于条目 id</span>
-  for(callerCtx) {
-    const who = whoOf(callerCtx);
-    return (note, data) =&gt; push(<span class="hi">"report"</span>, { who, note, data });
-  },
-});</pre>
-    <p class="note">
-      于是「插件说的」和「框架说的」进同一条流、共用一套时间轴——<b>先后关系直接读得出来</b>，
-      不用去拼两份数据。从第 2 步起，每个插件都会用到它。
-    </p>
-  </div>
-
-  <p class="punch warn">
-    <b>它的能力上限：拿不到自己挂载之前的历史。</b>
-    采集器自己也要被加载，在它 apply 之前发生的事没人记——所以事件流第一批是
-    <code>snapshot</code>（睁眼时看到的样子），那之前的过程是丢的。
-    下面所有毫秒数都相对<b>它睁眼那一刻</b>，不是进程启动。
-  </p>
-</section>
 
 <!-- ── 现场 ── -->
 <section>
-  <h2>这一步</h2>
+  <h2>这一项</h2>
   <h3>一个实例最少需要什么</h3>
   <p>
     只写 <code>timer</code> 和 <code>hmr</code> 两条。加上采集器，再算上框架自己放的树根，
@@ -168,8 +114,8 @@ ctx.<span class="hi">provide</span>("labObserver", {
   <div class="stage">
     <div>
       <div class="box">
-        <div class="filename"><b>假 home</b> 的全部内容</div>
-<pre>out/testhome/step1/
+        <div class="filename"><b>假 home</b> 里跟这次有关的全部内容</div>
+<pre>out/testhome/ch0_minimal/
 ├─ profiles/
 │  ├─ <span class="auto">node_modules/</span>   <span class="cm">252 条，dsh 自建</span>
 │  └─ minimal/
@@ -214,7 +160,7 @@ ctx.<span class="hi">provide</span>("labObserver", {
     - id: <span class="inst-c">lab-recorder</span>
       name: lab-recorder
       config:
-        out: "…/out/testhome/step1/events.jsonl"
+        out: "…/out/testhome/ch0_minimal/events.jsonl"
         flushMs: 100</pre>
       </div>
       <div class="box">
@@ -239,9 +185,9 @@ ctx.<span class="hi">provide</span>("labObserver", {
       </div>
     </div>
     <dl class="reading">
-      <dt>timer 变 ACTIVE</dt><dd><b>1.8 ms</b></dd>
-      <dt>hmr 才开始 LOADING</dt><dd><b>1.9 ms</b></dd>
-      <dt>hmr 加载耗时</dt><dd>12.6 ms（1.9 → 14.5）—— 四条里最慢的</dd>
+      <dt>timer 变 ACTIVE</dt><dd><b>1.3 ms</b></dd>
+      <dt>hmr 才开始 LOADING</dt><dd><b>1.4 ms</b></dd>
+      <dt>hmr 加载耗时</dt><dd>8.9 ms（1.4 → 10.3）—— 整个启动几乎都花在它身上</dd>
     </dl>
     <p class="punch">
       <b>hmr 一直在 PENDING 等着，直到 timer 变成 ACTIVE 才开始加载。</b>
@@ -254,31 +200,31 @@ ctx.<span class="hi">provide</span>("labObserver", {
   </p>
   <div class="box"><pre>@deepseek-ai/cordis-plugin-hmr: <span class="hi">pending (waiting for service: timer)</span></pre></div>
   <p class="note" style="margin-top:12px">
-    这两条是捆绑的。至于「等一个不来的服务」到底意味着什么，第 9 步会拆开讲。
+    这两条是捆绑的。至于「等一个不来的服务」到底意味着什么，第 8 项会拆开讲。
   </p>
 </section>
 
 <div class="nav">
-  <span class="none"><small>上一步</small>—— 这是第一步</span>
-  <a href="step-2.html"><small>下一步</small>第 2 步 · 把自己写的东西挂上去 →</a>
+  <a href="observer.html"><small>上一步</small>← 0-2 · 探查器</a>
+  <a href="mount.html"><small>下一步</small>第 1 项 · 把自己写的东西挂上去 →</a>
 </div>
 <div class="foot">
-  文件树与配置取自跑完后的 out/testhome/step1/，长路径已缩短。<br>
+  文件树与配置取自跑完后的 out/testhome/ch0_minimal/，长路径已缩短。<br>
   时间线读自 events.jsonl，只做了一步转换：事件流记「何时从 A 变成 B」，条形图要「从何时到何时处于某状态」。
 </div>
 </div>
 
 <script>
-const T_MAX = 24;
+const T_MAX = 12;
 const LANES = [
-  {id:"include", spans:[["loading",1.2,14.8],["active",14.8,T_MAX]]},
-  {id:"timer",   spans:[["pending",1.2,1.4],["loading",1.4,1.8],["active",1.8,T_MAX]]},
-  {id:"hmr",     spans:[["pending",1.2,1.9],["loading",1.9,14.5],["active",14.5,T_MAX]]},
-  {id:"lab-recorder", inst:true, spans:[["inst",1.2,1.5],["active",1.5,T_MAX]]},
+  {id:"include", spans:[["loading",0.757,10.662],["active",10.662,T_MAX]]},
+  {id:"timer",   spans:[["pending",0.930,0.966],["loading",0.966,1.276],["active",1.276,T_MAX]]},
+  {id:"hmr",     spans:[["pending",1.366,1.401],["loading",1.401,10.261],["active",10.261,T_MAX]]},
+  {id:"lab-recorder", inst:true, spans:[["inst",0.796,0.995],["active",0.995,T_MAX]]},
 ];
 const pct = (ms) => (ms / T_MAX * 100).toFixed(3) + "%";
 document.querySelectorAll("[data-axis]").forEach((ax) => {
-  for (let t = 0; t <= T_MAX; t += 4) {
+  for (let t = 0; t <= T_MAX; t += 2) {
     const el = document.createElement("span");
     el.className = "tick"; el.style.left = pct(t); el.textContent = t + "ms";
     ax.appendChild(el);

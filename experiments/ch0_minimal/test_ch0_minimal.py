@@ -17,10 +17,7 @@ from __future__ import annotations
 import json
 import sys
 import time
-from collections.abc import Iterator
 from pathlib import Path
-
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -37,9 +34,6 @@ from lab import (  # noqa: E402
 )
 
 OBSERVER = LAB_ROOT / "observatory" / "lab-recorder"
-
-#: 本项专属的假 home 名。不撞车的理由见下面 `lab_home` 的说明。
-HOME_LABEL = "ch0-minimal"
 
 #: 最小实例的全部家当。这两条是被测对象。
 MINIMAL = """# 一个实例最少需要的两条
@@ -67,18 +61,6 @@ OBSERVER_ENTRY = """
         out: {out}
         flushMs: 100
 """
-
-
-@pytest.fixture(scope="module")
-def lab_home() -> Iterator[LabHome]:
-    """本项专属的假 home。
-
-    自己建而不用公共装置那个：公共装置按目录名第一个下划线之前那截取标签
-    （`ch0_minimal` → `ch0`），第零章两项会取到同一个标签、共用同一个假 home，
-    并行跑时一项的清空动作会删掉另一项正在用的 profile。这里给一个不撞车的名字。
-    """
-    LabHome(HOME_LABEL).clean()
-    yield LabHome(HOME_LABEL)
 
 
 def with_observer(patch: str, events_path: Path) -> str:

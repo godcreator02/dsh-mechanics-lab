@@ -1,25 +1,25 @@
-<title>临时关掉它</title>
+<title>把自己写的东西挂上去</title>
 <style>
 :root{
   --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
   --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
-  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --off:#94a3b8;
-  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --off-bg:#eef1f5;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe;
   --code-bg:#f2f4f7; --comment:#8b95a3; --auto:#94a3b8;
   --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
   --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
-  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --off:#5d6773;
-  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --off-bg:#1a1f27;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
   --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
 }}
 :root[data-theme="dark"]{
   --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
   --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
-  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --off:#5d6773;
-  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --off-bg:#1a1f27;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
   --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
 }
 *{box-sizing:border-box}
@@ -43,25 +43,24 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 .hi{color:var(--loading); font-weight:600}
 .you{color:var(--active); font-weight:600}
 .inst-c{color:var(--instrument); font-weight:600}
-.del{color:var(--pending); font-weight:600}
+.stage{display:grid; grid-template-columns:minmax(0,320px) minmax(0,1fr); gap:22px; align-items:start}
+@media (max-width:760px){.stage{grid-template-columns:1fr}}
 .box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
 .box + .box{margin-top:12px}
 .filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
 .filename b{color:var(--ink-soft); font-weight:600}
 .note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
-.chart{min-width:680px}
+.chart{min-width:700px}
 .axis{position:relative; height:22px; margin-left:132px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:10px; color:var(--ink-faint)}
 .tick{position:absolute; transform:translateX(-50%); bottom:3px}
 .tick::after{content:""; position:absolute; left:50%; bottom:-6px; width:1px; height:5px; background:var(--line)}
 .lane{display:flex; align-items:center; height:34px; border-bottom:1px solid var(--line-soft)}
 .lane:last-child{border-bottom:0}
-.lane.spot{background:var(--off-bg); border-radius:6px}
 .lane-name{width:132px; flex:none; font-family:var(--mono); font-size:12px; color:var(--ink-soft); padding-right:12px; text-align:right; white-space:nowrap}
 .lane-name b{color:var(--ink); font-weight:600}
 .tag{display:inline-block; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:5px}
 .tag.i{background:var(--instrument-bg); color:var(--instrument)}
 .tag.y{background:var(--loading-bg); color:var(--loading)}
-.tag.o{background:var(--pending-bg); color:var(--pending)}
 .track{position:relative; flex:1; height:100%}
 .bar{position:absolute; top:9px; height:16px; border-radius:3px; transform-origin:left center; transform:scaleX(0); transition:transform .5s cubic-bezier(.22,.7,.3,1)}
 .playing .bar{transform:scaleX(1)}
@@ -69,7 +68,6 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 .bar.loading{background:var(--loading-bg); border:1px solid var(--loading)}
 .bar.active{background:var(--active-bg); border:1px solid var(--active)}
 .bar.inst{background:var(--instrument-bg); border:1px solid var(--instrument)}
-.bar.off{background:var(--off-bg); border:1px dashed var(--off)}
 .dot{position:absolute; top:5px; opacity:0; transition:opacity .35s ease .5s}
 .playing .dot{opacity:1}
 .dot::before{content:""; position:absolute; left:-5px; top:6px; width:10px; height:10px; border-radius:50%; background:var(--card); border:2.5px solid var(--instrument)}
@@ -80,69 +78,88 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 .legend .loading{background:var(--loading-bg); border:1px solid var(--loading)}
 .legend .active{background:var(--active-bg); border:1px solid var(--active)}
 .legend .inst{background:var(--instrument-bg); border:1px solid var(--instrument)}
-.legend .off{background:var(--off-bg); border:1px dashed var(--off)}
+.reading{display:grid; grid-template-columns:auto 1fr; gap:6px 18px; align-items:baseline; font-family:var(--mono); font-size:13px; margin:18px 0 0; padding-top:16px; border-top:1px dashed var(--line)}
+.reading dt{color:var(--ink-faint); white-space:nowrap}
+.reading dd{margin:0}
+.reading dd b{color:var(--loading); font-weight:600}
 .punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
 .punch b{font-weight:640}
 .warn{border-left-color:var(--pending); background:var(--pending-bg)}
 .vs{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px}
-@media (max-width:700px){.vs{grid-template-columns:1fr}}
-.vs h5{margin:0 0 10px; font-size:13px; font-weight:600}
-.trace{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-family:var(--mono); font-size:11.5px; align-items:baseline}
-.trace dt{color:var(--ink-faint); white-space:nowrap}
-.trace dd{margin:0}
+@media (max-width:660px){.vs{grid-template-columns:1fr}}
+.vs .box h5{margin:0 0 8px; font-size:13px; font-weight:600}
 .nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
 .nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
 .nav a:hover{text-decoration:underline}
-.nav .none{color:var(--ink-faint); font-family:var(--mono); font-size:13px; max-width:46%}
 .nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
 .foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
 @media (prefers-reduced-motion:reduce){.bar{transition:none; transform:scaleX(1)} .dot{transition:none; opacity:1}}
 </style>
 
 <div class="wrap">
-<div class="crumb">第 4 步 / 共 9 步</div>
+<div class="crumb">第一章 · 第 1 项 / 共 20 项</div>
 
-<h1>临时关掉它</h1>
+<h1>把自己写的东西挂上去</h1>
 <p class="sub">
-  不删那一条，只让它这次别跑。加一行 <code>disabled: true</code> 就行——
-  但「关掉」和「压根没写」在树上是两件不同的事。
+  0-3 那个实例里全是框架自己的东西。这一步加一个你写的插件——一个文件，
+  没有 package.json，没有构建，没有 npm install。
 </p>
 <div class="meta">
-  uv run pytest experiments/step4_disable_it/ -n 0 -s · 3 个用例 · 约 26 秒
+  uv run pytest experiments/step2_mount_your_plugin/ -n 0 -s · 3 个用例 · 约 20 秒
 </div>
 
 <section>
   <h2>现场</h2>
-  <h3>三次跑，patch 只差那一行</h3>
+  <h3>profile 目录里只多了一个文件</h3>
 
-  <div class="vs">
-    <div class="box">
-      <div class="filename">关掉它</div>
-<pre>- insert:
-    - id: worker
-      name: ./worker.mjs
-      <span class="del">disabled: true</span>
-      config:
-        班次: 早班</pre>
+  <div class="stage">
+    <div>
+      <div class="box">
+        <div class="filename">profiles/mine/</div>
+<pre>profiles/mine/
+├─ package.json
+├─ cordis.patch.yml
+├─ <span class="you">hello.mjs</span>          <span class="cm">← 就是它</span>
+├─ <span class="auto">cordis.yml</span>
+└─ node_modules/
+   └─ <span class="inst-c">lab-recorder</span> <span class="cm">→ link</span></pre>
+        <p class="note">
+          插件<b>就一个文件</b>，扔进 profile 目录就行。仪器仍然走 link，因为它是个包；
+          你写的东西不用是包。
+        </p>
+      </div>
     </div>
-    <div class="box">
-      <div class="filename">去掉那一行</div>
-<pre>- insert:
-    - id: worker
-      name: ./worker.mjs
+    <div>
+      <div class="box">
+        <div class="filename"><b>hello.mjs</b> — 一个插件的全部家当</div>
+<pre><span class="hi">export const inject = ["labObserver"];</span>
 
-      config:
-        班次: 早班</pre>
+export function apply(ctx, config) {
+  <span class="cm">// 先告诉观察器「是我在说话」</span>
+  const say = ctx.labObserver.for(ctx);
+
+  say("我的 apply 被调用了");
+}</pre>
+        <p class="note">
+          <code>inject</code> 那行照着写就行——它声明「我要用观察器」，框架保证
+          <code>apply</code> 跑之前它已经就位。<b>第 8 项会回头拆开讲这行到底做了什么。</b>
+        </p>
+      </div>
+      <div class="box">
+        <div class="filename"><b>cordis.patch.yml</b> — 在 0-3 的基础上多一块</div>
+<pre><span class="cm"># …前面 timer / hmr / lab-recorder 三条原样不变…</span>
+
+- insert:
+    - id: <span class="you">hello</span>
+      name: <span class="you">./hello.mjs</span>   <span class="cm"># 相对 profile 目录</span></pre>
+      </div>
     </div>
   </div>
-  <p class="note">
-    插件文件三种情况下都照样放在 profile 目录里，其余配置一字不差。
-  </p>
 </section>
 
 <section>
   <h2>跑出来</h2>
-  <h3>整棵树都动了，就它没动</h3>
+  <h3>它真的跑了，而且能看到跑在什么时候</h3>
 
   <div class="card scroll">
     <div class="chart" data-play>
@@ -152,120 +169,76 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
         <span><i class="pending"></i>PENDING</span>
         <span><i class="loading"></i>LOADING</span>
         <span><i class="active"></i>ACTIVE</span>
-        <span><i class="inst"></i>仪器</span>
-        <span><i class="off"></i>在树上，但从没动过</span>
+        <span><i class="inst"></i>仪器 / 插件说的话</span>
       </div>
     </div>
+    <dl class="reading">
+      <dt>采集器就绪</dt><dd>1.8 ms<span style="color:var(--ink-faint)"> —— 它零依赖，所以最快</span></dd>
+      <dt>hello 开始 LOADING</dt><dd><b>1.9 ms</b><span style="color:var(--ink-faint)"> —— 等到观察器了</span></dd>
+      <dt>hello 说话</dt><dd><b>2.4 ms</b></dd>
+      <dt>hello 变 ACTIVE</dt><dd><b>3.4 ms</b></dd>
+    </dl>
     <p class="punch">
-      <b>被关掉的那条仍然在树上——采集器睁眼时拍到了它，只是它从头到尾一个状态都没走过、一句话也没说。</b>
+      <b>说话在 2.4 ms，变 ACTIVE 在 3.4 ms —— apply 跑在「加载中」，不是「加载完之后」。</b>
+      一个插件在自己的 <code>apply</code> 里是看不到自己 ACTIVE 的。
     </p>
   </div>
 
-  <p>
-    采集器拍的那张起点快照里，它带着两个决定性的字段：
-  </p>
-  <div class="box"><pre>disabled: <span class="del">true</span>      hasFiber: <span class="del">false</span>      状态: <span class="cm">null</span></pre></div>
-  <p class="note" style="margin-top:12px">
-    <b>fiber</b> 是这一步引入的新词：条目是你在 patch 里写的那一行，<b>fiber 是它真跑起来之后的那个运行实例</b>。
-    被关掉的条目连 fiber 都不建——所以它没有状态可走。
-  </p>
-</section>
-
-<section>
-  <h2>⚠️ 一个会认错的地方</h2>
-  <h3>光看「有没有 fiber」是不够的</h3>
-  <p>
-    上面那张快照里，<code>timer</code> 和 <code>hmr</code> 在那一刻<b>也是「还没建 fiber」</b>——
-    它们只是还没轮到而已，后面就建起来跑完了。
-  </p>
-  <p>
-    所以<b>在采集器睁眼那一瞬，「没有 fiber」并不区分「被关掉了」和「还没轮到」。</b>
-    真正分得开的是接下来那十几毫秒：
-  </p>
-
-  <div class="box">
-    <dl class="trace">
-      <dt>hmr</dt><dd>LOADING → ACTIVE</dd>
-      <dt>include</dt><dd>ACTIVE</dd>
-      <dt>lab-recorder</dt><dd>ACTIVE</dd>
-      <dt>timer</dt><dd>LOADING → ACTIVE</dd>
-      <dt class="del">worker</dt><dd class="del">（一次都没变过）</dd>
-    </dl>
-  </div>
-  <p class="punch warn">
-    <b>判据是「别人都动了，就它没动」，不是「它没有 fiber」。</b>
-    实验里也是这么断言的——先确认 <code>timer</code> 走到了 ACTIVE，
-    否则「worker 没动」也可能只是采集器根本没记上。
+  <p class="note" style="margin-top:20px; font-size:14px">
+    这条判定是白捡的：<code>report</code> 和 <code>status</code> 本来就在同一根时间轴上，
+    不用额外设计实验，两个数一比就出来了。这正是把观察器做成底层依赖的好处。
   </p>
 </section>
 
 <section>
   <h2>对照</h2>
-  <h3>关掉 vs 压根不写</h3>
+  <h3>文件在、但不写那一条呢</h3>
 
   <div class="vs">
     <div class="box">
-      <h5 class="del">写了，但 disabled: true</h5>
-      <dl class="trace">
-        <dt>在树上？</dt><dd class="del">在</dd>
-        <dt>快照拍到？</dt><dd>拍到了，<code>disabled: true</code></dd>
-        <dt>走过状态？</dt><dd class="cm">一次都没有</dd>
-        <dt>说过话？</dt><dd class="cm">一句都没有</dd>
-      </dl>
+      <h5 class="you">写了那一条</h5>
+<pre>树上：timer, hmr, include,
+      lab-recorder, <span class="you">hello</span>
+
+它说的话：
+  "我的 apply 被调用了"</pre>
     </div>
     <div class="box">
-      <h5 style="color:var(--off)">压根不写那一条</h5>
-      <dl class="trace">
-        <dt>在树上？</dt><dd style="color:var(--off)">不在</dd>
-        <dt>快照拍到？</dt><dd class="cm">没拍到——它不在树上</dd>
-        <dt>走过状态？</dt><dd class="cm">一次都没有</dd>
-        <dt>说过话？</dt><dd class="cm">一句都没有</dd>
-      </dl>
+      <h5 style="color:var(--pending)">文件原样放着，只是不写</h5>
+<pre>树上：timer, hmr, include,
+      lab-recorder
+
+它说的话：
+  <span class="cm">（一句都没有）</span></pre>
     </div>
   </div>
 
   <p class="punch">
-    <b>从「它没跑」这个现象看，两者一模一样；从树上看，一个在、一个不在。</b>
-    这个区别在排错时很要紧：条目在树上说明 patch 被读到了、<code>name</code> 也没写错，
-    问题只在那一行开关上。
-  </p>
-</section>
-
-<section>
-  <h2>去掉那一行</h2>
-  <h3>它立刻就正常了</h3>
-  <div class="box">
-    <dl class="trace">
-      <dt>1.2 ms</dt><dd>快照拍到它，这次是 <b class="hi">PENDING</b>——fiber 已经建好，在等</dd>
-      <dt>1.7 ms</dt><dd>PENDING → LOADING</dd>
-      <dt>2.2 ms</dt><dd class="inst-c">它说话了：我跑起来了 {"收到的config":{"班次":"早班"}}</dd>
-      <dt>2.6 ms</dt><dd>LOADING → ACTIVE</dd>
-    </dl>
-  </div>
-  <p class="punch">
-    对比着看就清楚了：<b>正常的条目是「fiber 先建好，再往下走」；被关掉的是连建都不建。</b>
-    这就是「在树上但没有 fiber」的实际含义。
+    <b>挂载只认 patch 里写没写，不会自己去扫目录。</b>
+    文件躺在 profile 目录里不代表它会被加载——树上根本没有它这一条。
+    而少挂一个插件不是错误，实例照常活着。
   </p>
 </section>
 
 <div class="nav">
-  <a href="step-3.html"><small>上一步</small>← 第 3 步 · 给它传配置</a>
-  <span class="none"><small>下一步</small>第 5 步 · 挂不上，怎么查</span>
+  <a href="minimal.html"><small>上一步</small>← 0-3 · 最小实例</a>
+  <a href="config.html"><small>下一步</small>第 2 项 · 给它传配置 →</a>
 </div>
 <div class="foot">
-  时间线与快照字段读自 out/testhome/step4/ 的 events.jsonl。<br>
-  三次跑各起一个独立实例，patch 只差那一行，其余一字不差。
+  文件树与配置取自跑完后的 out/testhome/step2/，长路径已缩短。<br>
+  时间线读自 events.jsonl；紫色圆点是插件自己上报的那一刻。
 </div>
 </div>
 
 <script>
-const T_MAX = 20;
+const T_MAX = 24;
 const LANES = [
-  {id:"include", spans:[["loading",1.2,17.1],["active",17.1,T_MAX]]},
-  {id:"timer",   spans:[["pending",1.2,1.6],["loading",1.6,2.2],["active",2.2,T_MAX]]},
-  {id:"hmr",     spans:[["pending",1.2,2.4],["loading",2.4,16.7],["active",16.7,T_MAX]]},
-  {id:"lab-recorder", inst:true, spans:[["inst",1.2,1.7],["active",1.7,T_MAX]]},
-  {id:"worker", off:true, spans:[["off",1.2,T_MAX]]},
+  {id:"include", spans:[["loading",1.3,21.6],["active",21.6,T_MAX]]},
+  {id:"timer",   spans:[["pending",1.3,1.7],["loading",1.7,2.7],["active",2.7,T_MAX]]},
+  {id:"hmr",     spans:[["pending",1.3,3.3],["loading",3.3,21.2],["active",21.2,T_MAX]]},
+  {id:"lab-recorder", inst:true, spans:[["inst",1.3,1.8],["active",1.8,T_MAX]]},
+  {id:"hello", you:true, spans:[["pending",1.3,1.9],["loading",1.9,3.4],["active",3.4,T_MAX]],
+   marks:[[2.4,"我的 apply 被调用了"]]},
 ];
 const pct = (ms) => (ms / T_MAX * 100).toFixed(3) + "%";
 document.querySelectorAll("[data-axis]").forEach((ax) => {
@@ -277,12 +250,11 @@ document.querySelectorAll("[data-axis]").forEach((ax) => {
 });
 const host = document.querySelector("[data-lanes]");
 LANES.forEach((lane, i) => {
-  const row = document.createElement("div");
-  row.className = "lane" + (lane.off ? " spot" : "");
+  const row = document.createElement("div"); row.className = "lane";
   const name = document.createElement("div"); name.className = "lane-name";
-  name.innerHTML = (lane.off || lane.inst) ? `<b>${lane.id}</b>` : lane.id;
+  name.innerHTML = (lane.you || lane.inst) ? `<b>${lane.id}</b>` : lane.id;
   if (lane.inst) name.innerHTML += `<span class="tag i">仪器</span>`;
-  if (lane.off) name.innerHTML += `<span class="tag o">关掉了</span>`;
+  if (lane.you) name.innerHTML += `<span class="tag y">你写的</span>`;
   row.appendChild(name);
   const track = document.createElement("div"); track.className = "track";
   lane.spans.forEach(([kind, from, to], j) => {
@@ -292,6 +264,11 @@ LANES.forEach((lane, i) => {
     bar.style.transitionDelay = (i * 60 + j * 90) + "ms";
     bar.title = `${lane.id}: ${kind} ${from}ms → ${to}ms`;
     track.appendChild(bar);
+  });
+  (lane.marks || []).forEach(([at, text]) => {
+    const dot = document.createElement("div"); dot.className = "dot";
+    dot.style.left = pct(at); dot.innerHTML = `<span>${at}ms ${text}</span>`;
+    track.appendChild(dot);
   });
   row.appendChild(track); host.appendChild(row);
 });
