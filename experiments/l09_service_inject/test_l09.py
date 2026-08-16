@@ -1,4 +1,4 @@
-"""L3 · 服务与 inject
+"""L9 · 服务与 inject
 
 见同目录 README.md。一句话：谁提供服务、谁依赖它、依赖没到位时会怎样。
 
@@ -42,7 +42,7 @@ def _entry(entry_id: str, name: str, *, disabled: bool = False, inject=None, con
 
 
 def _patch(*entries: str) -> str:
-    return "# L3 实验活层\n- insert:\n" + "\n\n".join(entries) + "\n"
+    return "# L9 实验活层\n- insert:\n" + "\n\n".join(entries) + "\n"
 
 
 def _link_all(profile, fixtures_dir: Path) -> None:
@@ -81,7 +81,7 @@ def test_dependency_chain_loads_in_service_order(lab_home, fixtures_dir, launch)
     账本每登记一笔就落盘，所以它记下的是真实的 apply 先后：
     registry 先提供服务，alpha 才可能登记；alpha 提供 labAlpha 之后，beta 才可能登记。
     """
-    profile = lab_home.make_profile("l03-chain")
+    profile = lab_home.make_profile("l09-chain")
     _link_all(profile, fixtures_dir)
     ledger = lab_home.root / "ledger.json"
     w_alpha = lab_home.root / "w-alpha.json"
@@ -135,7 +135,7 @@ def test_missing_provider(lab_home, fixtures_dir, launch):
     boot 会 fail-loud 报 `did not activate`；这里换成「服务名存在但提供者被禁用」，
     结果未必一样。
     """
-    profile = lab_home.make_profile("l03-noroot")
+    profile = lab_home.make_profile("l09-noroot")
     _link_all(profile, fixtures_dir)
     ledger = lab_home.root / "ledger-noroot.json"
     w_alpha = lab_home.root / "w-alpha-noroot.json"
@@ -183,7 +183,7 @@ def test_missing_middle_breaks_only_second_level(lab_home, fixtures_dir, launch)
       1. beta 会不会 apply（跟上一个用例同样的软／硬依赖问题）
       2. 根服务还在时，beta 能不能拿到 `labRegistry`——即**部分依赖满足**时的行为
     """
-    profile = lab_home.make_profile("l03-nomid")
+    profile = lab_home.make_profile("l09-nomid")
     _link_all(profile, fixtures_dir)
     ledger = lab_home.root / "ledger-nomid.json"
     w_beta = lab_home.root / "w-beta-nomid.json"
@@ -233,7 +233,7 @@ def test_entry_level_inject_vs_code_level(lab_home, fixtures_dir, launch):
 
     两种结果都记录下来，实测说了算。
     """
-    profile = lab_home.make_profile("l03-inject")
+    profile = lab_home.make_profile("l09-inject")
     _link_all(profile, fixtures_dir)
     ledger = lab_home.root / "ledger-inject.json"
 
@@ -273,7 +273,7 @@ def test_write_order_does_not_decide_load_order(lab_home, fixtures_dir, launch):
 
     L4 会把这条深入展开，这里先钉一个最直接的证据。
     """
-    profile = lab_home.make_profile("l03-reverse")
+    profile = lab_home.make_profile("l09-reverse")
     _link_all(profile, fixtures_dir)
     ledger = lab_home.root / "ledger-reverse.json"
     w_beta = lab_home.root / "w-beta-reverse.json"
@@ -312,7 +312,7 @@ def test_pending_dependent_seen_through_recorder(lab_home, fixtures_dir, launch)
     两者本质相同、结果不同，说明我们对「boot 期 PENDING 致命」的理解有缺口。
     挂上采集器直接看 fiber 状态，比继续猜快得多。
     """
-    profile = lab_home.make_profile("l03-observed")
+    profile = lab_home.make_profile("l09-observed")
     _link_all(profile, fixtures_dir)
     profile.link_plugin("lab-recorder", RECORDER)
 
@@ -391,7 +391,7 @@ def test_boot_outcome_for_unsatisfiable_inject(lab_home, fixtures_dir, launch, v
     现在改成直接看进程死没死。
     """
     tag = "dis" if service_name == "labRegistry" else "never"
-    profile = lab_home.make_profile(f"l03-unsat-{tag}")
+    profile = lab_home.make_profile(f"l09-unsat-{tag}")
     _link_all(profile, fixtures_dir)
     profile.link_plugin("lab-recorder", RECORDER)
 

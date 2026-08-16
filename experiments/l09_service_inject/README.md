@@ -1,8 +1,22 @@
-# L3 · 服务与 `inject`
+# L9 · 服务与 `inject`
+
+> 8 个用例 ｜ 约 55 秒 ｜ 不需要 web ｜ 📗 复述型 + 🔬 发现型 ｜ 前置：L7
 
 **这一课回答：** 谁提供服务、谁依赖它、**依赖没到位时会怎样**。
 
-跑法：`uv run pytest experiments/l03_service_inject/`（约 55 秒，8 个用例）
+跑法：`uv run pytest experiments/l09_service_inject/`
+
+> **这一课原本编号 L3**，挂在「第二级·插件之间」。2026-08-16 重排后挪到「四·激活」，
+> 因为逻辑上**先有树才谈得上树上的条目怎么激活**——原梯度把激活排在「配方从哪来」
+> 前面，是个真实的断裂。测试代码一行没动，只改了编号与定位。
+> 重排理由见 `SYLLABUS.md` 末尾。
+
+📗 **文档已写明的**（`docs/official/zh/user/develop/framework/service.md`）：
+`inject` 是硬依赖、服务消失时依赖方自动 dispose、服务恢复后自动重载。
+
+🔬 **文档没写、本课测出来的**：条目级 `inject` 是**补充不是覆盖**；
+另有一种**包级**声明（`package.json` 里的 `@deepseek-ai/cordis.services.required`，
+hmr 包就是这么声明它依赖 timer 的）。
 
 ---
 
@@ -15,7 +29,7 @@ lab-registry  ←──  lab-alpha  ←──  lab-beta
 ```
 
 账本（`labRegistry` 提供的那个对象）**每登记一笔就整份落盘**，
-所以见证文件里的顺序就是**真实的 apply 先后**——L3 用它验依赖，L4 用同一份数据验顺序。
+所以见证文件里的顺序就是**真实的 apply 先后**——L9 用它验依赖，L10 用同一份数据验顺序。
 
 ## 二、实测结论
 
