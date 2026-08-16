@@ -30,10 +30,11 @@ A/B/C/D 的源码是仓库里现成的 fixtures；E/F 没有对应的 fixtures �
 一个临时 git 仓库里写出两版内容、打好 tag，再 `git worktree add` 出一份工作副本
 当插件的供给源。
 
-⚠️ 所有会被用例在运行时修改内容的包（B/C/D），都先整个拷贝一份到 profile 目录
-*里面*再 link，从不直接把 junction 指回仓库里 `fixtures/` 的原件——理由见
-`provision()` 的 docstring，兼顾「不弄脏仓库」和「hmr 的 root 默认只递归
-profile 目录、且默认忽略 `**/node_modules`」这两件事。
+⚠️ **每个插件的真身都落在 profile 目录里面**（B/C/D 拷贝过去，E/F 的 git 工作副本
+直接建在里面），hmr 只配一条 root：`['.']`。这不是图省事，是实测踩出来的——
+把工作副本放在 profile 外、另给 hmr 开一条指向它的绝对路径 root，那两个形态
+**一个 hmr 事件都收不到**，而同一次跑里落在 profile 里的形态全部正常热重载。
+详见 `make_git_worktree` 的 docstring 与本课 README。
 """
 
 from __future__ import annotations
@@ -112,13 +113,11 @@ def provision(profile: LabProfile, route_name: str) -> Path:
 
       1. **不弄脏仓库**——用例后面无论怎么改代码、改 bundle 自己的 patch，
          动的都是这份拷贝，`fixtures/` 目录永远保持它被交付时的样子。
-      2. **落点必须在 profile 目录里面**——hmr 的 `root` 默认只递归 profile
-         目录，且默认 `ignored` 名单里有 `**/node_modules`。junction 的真身
-         如果落在 profile 目录外，`root: ['.']` 压根扫不到，得单独给它开一条
-         root。放在 profile 目录里面就搭 profile 自己这条 root 的顺风车，
-         不用额外配置——这也是本课的 hmr 配置为什么长成 `['.', <pinned 目录>]`
-         （只有 E 那一条例外，见 `make_git_worktree`）而不是把每个形态都列
-         进去的原因。
+      2. **落点必须在 profile 目录里面**——hmr 的默认 `ignored` 名单里有
+         `**/node_modules`，junction 那一层本身就是死路；而真身如果落在
+         profile 目录外，即使单独给它开一条绝对路径 root 也**收不到变更事件**
+         （实测，见 `make_git_worktree`）。放在 profile 目录里面搭 `root: ['.']`
+         的顺风车是唯一走得通的那条——本课六个形态无一例外。
     """
     dest = profile.dir / route_name
     shutil.copytree(FIXTURES / route_name, dest)
@@ -205,28 +204,38 @@ def _commit_tag(gitsrc: Path, files: dict[str, str], tag: str) -> None:
     run_git(["tag", tag], gitsrc)
 
 
-def make_git_worktree(base: Path, files_v1: dict[str, str]) -> Path:
+def make_git_worktree(gitsrc: Path, pinned: Path, files_v1: dict[str, str]) -> Path:
     """建一个最小 git 仓库、打一个 `v1` tag、check 出一份 worktree，返回 worktree
-    目录——这就是插件的『供给源』，活在 profile 目录*外*（跟 B/C/D 的拷贝故意
-    相反）。
+    目录——这就是插件的『供给源』。
+
+    ⚠️ **`pinned` 必须落在 profile 目录里面**（见本课 README「hmr 只认 watch root
+    覆盖到的文件」一节）：hmr 的 watcher 把 chokidar 的 `cwd` 设成 profile 目录、
+    `ignored` 判定走 `relative(profile, path)`，落在 profile 外的目录即使写进
+    `config.root` 也收不到变更事件。对照实测：同一套用例，工作副本放 profile 外
+    时 E 和 F **一个 hmr 事件都没有**、放进来则全部正常热重载，其余条件不变。
+
+    主仓库（`gitsrc`）反过来要留在 profile *外*：它带一整个 `.git` 目录，扫进
+    watch root 纯属给 chokidar 添负担；worktree 那边只有一个指向主仓库的 `.git`
+    **文件**，很轻。
 
     只负责『供给轴 = 钉 tag 的 git 工作副本』这一件事，不涉及版本钉法——那是
     调用方的事：用例 2 直接改 worktree 里的文件（跟改 A/B/D 的代码一样，走的是
-    「文件变了」这条路，hmr 照样能看到）；只有用例 4 才走「整仓库另打一个 tag、
-    checkout 切过去」这条路，见 `make_git_worktree_two_versions`。
+    「文件变了」这条路）；只有用例 4 才走「整仓库另打一个 tag、checkout 切过去」
+    这条路，见 `make_git_worktree_two_versions`。
     """
-    gitsrc, pinned = base / "gitsrc", base / "pinned"
     _init_git_repo(gitsrc)
     _commit_tag(gitsrc, files_v1, "v1")
     run_git(["worktree", "add", str(pinned), "v1"], gitsrc)
     return pinned
 
 
-def make_git_worktree_two_versions(base: Path, files_v1: dict[str, str], files_v2: dict[str, str]) -> tuple[Path, Path]:
-    """跟 `make_git_worktree` 一样，但额外打好 `v2` tag——给用例 4『checkout 切
-    版本』这条路用。返回 `(主仓库目录, 起初钉在 v1 的 worktree 目录)`。
+def make_git_worktree_two_versions(
+    gitsrc: Path, pinned: Path, files_v1: dict[str, str], files_v2: dict[str, str]
+) -> tuple[Path, Path]:
+    """跟 `make_git_worktree` 一样（`pinned` 落点的约束同样适用），但额外打好
+    `v2` tag——给用例 4『checkout 切版本』这条路用。
+    返回 `(主仓库目录, 起初钉在 v1 的 worktree 目录)`。
     """
-    gitsrc, pinned = base / "gitsrc", base / "pinned"
     _init_git_repo(gitsrc)
     _commit_tag(gitsrc, files_v1, "v1")
     _commit_tag(gitsrc, files_v2, "v2")
@@ -304,9 +313,6 @@ def build_five_routes(lab_home: LabHome, label: str) -> dict:
     的路径，供用例原地改 `CODE_VERSION`）/ `pinned_e`（E 的 git 工作副本目录）。
     """
     events_path = lab_home.root / f"events-{label}.jsonl"
-    pinned_e = make_git_worktree(lab_home.root / f"{label}-e-git", route_e_files("e-v1"))
-
-    hmr_roots = [".", pinned_e.resolve().as_posix()]
     live_insert = """- insert:
     - id: route-a
       name: ./route-a.mjs
@@ -324,8 +330,13 @@ def build_five_routes(lab_home: LabHome, label: str) -> dict:
       config:
         层版本: e-live1
 """
-    profile = lab_home.make_profile(label, bundles=["route-c"], patch=infra_patch(hmr_roots, events_path) + live_insert)
+    # hmr 只给一条 root：profile 目录自己。E 的 git 工作副本就建在这个目录**里面**，
+    # 搭这条 root 的顺风车——落在外面的 root 收不到变更事件，见 `make_git_worktree`。
+    profile = lab_home.make_profile(label, bundles=["route-c"], patch=infra_patch(["."], events_path) + live_insert)
     profile.link_plugin("lab-recorder", OBSERVER)
+
+    # 主仓库留在 profile 外（带整个 .git，不该扫进 watch root），工作副本落在里面。
+    pinned_e = make_git_worktree(lab_home.root / f"{label}-e-git", profile.dir / "route-e-src", route_e_files("e-v1"))
 
     plugin_a = profile.dir / "route-a.mjs"
     shutil.copy2(FIXTURES / "route-a.mjs", plugin_a)
@@ -383,12 +394,16 @@ def build_f_only(lab_home: LabHome, label: str) -> dict:
     活层什么都不写——route-f 完全靠 bundle 自己那份 patch 上树。
     """
     events_path = lab_home.root / f"events-{label}.jsonl"
-    gitsrc, pinned_f = make_git_worktree_two_versions(
-        lab_home.root / f"{label}-f-git", route_f_files("f-v1", "f-r1"), route_f_files("f-v2", "f-r2")
-    )
-    hmr_roots = [".", pinned_f.resolve().as_posix()]
-    profile = lab_home.make_profile(label, bundles=["route-f"], patch=infra_patch(hmr_roots, events_path))
+    # 同 `build_five_routes`：root 只给 profile 目录自己，工作副本建在它里面。
+    profile = lab_home.make_profile(label, bundles=["route-f"], patch=infra_patch(["."], events_path))
     profile.link_plugin("lab-recorder", OBSERVER)
+
+    gitsrc, pinned_f = make_git_worktree_two_versions(
+        lab_home.root / f"{label}-f-git",
+        profile.dir / "route-f-src",
+        route_f_files("f-v1", "f-r1"),
+        route_f_files("f-v2", "f-r2"),
+    )
     profile.link_plugin("route-f", pinned_f)
 
     return {"profile": profile, "events_path": events_path, "gitsrc": gitsrc, "pinned_f": pinned_f}
