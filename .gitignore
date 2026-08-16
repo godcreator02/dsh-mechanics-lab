@@ -1,12 +1,8 @@
-# 假 DSH home：实验用运行时数据，有意放在箱内（见 README「破例声明」），但不进 git
-/.testhome/
-
-# 实验归档：summary.md（结论与用例输出）进 git，原始观测产物不进
-# —— 事件日志一次运行上百 KB，且随时可以重跑复现
-/results/**/*.jsonl
-/results/**/*.relations.json
-/results/*.raw.txt
-/results/*.raw.log
+# 全部运行产物的收口：假 home（out/testhome/）与观测归档（out/results/）。
+# 一条规则管住，因为它们是同一种东西——**跑一次就能再生**。
+# 进 git 的只有源：实验代码、教学插件、文档。观测的价值在于被消化进
+# 各课 README 的结论，不在于原始 json 躺在仓库里。
+/out/
 
 # fixtures 里假插件被 pnpm 装出来的东西
 **/node_modules/

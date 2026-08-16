@@ -43,17 +43,34 @@ uv run pytest experiments/l00_minimal_environment/ -n 0   # 关并行，看清�
 
 ## 破例声明：箱内有运行时数据
 
-`.testhome/` 是假的 DSH home，实验期间会往里写 profile、日志、见证文件。
-它**在箱内**，这是有意的破例：
+```
+out/                 ← 全部运行产物，整个 gitignore
+├── testhome/        假 DSH home，一课一个子目录
+└── results/         每次运行的观测归档
+```
+
+运行时数据**在箱内**，这是有意的破例：
 
 - 每个实验一个独立 home，**物理隔离**而非靠纪律——home 级 patch 层对该 home 下
   所有 profile 同时生效，靠 `try/finally` 清理兜不住（异常、中断、并发任一都会漏）
 - 就近可查：实验失败时日志、profile、活层都在手边
 
-`.testhome/` 不进 git（`.gitignore`），每次跑前清空。观测产物由 pytest 装置自动
-归档到 `results/`——那里进 git，是实验证据。
+`out/` 整个不进 git，因为里面的东西**跑一次就能再生**。归档留着是为了跑完能翻
+（并行之后终端输出是交错的，看 `out/results/<课>-<时间戳>/summary.md`
+比翻 scrollback 靠谱），不是为了长期保存证据——**证据的归宿是各课 README 里的
+结论**，不是原始 json 躺在仓库里。
+
+每课的 home 在跑那一课时先整个清空再重建，跑完留着。
 
 ## 整箱删除
 
 先停掉所有实验实例（`uv run pytest` 自己会回收，异常中断的用 `taskkill` 清），
 再删整个箱目录。本箱不注册进任何工具链、不 attach 到任何实例，删了不留残留。
+
+⚠️ **删 `out/` 要逐层拆 junction，绝不跟着链接走**——profile 的 `node_modules`
+里全是指向 fixtures 和 npx 缓存的 junction（实测一次全套跑完有五千多条）。
+用现成的：
+
+```powershell
+uv run python -c "import sys; sys.path.insert(0,'experiments'); from lab.core import rmtree_safe, OUT_DIR; rmtree_safe(OUT_DIR)"
+```

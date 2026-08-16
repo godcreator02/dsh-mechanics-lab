@@ -65,7 +65,7 @@ L0 是「先总后分」的总：一次看清整棵树的形状，后面六部�
 
 | 项 | 规矩 |
 |---|---|
-| **home** | 只用假 home `.testhome/`（`DSH_HOME` 经子进程 `env` 传入，不改当前进程环境）。**绝不碰 `~/.dsh`** |
+| **home** | 只用假 home `out/testhome/`（`DSH_HOME` 经子进程 `env` 传入，不改当前进程环境）。**绝不碰 `~/.dsh`** |
 | **端口** | 只用 3090–3099。**绝不碰 3080（主实例）/ 3239 / 3733** |
 | **删目录** | 逐层拆 junction，**绝不跟着链接走**（profile 的 node_modules 里全是指向源码和 npx 缓存的 junction） |
 | **并发** | 各课并行跑，隔离靠 home 分课 + 端口按 worker 静态分段（`conftest._my_ports`）。锁只防两个**会话**同时开跑，会排队，不必手工协调 |
@@ -262,8 +262,9 @@ experiments/
     test_l00.py    pytest 用例
     fixtures/      本课专用教学插件（允许跨课重复，那是特性）
   l01_… l02_… l09_…（编号即教学顺序，见 docs/SYLLABUS.md）
-results/           每次跑的归档（summary.md + 见证文件进 git，*.jsonl 不进）
-.testhome/         假 home，gitignore
+out/               全部运行产物，整个 gitignore（跑一次就能再生）
+  testhome/        假 home，一课一个子目录；跑那一课时先清空再重建
+  results/         每次跑的归档（summary.md + 见证文件 + 事件流）
 .venv/             虚拟环境，gitignore
 ```
 

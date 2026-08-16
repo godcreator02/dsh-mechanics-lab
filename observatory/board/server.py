@@ -3,7 +3,7 @@
     uv run python observatory/board/server.py        # 起在 8899
     uv run python observatory/board/server.py 8123   # 换端口
 
-它只做三件事：扫 `.testhome/` 找运行记录、把 jsonl 和见证文件读出来、渲染一个页面。
+它只做三件事：扫 `out/testhome/` 找运行记录、把 jsonl 和见证文件读出来、渲染一个页面。
 **无状态、只读、零依赖**（标准库 http.server），不能启停实例、不能改任何东西。
 
 为什么用 8899：实验端口段是 3090–3099，而 3080 与 3100 以上都可能被别的进程占着。
@@ -21,13 +21,17 @@ from urllib.parse import parse_qs, urlparse
 
 BOARD_DIR = Path(__file__).resolve().parent
 LAB_ROOT = BOARD_DIR.parent.parent
-TESTHOME = LAB_ROOT / ".testhome"
+
+# 假 home 的位置从 lab 包取，**不在这里另定义一份** —— 两处独立定义同一个路径，
+# 改了一处忘了另一处，看板就静默扫不到数据（不报错，只是列表空的）。
+sys.path.insert(0, str(LAB_ROOT / "experiments"))
+from lab.core import TESTHOME_ROOT as TESTHOME  # noqa: E402
 
 DEFAULT_PORT = 8899
 
 
 def list_runs() -> list[dict]:
-    """扫 .testhome 下每个实验 home，找事件日志和见证文件。
+    """扫假 home 根目录下每个实验 home，找事件日志和见证文件。
 
     一个 home 就是一次「运行」——名字就是实验标签（l01 / demo / verify-scope…）。
     """
@@ -153,7 +157,7 @@ def main() -> int:
             return 1
 
     if not TESTHOME.is_dir():
-        print(f"还没有 .testhome（{TESTHOME}）—— 先跑一次实验再来", file=sys.stderr)
+        print(f"还没有假 home（{TESTHOME}）—— 先跑一次实验再来", file=sys.stderr)
 
     server = ThreadingHTTPServer(("127.0.0.1", port), BoardHandler)
     print(f"观测台看板：http://127.0.0.1:{port}/")

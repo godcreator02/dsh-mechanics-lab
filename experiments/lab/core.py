@@ -18,8 +18,21 @@ from pathlib import Path
 
 LAB_ROOT = Path(__file__).resolve().parent.parent.parent
 EXPERIMENTS_DIR = LAB_ROOT / "experiments"
-TESTHOME_ROOT = LAB_ROOT / ".testhome"
-RESULTS_DIR = LAB_ROOT / "results"
+
+#: 一切运行产物的收口。整个目录 gitignore —— 里面的东西**全部可以重跑再生**，
+#: 所以进 git 的只有源（实验代码、教学插件、文档），不含任何一次运行的结果。
+#: 根目录因此一眼分得清「哪些是源、哪些是产物」。
+OUT_DIR = LAB_ROOT / "out"
+
+#: 假 DSH home 的根，每个实验在下面占一个子目录。跑某一课时先整个清掉再重建，
+#: 跑完留着供排查。**这是实验台的安全边界**：`DSH_HOME` 只会指向这下面，
+#: 绝不指向 `~/.dsh`。
+TESTHOME_ROOT = OUT_DIR / "testhome"
+
+#: 每次运行的观测产物归档。留档是为了跑完能翻（并行之后终端输出交错，
+#: 看这里比看 scrollback 靠谱），不是为了长期保存证据 —— 证据的归宿是
+#: 各课 README 里的结论，不是原始 json 躺在仓库里。
+RESULTS_DIR = OUT_DIR / "results"
 
 #: 本机上可能有别的东西在跑的端口，任何情况下都不许碰
 FORBIDDEN_PORTS = (3080, 3239, 3733)
@@ -313,7 +326,13 @@ class LabHome:
         return self.make_profile(name, bundles=[], patch=infra + patch)
 
     def clean(self) -> None:
-        """删掉整个 home。"""
-        if "dsh-mechanics-lab" not in str(self.root):
-            raise LabError(f"home 路径不对劲，拒绝删：{self.root}")
+        """删掉整个 home。
+
+        护栏判的是「是不是 `TESTHOME_ROOT` 的真子目录」，不是字符串包含 ——
+        这个函数会递归删目录，判据必须是结构上的，不能靠路径里碰巧有某个词。
+        """
+        if self.root.resolve().parent != TESTHOME_ROOT.resolve():
+            raise LabError(
+                f"home 不在 {TESTHOME_ROOT} 下面，拒绝删：{self.root}"
+            )
         rmtree_safe(self.root)

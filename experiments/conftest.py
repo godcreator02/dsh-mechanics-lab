@@ -45,8 +45,9 @@ from lab import (  # noqa: E402
 #: 每个实验模块的用例结果，由下面的 hook 填充，归档时写进 summary.md
 _reports: dict[str, list[dict]] = defaultdict(list)
 
-#: 要归档的产物。`.testhome/` 是 gitignore 的、而且每次跑前会被清空，
-#: 不归档的话上一次的观测证据就永远没了。
+#: 要归档的产物。假 home 每次跑那一课之前会被整个清空，不归档的话这次的观测
+#: 就没了——而归档一份在 `out/results/` 下，跑完随时能翻（并行之后终端输出
+#: 是交错的，翻归档比翻 scrollback 靠谱）。
 #:
 #: 用宽松的 `*.json` / `*.jsonl` 而不是逐个列文件名：各课的见证文件命名不统一
 #: （L1 是 `witness-*.json`、L3 是 `w-*.json` 和 `ledger*.json`），
@@ -95,10 +96,11 @@ def pytest_runtest_makereport(item, call):
 
 
 def _archive(home: LabHome, label: str, module_name: str) -> Path | None:
-    """把这次运行的观测产物归档进 results/<标签>-<时间戳>/。
+    """把这次运行的观测产物归档进 out/results/<标签>-<时间戳>/。
 
-    归档的是**证据**，不是结论：事件日志、关系表、见证文件、账本，
-    外加一份 summary.md（用例结果 + 它们打印的说明）。
+    归档的是**原始观测**，不是结论：事件日志、关系表、见证文件、账本，
+    外加一份 summary.md（用例结果 + 它们打印的说明）。整个 `out/` 不进 git ——
+    结论要写进各课 README 才算数，指望原始 json 替自己记住是靠不住的。
     """
     stamp = time.strftime("%Y%m%d-%H%M%S")
     dest = RESULTS_DIR / f"{label}-{stamp}"
@@ -148,8 +150,8 @@ def _label_of(request: pytest.FixtureRequest) -> str:
 def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
     """本实验专属的假 home。模块级：一个实验文件共用一个。
 
-    跑完**先归档再放锁**——`.testhome/` 下次跑会被清空，不归档证据就没了。
-    成败都归档：失败的那次证据反而更要紧。
+    起手先 `clean()` 再重建空骨架，保证可重复跑；跑完归档，成败都归——
+    失败那次的现场反而更要紧。
     """
     label = _label_of(request)
     home = LabHome(label)

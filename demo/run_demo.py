@@ -13,7 +13,7 @@
 DISABLED 与 PENDING 的对照是这个演示的重点：两张卡片都是「没在跑」，
 但成因完全不同，排查方向也完全不同。
 
-Ctrl-C 停止。假 home 在 .testhome/demo/，与生产 ~/.dsh 完全隔离。
+Ctrl-C 停止。假 home 在 out/testhome/demo/，与生产 ~/.dsh 完全隔离。
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ def main() -> int:
     acquire_lock("demo")
     inst = None
     try:
-        print("准备假 home（.testhome/demo/）…")
+        print("准备假 home（out/testhome/demo/）…")
         LabHome("demo").clean()
         home = LabHome("demo")
 
