@@ -1,0 +1,11 @@
+{
+  "marker": "l01-minimal-v1",
+  "moduleLoadedAt": "2026-08-16T04:17:46.923Z",
+  "appliedAt": "2026-08-16T04:17:47.281Z",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/.testhome/l01/witness-config.json",
+    "口令": "洛阳纸贵",
+    "数字": 42,
+    "开关": true
+  }
+}

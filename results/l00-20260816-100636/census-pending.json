@@ -1,0 +1,53 @@
+[
+  {
+    "marker": "l00-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2000,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T02:06:36.379Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "l00-census",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "needy",
+            "name": "l00-needy",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 0,
+            "inject": [
+              "definitelyNotAService"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

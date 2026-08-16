@@ -1,0 +1,228 @@
+[
+  {
+    "marker": "l08-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2500,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T04:10:03.880Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "group-a",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "group-b",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "flavor-a",
+            "name": "lab-flavor",
+            "parent": "group-a",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "taster-a",
+            "name": "lab-flavor-taster",
+            "parent": "group-a",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "flavor-b",
+            "name": "lab-flavor",
+            "parent": "group-b",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "taster-b",
+            "name": "lab-flavor-taster",
+            "parent": "group-b",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          }
+        ]
+      },
+      {
+        "phase": "settle",
+        "at": "2026-08-16T04:10:06.385Z",
+        "services": {
+          "loader": true,
+          "timer": true,
+          "hmr": true,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "group-a",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "group-b",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "flavor-a",
+            "name": "lab-flavor",
+            "parent": "group-a",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "taster-a",
+            "name": "lab-flavor-taster",
+            "parent": "group-a",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "labFlavor"
+            ]
+          },
+          {
+            "id": "flavor-b",
+            "name": "lab-flavor",
+            "parent": "group-b",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "taster-b",
+            "name": "lab-flavor-taster",
+            "parent": "group-b",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "labFlavor"
+            ]
+          },
+          {
+            "id": "7884afa2",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "d42b7000",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader",
+              "timer"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,96 @@
+[
+  {
+    "marker": "l00-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2000,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T02:53:46.442Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "./../../../../experiments/l00_minimal_environment/fixtures/l00-census/index.js",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          }
+        ]
+      },
+      {
+        "phase": "settle",
+        "at": "2026-08-16T02:53:48.447Z",
+        "services": {
+          "loader": true,
+          "timer": true,
+          "hmr": true,
+          "logger": false,
+          "webServer": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "./../../../../experiments/l00_minimal_environment/fixtures/l00-census/index.js",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "0251c42e",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "b0ae1392",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader",
+              "timer"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

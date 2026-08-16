@@ -1,0 +1,18 @@
+{
+  "marker": "lab-beta-v1",
+  "appliedAt": "2026-08-15T19:34:05.275Z",
+  "gotRegistry": true,
+  "gotAlpha": true,
+  "alphaMarker": "lab-alpha-v1",
+  "ledgerBefore": [
+    {
+      "who": "lab-alpha",
+      "note": "第一层消费者",
+      "ms": 5.5429,
+      "at": "2026-08-15T19:34:05.267Z"
+    }
+  ],
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/.testhome/l03/w-beta.json"
+  }
+}

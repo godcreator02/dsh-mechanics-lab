@@ -1,0 +1,124 @@
+[
+  {
+    "marker": "l08-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2500,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T04:22:26.193Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census-plain",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "disabled-plain",
+            "name": "l08-leaf",
+            "parent": "include",
+            "disabled": true,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          }
+        ]
+      },
+      {
+        "phase": "settle",
+        "at": "2026-08-16T04:22:28.703Z",
+        "services": {
+          "loader": true,
+          "timer": true,
+          "hmr": true,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census-plain",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "disabled-plain",
+            "name": "l08-leaf",
+            "parent": "include",
+            "disabled": true,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "e25145ed",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "0ab1dfe4",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader",
+              "timer"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

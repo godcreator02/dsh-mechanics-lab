@@ -28,28 +28,64 @@ _LOCK_FILE = TESTHOME_ROOT / ".lab-lock.json"
 # ── 并发锁 ──────────────────────────────────────────────────────────────────
 
 
-def acquire_lock(label: str) -> None:
-    """拿实验台的独占锁。
+def acquire_lock(label: str, *, wait: float = 900.0, poll: float = 3.0) -> None:
+    """拿实验台的独占锁。**占用时排队等待**，不是直接失败。
 
     存在的理由：v1 曾有两个会话并发跑实验，共用 profile 名和端口，
     互相覆盖对方的 patch 文件 —— 而且是靠人眼看出来的。纪律靠不住，加把锁。
+
+    为什么改成等待（2026-08-16）：多个并行的写作者（人或 subagent）各做各的课
+    很正常，但**跑实验必须串行**——端口段只有十个、profile 名可能撞、
+    实例起停互相干扰。直接抛错会让并行协作变成「谁先跑谁赢，剩下的全报错」；
+    排队则让并行写作和串行执行自然共存。
+
+    死锁防护：只认**活着的** pid。持锁进程死了（崩溃、被 kill、taskkill 整树）
+    留下的锁文件会被直接夺走，不需要人工清理。
+
+    Args:
+        wait: 最多等多久。默认 15 分钟 —— 一课的实验通常 1–3 分钟，
+            排在三四个后面也够。
+        poll: 轮询间隔。
     """
     TESTHOME_ROOT.mkdir(parents=True, exist_ok=True)
-    if _LOCK_FILE.exists():
-        try:
-            held = json.loads(_LOCK_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            held = {}
-        pid = held.get("pid")
-        if pid and _pid_alive(pid):
-            raise LabError(
-                f"实验台已被占用：{held.get('label')}（pid={pid}，起于 {held.get('started')}）。"
-                f"等它跑完，或确认那个进程已死后删掉 {_LOCK_FILE}"
+    deadline = time.monotonic() + wait
+    started_waiting = None
+
+    while True:
+        held = None
+        if _LOCK_FILE.exists():
+            try:
+                held = json.loads(_LOCK_FILE.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                held = {}
+            pid = held.get("pid")
+            if not (pid and _pid_alive(pid)):
+                held = None  # 持锁者已死，锁作废
+
+        if held is None:
+            _LOCK_FILE.write_text(
+                json.dumps({
+                    "label": label,
+                    "pid": os.getpid(),
+                    "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+                }),
+                encoding="utf-8",
             )
-    _LOCK_FILE.write_text(
-        json.dumps({"label": label, "pid": os.getpid(), "started": time.strftime("%Y-%m-%d %H:%M:%S")}),
-        encoding="utf-8",
-    )
+            if started_waiting is not None:
+                print(f"[lab] 排队 {time.monotonic() - started_waiting:.0f}s 后拿到锁", flush=True)
+            return
+
+        if time.monotonic() >= deadline:
+            raise LabError(
+                f"等锁超时（{wait:.0f}s）：实验台被 {held.get('label')} 占着"
+                f"（pid={held.get('pid')}，起于 {held.get('started')}）。"
+                f"确认那个进程已死的话，删掉 {_LOCK_FILE}"
+            )
+
+        if started_waiting is None:
+            started_waiting = time.monotonic()
+            print(f"\n[lab] 实验台被 {held.get('label')} 占用中，排队等待…", flush=True)
+        time.sleep(poll)
 
 
 def release_lock() -> None:

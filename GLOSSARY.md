@@ -251,15 +251,8 @@ config: {
   因为**只有包解析认 `package.json`**，L1 验过的那条回退链
   （`exports["."]` → `main` → `index.js`）对相对路径不存在
 
-⚠️ **「官方包不用 link」的机制，第一版解释错了**（2026-08-16 修正）：
-
-原来写的是「裸包名以 **dsh 安装目录**为锚（`bareModuleBaseUrl`）」，依据是
-`mountRootInclude()` 里那个 `HostResolvedRootInclude` 子类和 `boot()` 的注释。
-**但那段代码是死的**——`bareModuleBaseUrl` 是 `boot()` 的第 5 个参数，而唯一的
-调用点（`profile-boot-*.js` 里 `await boot(NAME, rootConfig, patches, prepare)`）
-**只传了 4 个**，恒为 `undefined`，于是 `builtins.include` 永远是朴素版 `Include`。
-
-真实机制平淡得多，是**标准 Node parent-walk + 一层共享 `node_modules`**：
+「官方包不用 link」靠的是**标准 Node parent-walk + 一层共享 `node_modules`**，
+没有任何特殊锚点：
 
 ```
 $DSH_HOME/profiles/
@@ -276,8 +269,11 @@ profile 目录向上遍历**一层**就撞见那份共享 `node_modules`，所�
 `prepareProfile` 时幂等维护：对 dsh 自身依赖做 BFS，每个包建一条指向真实安装位置的
 junction，安装位置变了会重新指。
 
-**后果没变，机制变了**：锚点仍是 profile 目录、算法仍是标准包解析，没有任何特殊锚点。
-而我们自己的 fixture 不在农场里，所以**仍然必须 link**。
+⚠️ **我们自己的 fixture 不在农场里，所以仍然必须 link。**
+
+⚠️ `dsh-app-boot` 里另有一个 `HostResolvedRootInclude` 子类，看上去是给裸包名
+用的专门解析路径（`bareModuleBaseUrl`）——**它不会被激活**：那是 `boot()` 的第 5 个
+参数，而唯一调用点只传 4 个。读那段代码时别把它当成实际生效的机制。
 
 ### 🟩 assertEntriesActivated（boot 末尾的审计）
 

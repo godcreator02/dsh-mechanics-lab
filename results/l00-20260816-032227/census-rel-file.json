@@ -1,0 +1,87 @@
+{
+  "marker": "l00-census-v1",
+  "delayMs": 2000,
+  "snapshots": [
+    {
+      "phase": "boot",
+      "at": "2026-08-15T19:22:20.736Z",
+      "services": {
+        "loader": true,
+        "timer": false,
+        "hmr": false,
+        "logger": false,
+        "webServer": false
+      },
+      "entries": [
+        {
+          "id": "include",
+          "name": "cordis:include",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 1,
+          "inject": [
+            "loader"
+          ]
+        },
+        {
+          "id": "census",
+          "name": "./../../../../experiments/l00_minimal_environment/fixtures/l00-census/index.js",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 1,
+          "inject": []
+        }
+      ]
+    },
+    {
+      "phase": "settle",
+      "at": "2026-08-15T19:22:22.739Z",
+      "services": {
+        "loader": true,
+        "timer": true,
+        "hmr": true,
+        "logger": false,
+        "webServer": false
+      },
+      "entries": [
+        {
+          "id": "include",
+          "name": "cordis:include",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": [
+            "loader"
+          ]
+        },
+        {
+          "id": "census",
+          "name": "./../../../../experiments/l00_minimal_environment/fixtures/l00-census/index.js",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": []
+        },
+        {
+          "id": "ed4ce0fe",
+          "name": "@deepseek-ai/cordis-plugin-timer",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": []
+        },
+        {
+          "id": "14dfdb10",
+          "name": "@deepseek-ai/cordis-plugin-hmr",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": [
+            "loader",
+            "timer"
+          ]
+        }
+      ]
+    }
+  ]
+}

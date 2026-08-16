@@ -1,0 +1,144 @@
+[
+  {
+    "marker": "l08-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2500,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T04:13:48.855Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census-group",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "disabled-group",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": true,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "child-under-disabled",
+            "name": "l08-leaf",
+            "parent": "disabled-group",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          }
+        ]
+      },
+      {
+        "phase": "settle",
+        "at": "2026-08-16T04:13:51.357Z",
+        "services": {
+          "loader": true,
+          "timer": true,
+          "hmr": true,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census-group",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "disabled-group",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": true,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "child-under-disabled",
+            "name": "l08-leaf",
+            "parent": "disabled-group",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "99d5b28f",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "2e129ec5",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader",
+              "timer"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

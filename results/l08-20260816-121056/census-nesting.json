@@ -1,0 +1,174 @@
+[
+  {
+    "marker": "l08-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2500,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T04:10:31.874Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "outer-group",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "leaf-1",
+            "name": "l08-leaf",
+            "parent": "outer-group",
+            "disabled": false,
+            "group": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "inner-group",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "outer-group",
+            "disabled": false,
+            "group": true,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          }
+        ]
+      },
+      {
+        "phase": "settle",
+        "at": "2026-08-16T04:10:34.375Z",
+        "services": {
+          "loader": true,
+          "timer": true,
+          "hmr": true,
+          "logger": false,
+          "webServer": false,
+          "labFlavor": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "l08-census",
+            "parent": "include",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "outer-group",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "include",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "leaf-1",
+            "name": "l08-leaf",
+            "parent": "outer-group",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "inner-group",
+            "name": "@deepseek-ai/cordis-plugin-group",
+            "parent": "outer-group",
+            "disabled": false,
+            "group": true,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "leaf-2",
+            "name": "l08-leaf",
+            "parent": "inner-group",
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "3cb12fa0",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "00c837d4",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": null,
+            "disabled": false,
+            "group": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader",
+              "timer"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

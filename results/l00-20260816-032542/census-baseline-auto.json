@@ -1,0 +1,87 @@
+{
+  "marker": "l00-census-v1",
+  "delayMs": 2000,
+  "snapshots": [
+    {
+      "phase": "boot",
+      "at": "2026-08-15T19:25:28.825Z",
+      "services": {
+        "loader": true,
+        "timer": false,
+        "hmr": false,
+        "logger": false,
+        "webServer": false
+      },
+      "entries": [
+        {
+          "id": "include",
+          "name": "cordis:include",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 1,
+          "inject": [
+            "loader"
+          ]
+        },
+        {
+          "id": "census",
+          "name": "l00-census",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 1,
+          "inject": []
+        }
+      ]
+    },
+    {
+      "phase": "settle",
+      "at": "2026-08-15T19:25:30.835Z",
+      "services": {
+        "loader": true,
+        "timer": true,
+        "hmr": true,
+        "logger": false,
+        "webServer": false
+      },
+      "entries": [
+        {
+          "id": "include",
+          "name": "cordis:include",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": [
+            "loader"
+          ]
+        },
+        {
+          "id": "census",
+          "name": "l00-census",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": []
+        },
+        {
+          "id": "6633e6e8",
+          "name": "@deepseek-ai/cordis-plugin-timer",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": []
+        },
+        {
+          "id": "5958ca7d",
+          "name": "@deepseek-ai/cordis-plugin-hmr",
+          "disabled": false,
+          "hasFiber": true,
+          "fiberState": 2,
+          "inject": [
+            "loader",
+            "timer"
+          ]
+        }
+      ]
+    }
+  ]
+}

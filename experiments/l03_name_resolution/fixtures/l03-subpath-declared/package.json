@@ -1,0 +1,10 @@
+{
+  "name": "l03-subpath-declared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./tool": "./tool.js"
+  }
+}

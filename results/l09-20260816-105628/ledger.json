@@ -1,0 +1,18 @@
+{
+  "marker": "lab-registry-v1",
+  "providedAt": "2026-08-16T02:55:36.095Z",
+  "entries": [
+    {
+      "who": "lab-alpha",
+      "note": "第一层消费者",
+      "ms": 6.5364,
+      "at": "2026-08-16T02:55:36.087Z"
+    },
+    {
+      "who": "lab-beta",
+      "note": "alpha 在这儿",
+      "ms": 14.7496,
+      "at": "2026-08-16T02:55:36.095Z"
+    }
+  ]
+}
