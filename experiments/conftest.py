@@ -3,6 +3,18 @@
 设计要点：**每个实验一个独立 home**，物理隔离，不靠纪律。
 理由见 CLAUDE.md —— v1 共用 home 时，测 home 级 patch 层的实验一写
 `$DSH_HOME/cordis.patch.yml` 就压中所有别的实验（那一层优先级还压过 profile 活层）。
+
+**各课并行**（2026-08-16）：跑法是 `-n <N> --dist loadfile`，一课一个 worker
+进程。能并行是因为隔离早就做到位了——home 按课分、`stop()` 按 pid `taskkill /T`
+精确杀自己那棵进程树，跨课之间本来就没有共享状态。原先挡在前面的只有两样，
+都在本文件里处理：
+
+  * **锁**：从「每课拿一次」提到「整个 session 拿一次，且只有主进程拿」。
+    否则各 worker 是独立进程、pid 互不相同，会排着队把并行退化回串行。
+  * **端口**：`free_port` 原先扫整段找空闲的，两个 worker 同时扫会拿到同一个
+    （检查与占用之间有窗口）。改成每个 worker 只在自己那一小段里扫。
+
+没动任何用例代码——并行不改变观测语义。
 """
 
 from __future__ import annotations
@@ -40,6 +52,32 @@ _reports: dict[str, list[dict]] = defaultdict(list)
 #: （L1 是 `witness-*.json`、L3 是 `w-*.json` 和 `ledger*.json`），
 #: 列举法漏过一次。home 根目录下只有实验产物，子目录 profiles/ 和 logs/ 不受影响。
 _ARCHIVE_GLOBS = ("*.jsonl", "*.json")
+
+
+def _is_worker(config: pytest.Config) -> bool:
+    """是不是 xdist 的 worker 进程。主进程（或不用 xdist 时）返回 False。"""
+    return hasattr(config, "workerinput")
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """拿实验台的独占锁 —— 整个 session 一次，且只有主进程拿。
+
+    锁保护的是「这台机器上同时只有一套实验在跑」，防的是两个**会话**打架
+    （v1 真出过：两个会话并发跑，互相覆盖对方的 patch 文件，还是靠人眼看出来的）。
+    session 内部各 worker 之间不需要锁——home 按课隔离、端口按 worker 分段。
+
+    放在 `pytest_configure` 而不是 fixture 里：worker 进程不执行 session fixture
+    的这一份，但两边都会执行本钩子，所以必须在这里显式区分。
+    """
+    if _is_worker(config):
+        return
+    acquire_lock("lab")
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    if _is_worker(config):
+        return
+    release_lock()
 
 
 @pytest.hookimpl(wrapper=True)
@@ -114,7 +152,6 @@ def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
     成败都归档：失败的那次证据反而更要紧。
     """
     label = _label_of(request)
-    acquire_lock(label)
     home = LabHome(label)
     try:
         home.clean()           # 起手清干净，保证可重复跑
@@ -127,7 +164,6 @@ def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
                 print(f"\n观测产物已归档 → {dest}")
         except Exception as exc:  # 归档失败绝不能盖掉实验本身的结果
             print(f"\n⚠️ 归档失败：{exc}")
-        release_lock()
 
 
 @pytest.fixture(scope="module")
@@ -136,18 +172,45 @@ def fixtures_dir(request: pytest.FixtureRequest) -> Path:
     return Path(str(request.fspath)).parent / "fixtures"
 
 
-@pytest.fixture
-def free_port() -> int:
-    """从实验端口段里借一个没人听的端口。
+def _my_ports(config: pytest.Config) -> list[int]:
+    """本进程可用的那一小段端口。
 
-    纪律是串行跑实验，所以不需要按实验静态分配端口；只有一个实验内部要同时起
-    多个实例做对照时才会借到第二、第三个。3090-3099 十个绰绰有余
-    （3100 往上可能有别的东西在跑，是硬边界，不能扩）。
+    并行时必须**静态分段**而不是共享整段：`port_listening()` 查完到真正
+    `Popen` 起进程之间有个窗口，两个 worker 同时扫会双双认定同一个口是空的。
+    分段之后各扫各的，窗口再大也撞不上。
+
+    3090–3099 十个是硬边界（3080 与 3100 以上都可能有别的进程），所以
+    worker 数不能超过 10 —— 超了直接报错，不去做「取模复用」那种事，
+    那等于把刚焊死的竞态又打开。
     """
-    for port in LAB_PORT_RANGE:
+    ports = list(LAB_PORT_RANGE)
+    wi = getattr(config, "workerinput", None)
+    if wi is None:
+        return ports  # 单进程跑，整段都归自己
+
+    count = wi["workercount"]
+    if count > len(ports):
+        raise RuntimeError(
+            f"worker 数 {count} 超过可用端口数 {len(ports)}（{LAB_PORT_RANGE}）。"
+            f"端口段是硬边界不能扩，把 -n 降到 {len(ports)} 以内"
+        )
+    idx = int(str(wi["workerid"]).removeprefix("gw"))
+    per = len(ports) // count
+    return ports[idx * per : (idx + 1) * per]
+
+
+@pytest.fixture
+def free_port(request: pytest.FixtureRequest) -> int:
+    """从**本进程那一段**里借一个没人听的端口。
+
+    绝大多数用例不走这里：`wait_http=False` 的实例根本不传 `--port`。
+    真要端口的只有需要 HTTP 观测面的课（叠了 dsh-web-app 那些）。
+    """
+    mine = _my_ports(request.config)
+    for port in mine:
         if not port_listening(port):
             return port
-    raise RuntimeError(f"实验端口段 {LAB_PORT_RANGE} 全被占用了")
+    raise RuntimeError(f"本进程的端口段 {mine} 全被占用了")
 
 
 @pytest.fixture

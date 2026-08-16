@@ -20,11 +20,17 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。
 
 ```powershell
 uv sync                                              # 首次或依赖变更后
-uv run pytest experiments/                           # 全套
+uv run pytest experiments/                           # 全套，约 75 秒
 uv run pytest experiments/l00_minimal_environment/   # 单跑一课
+uv run pytest experiments/l00_minimal_environment/ -n 0   # 关并行，看清教学输出
 ```
 
 解释器钉死 3.12.10（`.python-version`），依赖锁在 `uv.lock`。
+
+默认 `-n 10 --dist loadfile`：一课一个 worker 进程。全套串行要 8 分钟，
+其中九成时间是在干等固定观测窗口——那些窗口 CPU 基本空着，并行几乎白赚。
+唯一削不掉的是 L6 那约 60 秒：它要等三次 `dsh-web-app` 真启动，
+所以并行的下限就卡在这一课上。
 
 ## 实验纪律
 
@@ -33,7 +39,7 @@ uv run pytest experiments/l00_minimal_environment/   # 单跑一课
 | **home** | 只用假 home `.testhome/`——`DSH_HOME` 经子进程 `env` 传入，不改当前进程环境。**绝不碰 `~/.dsh`** |
 | **端口** | 只用 **3090–3099**。绝不碰 3080 及 3100 以上——那些可能有别的东西在跑 |
 | **删目录** | 逐层拆 junction，绝不跟着链接走（profile 的 `node_modules` 里全是指向源码和缓存的 junction） |
-| **并发** | 写作可以并行，**跑实验必须串行**——实验台的锁会自动排队，不必手工协调 |
+| **并发** | 各课并行跑（一课一个 worker）。隔离靠 home 分课 + 端口按 worker 静态分段；锁只防两个**会话**同时开跑，会自动排队 |
 
 ## 破例声明：箱内有运行时数据
 

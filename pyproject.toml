@@ -17,7 +17,20 @@ testpaths = ["experiments"]
 # 实验带教学性质，输出本身就是产物的一部分。
 # tee-sys 而不是 -s：既实时显示在终端，又被 pytest 捕获——
 # 捕获下来的那一份会被归档进 results/，否则跑完就没了。
-addopts = "-v --capture=tee-sys --tb=short"
+#
+# `-n 10 --dist loadfile`：一课一个 worker 进程，同一个文件绝不拆到两个 worker
+# （home 与归档都是模块级的，拆了就乱）。
+#
+# 为什么是 10：实测 8 路 93.6 秒、10 路 75.7 秒——10 路时正好一课一个 worker，
+# 总时长卡在最重的那一课上（L6 约 60 秒，它要等三次 dsh-web-app 真启动，
+# 那是实打实的启动时间，不是干等，削不掉）。10 同时是硬上限：端口段只有十个，
+# 见 conftest 的 `_my_ports`。
+#
+# ⚠️ 课数超过 10 之后总时长会回升（有 worker 要跑两课）。那时不要盲目加 -n，
+# 端口段扩不了；该做的是给用到端口的课打 `xdist_group` 标记钉住 worker。
+#
+# 要看清单课的教学输出、或者要用 pdb，加 `-n 0` 关掉并行。
+addopts = "-v --capture=tee-sys --tb=short -n 10 --dist loadfile"
 markers = [
     "instance: 需要真的拉起 dsh 实例（慢，且占端口）",
     "static: 纯 --dump-config，不起进程（快，零风险）",
@@ -26,3 +39,8 @@ markers = [
 [tool.uv]
 # 本项目禁止使用全局 Python：一切经 `uv run`，解释器与依赖都锁在 .venv 里
 package = false
+
+[dependency-groups]
+dev = [
+    "pytest-xdist>=3.8.0",
+]
