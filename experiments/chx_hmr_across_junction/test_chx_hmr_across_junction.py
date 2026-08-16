@@ -47,6 +47,8 @@
     拿到的是哪一头的新值。答案是**新代码配旧配方**。
   * **⑩** —— 包进了 bundles 名单、活层**又挂一条不同 id 的**（同 id 会撞车，
     那堵墙归第 10 项）。改一次代码，**两个条目都重来**，各自沿用各自的 `config`。
+  * **⑪** —— 同 id 的撞车分两种时机：启动时撞进程退出（第 10 项），
+    **运行中撞则被兜住**——整次更新回滚，原条目毫发无损，实例继续健康。
 
 七个判定（详见各用例的 docstring）：
 
@@ -78,6 +80,13 @@
     发**一次** `hmr/reload`，但那一次里两个 fiber 全部重挂 —— 重挂循环遍历的是
     `runtime.fibers`，一个 Plugin 的所有 fiber。每个 fiber 各自沿用自己那份
     `oldFiber._config`，所以两条重来之后报出的 `config` 仍然各不相同。
+  * **配置路径的失败是事务性的，而且被兜住**（⑪）。运行中把活层改成跟 bundle 层
+    撞 id：`entry.update()` 整个 apply 失败（判词 `failed to apply loader entry
+    include (cordis:include): duplicate loader entry id: greeter`），于是**整棵树
+    一点不动** —— 原条目状态序列停在 `['LOADING', 'ACTIVE']`，连 `DISPOSED` 都
+    没有。hmr 这边只记两条 warn、发一个 `hmr/config-update-failed`，进程照跑，
+    之后改代码照样热重载。**所以活层改错了不会搞死实例**，它回到上一个好状态。
+    跟启动时撞车正好成对：那时没有「上一个好状态」可退，只能退出进程。
 """
 
 from __future__ import annotations
@@ -718,6 +727,76 @@ def test_both_layers_different_ids_both_reload(lab_home: LabHome, launch):
         assert states_of(events, who).count("ACTIVE") == 2, f"{who} 应当跑起来两次"
     # 一次改动、一次重载事件，但里面装着两个 fiber
     assert len(of_kind(events, "hmr-reload")) == 1, "改一个文件只该有一次重载"
+
+
+def test_duplicate_id_added_while_running(lab_home: LabHome, launch):
+    """⑪ 进程**已经起来了**，这时往活层加一条跟 bundle 层同 id 的 —— 会怎样。
+
+    第 10 项那堵墙是**启动时**就撞上的：两层拼起来 id 重复，挂载期抛
+    `duplicate loader entry id`，进程当场退出。这一条问的是运行中撞会怎样，
+    走的是完全不同的一条路 —— 配置路径。
+
+    那条路上的失败被 `refreshConfig` 的 try/catch 兜着
+    （`cordis-plugin-hmr/src/index.ts:302-316`）：记两条 warn、发一个
+    `hmr/config-update-failed` 事件，**不回滚也不退出**。所以要问三件事：
+
+      * 进程还活着吗
+      * 原来那个条目遭殃了吗
+      * 撞完之后这个实例还健康吗 —— 代码热重载还能不能用
+
+    最后一条最要紧：一次失败的配置更新如果让整棵树处于半死状态，那比直接退出
+    还糟。用 ⑦ 那个形态（源码在 profile 里、hmr 默认配置）就是为了能在撞车之后
+    接着改一次代码，看它还认不认。
+    """
+    profile, events_path, index_js = build(lab_home, "duprun", placement="bundle-nested", watch="profile")
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+
+    # ── 运行时往活层追加一条同 id 的 ────────────────────────────────────────
+    profile.write_patch(
+        profile.read_patch()
+        + f"""
+- insert:
+    - id: greeter
+      name: {PKG_NAME}
+      config:
+        版本: 活层撞车
+"""
+    )
+    Instance.settle(SETTLE)
+
+    mid = read_events(events_path)
+    failed = of_kind(mid, "hmr-failed")
+
+    print("\n══ ⑪ 运行中往活层加一条同 id 的 ═════════════════════════")
+    print(f"  进程还活着？　　{inst.alive()}")
+    print(f"  hmr-failed 事件：{len(failed)} 条")
+    for e in failed:
+        print(f"    {Path(str(e.get('filename'))).name} → {e.get('error')}")
+    print(f"  原来那条 greeter 报过：{said_versions(mid)}")
+    print(f"  它走过的状态：{states_of(mid, 'greeter')}")
+
+    assert inst.alive(), f"配置更新失败不该拖垮进程：\n{inst.logs()}"
+    assert failed, "该发一个 hmr/config-update-failed 事件"
+    assert any("duplicate" in str(e.get("error", "")).lower() for e in failed), (
+        f"判词该点名 id 重复，实际 {[e.get('error') for e in failed]}"
+    )
+    assert said_versions(mid) == [FIRST], "原来那条不该被换成活层那个值"
+    assert "DISPOSED" not in states_of(mid, "greeter"), "整次更新应当回滚，原来那条不该被拆掉"
+
+    # ── 撞完之后，这个实例还健康吗 ──────────────────────────────────────────
+    edit_code(index_js)
+    got = wait_said(inst, events_path, count=2, timeout=25.0)
+
+    after = read_events(events_path)
+    print("\n══ 撞车之后再改一次代码 ══════════════════════════════════")
+    print(f"  插件报过的版本：{got}")
+    print(f"  {hmr_noise(after)}")
+    print(show(after))
+
+    assert inst.alive(), f"实例应当仍然活着：\n{inst.logs()}"
+    assert got == [FIRST, SECOND], f"一次失败的配置更新不该弄坏代码热重载，实际 {got}"
 
 
 def test_code_reload_keeps_the_old_config(lab_home: LabHome, launch):
