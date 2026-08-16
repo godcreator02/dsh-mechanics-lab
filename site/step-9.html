@@ -1,0 +1,260 @@
+<title>挂上了但没执行</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --dead:#be123c;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --dead-bg:#ffe4e6;
+  --code-bg:#f2f4f7; --comment:#8b95a3;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+.scroll{overflow-x:auto}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre-wrap; word-break:break-word; color:var(--ink)}
+.cm{color:var(--comment)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.bad{color:var(--dead); font-weight:600}
+.pd{color:var(--pending); font-weight:600}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.danger{border-left-color:var(--dead); background:var(--dead-bg)}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+@media (max-width:700px){.two{grid-template-columns:1fr}}
+.two h5{margin:0 0 9px; font-size:13px; font-weight:600}
+.states{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-family:var(--mono); font-size:12px; margin-top:10px}
+.st{padding:5px 11px; border-radius:6px; font-weight:600}
+.st.pend{background:var(--pending-bg); color:var(--pending); border:1px solid var(--pending)}
+.st.unl{background:var(--dead-bg); color:var(--dead); border:1px solid var(--dead)}
+.st.disp{background:var(--code-bg); color:var(--ink-faint); border:1px solid var(--line)}
+.st.act{background:var(--active-bg); color:var(--active); border:1px solid var(--active)}
+.st.load{background:var(--loading-bg); color:var(--loading); border:1px solid var(--loading)}
+.gap{color:var(--ink-faint)}
+.miss{border:1px dashed var(--ink-faint); color:var(--ink-faint); padding:5px 11px; border-radius:6px; font-family:var(--mono); font-size:12px}
+.cmp{display:grid; grid-template-columns:auto 1fr 1fr; gap:10px 16px; font-family:var(--mono); font-size:12.5px; margin-top:12px; align-items:baseline}
+.cmp .h{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); font-family:system-ui,sans-serif}
+.tl{font-family:var(--mono); font-size:12px; line-height:1.9}
+.tl .t{color:var(--ink-faint)}
+.nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
+.nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
+.nav a:hover{text-decoration:underline}
+.nav .none{color:var(--ink-faint); font-family:var(--mono); font-size:13px; max-width:46%}
+.nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+</style>
+
+<div class="wrap">
+<div class="crumb">第 9 步 / 共 9 步 · 最后一步</div>
+
+<h1>挂上了但没执行</h1>
+<p class="sub">
+  条目在树上、<code>name</code> 也找得到、文件一点毛病没有——它就是从来没跑过。
+  因为它在等一个永远不来的东西。
+</p>
+<div class="meta">
+  uv run pytest experiments/step9_mounted_but_never_ran/ -n 0 -s · 3 个用例 · 约 9 秒
+</div>
+
+<section>
+  <h2>那行 inject</h2>
+  <h3>从第 2 步用到现在，一直没解释</h3>
+  <p>
+    你写的每个插件开头都有这么一行，一直是「照着写」：
+  </p>
+  <div class="box">
+<pre>export const inject = [<span class="hi">"labObserver"</span>];</pre>
+  </div>
+  <p>
+    它的意思是：<b>我要用这个东西，没有它我就先不跑。</b>
+    框架会一直等到它就位，才让你的 <code>apply</code> 开始执行。
+  </p>
+  <p>
+    那如果等的东西永远不来呢——比如多写一个根本没人提供的：
+  </p>
+  <div class="box">
+<pre>export const inject = ["labObserver", <span class="bad">"开锁服务"</span>];</pre>
+  </div>
+</section>
+
+<section>
+  <h2>结果</h2>
+  <h3>它连开始加载都没有</h3>
+
+  <div class="card">
+    <div class="filename">这个条目走过的全部状态</div>
+    <div class="states">
+      <span class="st pend">PENDING</span>
+      <span class="gap">→</span>
+      <span class="st unl">UNLOADING</span>
+      <span class="gap">→</span>
+      <span class="st disp">DISPOSED</span>
+      <span class="gap" style="margin-left:10px">|</span>
+      <span class="miss">LOADING 从没出现过</span>
+      <span class="miss">ACTIVE 从没出现过</span>
+    </div>
+    <p class="note">
+      对照第 2 步那个正常的插件：<span class="st pend" style="padding:2px 7px">PENDING</span>
+      → <span class="st load" style="padding:2px 7px">LOADING</span>（这时 apply 在跑）
+      → <span class="st act" style="padding:2px 7px">ACTIVE</span>。
+      <b>这次它卡在第一格，一步都没往前走。</b>
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="filename">事件流：别人都到 ACTIVE 了，它还在原地</div>
+    <div class="tl">
+<pre><span class="t">   1.2ms</span>  睁眼时它是 <span class="pd">PENDING</span>
+<span class="cm">   …timer / hmr / 观察器 / include 一路跑到 ACTIVE…</span>
+<span class="t">  19.4ms</span>  include 到 ACTIVE —— 该起来的都起来了
+<span class="t">  20.2ms</span>  <span class="bad">审计不过，整棵树开始拆</span>
+<span class="t">  21.4ms</span>  include   ACTIVE → UNLOADING
+<span class="t">  21.5ms</span>  hmr       ACTIVE → UNLOADING
+<span class="t">  22.2ms</span>  timer     ACTIVE → UNLOADING
+<span class="t">  22.4ms</span>  <span class="pd">它自己</span>    PENDING → UNLOADING   <span class="cm">← 从没离开过 PENDING</span>
+<span class="t">  23.7ms</span>  <span class="pd">它自己</span>    UNLOADING → DISPOSED</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="filename">启动日志（退出码 1）</div>
+<pre>Error: dsh: plugin tree failed to load: <span class="bad">dsh: 1 entry did not activate</span>
+  ./locked.mjs: <span class="bad">pending (waiting for service: 开锁服务)</span></pre>
+  </div>
+
+  <p class="punch danger">
+    <b>启动时只要有一个条目没能激活，整个实例就起不来。</b>
+    跟第 5 步一样是全员陪葬——只不过那次是「找不到文件」，这次是「等不到东西」。
+  </p>
+  <p class="note">
+    ⚠️ 判词前半截打的是条目的 <b><code>name</code></b>（这里是 <code>./locked.mjs</code>），
+    <b>不是 id</b>——排错时拿 name 回 patch 文件里找。
+  </p>
+</section>
+
+<section>
+  <h2>回头看第 1 步</h2>
+  <h3>你在第一页就见过这句话了</h3>
+
+  <div class="card">
+    <div class="cmp">
+      <div class="h"></div><div class="h">谁在等</div><div class="h">等的是什么</div>
+
+      <div style="color:var(--ink-faint)">第 1 步</div>
+      <div>@deepseek-ai/cordis-plugin-hmr</div>
+      <div class="pd">timer</div>
+
+      <div style="color:var(--ink-faint)">第 9 步</div>
+      <div>./locked.mjs</div>
+      <div class="pd">开锁服务</div>
+    </div>
+    <p class="note">
+      收尾那两句一字不差，退出码都是 1。
+    </p>
+  </div>
+
+  <p class="punch">
+    <b>「只写 hmr 不写 timer」跟「等一个不存在的服务」是同一件事。</b>
+    判词根本不区分等的人是框架自带的还是你写的，也不区分等的东西是什么——
+    <code>waiting for service: X</code> 里的 X 就是你要去补的那样东西。
+  </p>
+</section>
+
+<section>
+  <h2>对照组</h2>
+  <h3>不声明依赖，它就不等了</h3>
+
+  <div class="two">
+    <div class="box">
+      <h5 class="bad">声明了 inject</h5>
+<pre>export const inject = [
+  "labObserver", "开锁服务"
+];
+
+export function apply(ctx) {
+  <span class="cm">// 一次都没跑到这里</span>
+}</pre>
+    </div>
+    <div class="box">
+      <h5 class="you">不声明，运行时自己取</h5>
+<pre>export function apply(ctx) {
+  const 锁 = ctx.get("开锁服务");
+  <span class="cm">// 取不到就是 undefined，</span>
+  <span class="cm">// 但 apply 照样跑完</span>
+}</pre>
+    </div>
+  </div>
+
+  <div class="box" style="margin-top:14px">
+    <div class="filename">对照组实际结果</div>
+<pre>{"跑了": <span class="you">true</span>, "拿到开锁服务": false, "拿到观察器": <span class="pd">false</span>}
+<span class="cm">实例照常活着，它自己走到了 ACTIVE</span></pre>
+  </div>
+
+  <p class="punch warn">
+    <b>注意最后那个 false：连观察器都没取到。</b>
+    看时间线，它在 2.3 ms 就跑完了，而观察器的服务 2.2 ms 才刚出现——
+    <b>不排队就没人保证服务在不在</b>。
+  </p>
+
+  <p class="note">
+    这就是 <code>inject</code> 换来的东西：<b>等到就位再跑</b>。代价是万一等不到，
+    整个实例都起不来——所以那份名单里只写真正非有不可的。
+  </p>
+</section>
+
+<section>
+  <h2>走完了</h2>
+  <h3>九步之后你手上有什么</h3>
+  <p>
+    能写插件、能传配置、能临时关掉、能改别人挂上的条目、能热开发；
+    遇到「没跑起来」时知道分两种查：<b>挂不上</b>（第 5 步，报错在启动日志里，
+    看 module 还是 package）和<b>挂上了没执行</b>（这一步，看它卡在 PENDING 等谁）。
+  </p>
+  <p class="note">
+    再往下是深水区：树到底长什么样、条目的完整生命周期、
+    以及 hmr 自己被重载时会发生什么——那些等你撞上具体问题时再来。
+  </p>
+</section>
+
+<div class="nav">
+  <a href="step-8.html"><small>上一步</small>← 第 8 步 · 改别人已经挂上的条目</a>
+  <span class="none"><small>下一步</small>—— 这是最后一步</span>
+</div>
+<div class="foot">
+  状态序列、事件流与启动日志取自 out/testhome/step9/。<br>
+  对照组「连观察器都没取到」那条只打印不断言——它是并发时序，断言会脆。
+</div>
+</div>

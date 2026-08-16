@@ -1,123 +1,181 @@
-"""第 1 步 · 让一个空实例跑起来。
+"""第 1 步 · 一个实例最少需要什么
 
-这一步验的就是教程页面上让读者照着做的那件事：一个 profile 目录、两个文件、
-patch 里两行声明，`node <dsh> --profile <名>` 就能起一个一直活着的实例。
+**你不用做任何事，跑一下看输出就行：**
 
-用例里的 patch 内容与 README 里给读者抄的那段**逐字一致**——改一处就要改另一处，
-否则页面上的操作和这里验的东西就不是同一件事了。
+    uv run pytest experiments/step1_run_an_instance/ -n 0 -s
+
+这一步同时立起两样东西：
+
+1. **一个能跑的最小实例** —— 只有 `timer` 和 `hmr` 两条，别的什么都没有
+2. **一只能看见它的眼睛** —— `lab-recorder`，后面每一步都靠它看结果
+
+第 2 条要说清楚：采集器**自己也是树上的一个条目**，不是外挂的探针。所以你会在
+输出里看到它，就像看到 timer 和 hmr 一样。这不是噪声，是诚实——它跟被观测的
+东西受同样的规则约束。
 """
 
 from __future__ import annotations
 
+import json
+import sys
 import time
 from pathlib import Path
 
-from lab import Instance, LabHome
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-#: 两行声明。README 让读者抄的就是这段。
-PATCH = """- insert:
+from lab import (  # noqa: E402
+    LAB_ROOT,
+    PKG_HMR,
+    PKG_TIMER,
+    Instance,
+    LabHome,
+    entry_ids,
+    read_events,
+    states_of,
+    timeline,
+)
+
+OBSERVER = LAB_ROOT / "observatory" / "lab-recorder"
+
+#: 最小实例的全部家当。timer 与 hmr 是被测对象，lab-recorder 是仪器。
+MINIMAL = """# 一个实例最少需要的两条
+- insert:
     - id: timer
-      name: '@deepseek-ai/cordis-plugin-timer'
+      name: '{timer}'
 
     - id: hmr
-      name: '@deepseek-ai/cordis-plugin-hmr'
+      name: '{hmr}'
 """
 
-#: 少写一条的写法：只有 hmr。用来验 README「出错了往哪看」那段。
-PATCH_ONLY_HMR = """- insert:
+#: 对照组：故意只写 hmr，看会怎样
+ONLY_HMR = """# 故意只写一条
+- insert:
     - id: hmr
-      name: '@deepseek-ai/cordis-plugin-hmr'
+      name: '{hmr}'
 """
 
-#: 盯多久算「它一直活着」。要盖过启动本身的耗时，还要留出「起来了又退出」的窗口。
-WATCH_SECONDS = 12.0
-
-#: 等一个起不来的实例退出，最多等多久。
-DIE_TIMEOUT = 30.0
-
-
-def watch_alive(inst: Instance, seconds: float) -> float | None:
-    """盯着实例跑一段时间。一直活着返回 None，中途退出返回它活了多久。"""
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        if not inst.alive():
-            return round(seconds - (deadline - time.monotonic()), 2)
-        time.sleep(0.25)
-    return None
+OBSERVER_ENTRY = """
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: {out}
+        flushMs: 100
+"""
 
 
-def wait_dead(inst: Instance, seconds: float) -> bool:
-    """等实例退出。退出了返回 True，等到超时还活着返回 False。"""
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        if not inst.alive():
-            return True
-        time.sleep(0.25)
-    return False
+def with_observer(patch: str, events_path: Path) -> str:
+    """把采集器那一条拼在给定 patch 后面。
 
-
-def show_dir(path: Path, title: str) -> None:
-    print(f"\n  ── {title} ──")
-    for child in sorted(path.iterdir()):
-        print(f"    · {child.name}")
-
-
-def test_two_lines_make_an_instance(lab_home: LabHome, launch):
-    """照着教程写两个文件、两行声明，实例起来并且一直活着。
-
-    profile 目录里读者只需要建两个文件：
-
-        package.json      —— 让这个目录成为一个 profile
-        cordis.patch.yml  —— 写 timer 和 hmr 两条
-
-    `cordis.yml` **故意不建**：它由 dsh 启动时自己写出来。用例前后各看一眼目录，
-    读者照着做时看到的也是这个变化。
+    patch 文件是 YAML 数组、允许多个 `- insert:` 块，所以直接拼字符串就行——
+    不用解析，也不用改前面那段。
     """
-    profile = lab_home.make_profile("hello", bundles=[], patch=PATCH)
-    root_config = profile.dir / "cordis.yml"
+    return patch.format(timer=PKG_TIMER, hmr=PKG_HMR) + OBSERVER_ENTRY.format(
+        out=json.dumps(events_path.as_posix())
+    )
 
-    print(f"\nprofile 在 {profile.dir}")
-    print("\ncordis.patch.yml 的内容：")
-    for line in profile.read_patch().splitlines():
-        print(f"    | {line}")
-    show_dir(profile.dir, "启动前")
-    assert not root_config.exists(), "前提：cordis.yml 不用自己建"
+
+def wait_for_events(
+    inst: Instance, path: Path, *, least: int = 5, timeout: float = 40.0
+) -> list[dict]:
+    """等采集器把事件刷出来。
+
+    等的是**事件条数**而不是文件存在：采集器一挂载就先写一个空文件，
+    文件在了不代表已经记到东西。
+    """
+    deadline = time.monotonic() + timeout
+    events: list[dict] = []
+    while time.monotonic() < deadline:
+        events = read_events(path)
+        if len(events) >= least:
+            return events
+        if not inst.alive():
+            break
+        time.sleep(0.3)
+    return events
+
+
+def test_two_entries_make_an_instance(lab_home: LabHome, launch):
+    """最小实例跑起来了，而且你能看见里面发生了什么。
+
+    判定三条：
+      * 进程活着（不是起来就退）
+      * 事件流里 `timer` / `hmr` 都到场了
+      * 采集器自己也在树上——它没有特权
+    """
+    events_path = lab_home.root / "events.jsonl"
+    profile = lab_home.make_profile(
+        "minimal", bundles=[], patch=with_observer(MINIMAL, events_path)
+    )
+    profile.link_plugin("lab-recorder", OBSERVER)
 
     inst = launch(profile, wait_http=False)
-    died_at = watch_alive(inst, WATCH_SECONDS)
+    events = wait_for_events(inst, events_path)
 
-    print(f"\n盯了 {WATCH_SECONDS} 秒。进程还活着？ {inst.alive()}")
-    if died_at is not None:
-        print(f"  它在第 {died_at} 秒退出了，退出码 {inst.proc.returncode}")
-    print(f"\n{inst.logs(tail=20)}")
-    show_dir(profile.dir, "启动后")
+    print("\n══ 一个最小实例里发生了什么 ══════════════════════════════")
+    print(timeline(events))
 
-    assert died_at is None, f"实例在第 {died_at} 秒就退出了，退出码 {inst.proc.returncode}"
-    assert root_config.exists(), "dsh 启动时应当自己写出 cordis.yml"
+    ids = entry_ids(events)
+    print(f"\n树上的条目：{sorted(ids)}")
+    for eid in sorted(ids):
+        walked = states_of(events, eid)
+        print(f"  {eid:<16} 走过的状态：{walked or '（采集器睁眼前就走完了）'}")
+
+    assert inst.alive(), f"实例应当活着，却退了：\n{inst.logs()}"
+    assert {"timer", "hmr"} <= ids, f"timer 与 hmr 都该在树上，实际 {sorted(ids)}"
+    assert "lab-recorder" in ids, (
+        "采集器自己也该出现在树上——它是普通条目不是外挂探针，看不到它反而说明观测有问题"
+    )
+    # 一个最小实例就这四条，多一条都说明有东西没数清楚：
+    #   timer / hmr    你写进 patch 的
+    #   lab-recorder   仪器，也是你写进 patch 的
+    #   include        **框架自己放的**，你没写过它 —— 它是这棵树的根，
+    #                  深水区会讲。这里只需要知道：它总在，且不是你放的
+    assert ids == {"timer", "hmr", "lab-recorder", "include"}, (
+        f"预期只有那四条，实际 {sorted(ids)}"
+    )
+
+    # timer 先 ACTIVE，hmr 才开始 LOADING —— 依赖顺序在时间线上直接看得到
+    def first_ms(entry_id: str, to: str) -> float | None:
+        for e in events:
+            if e.get("kind") == "status" and e.get("id") == entry_id and e.get("to") == to:
+                return float(e["ms"])
+        return None
+
+    timer_active, hmr_loading = first_ms("timer", "ACTIVE"), first_ms("hmr", "LOADING")
+    if timer_active is not None and hmr_loading is not None:
+        print(f"\ntimer 变 ACTIVE：{timer_active:.1f}ms    hmr 才开始 LOADING：{hmr_loading:.1f}ms")
+        assert timer_active <= hmr_loading, (
+            "hmr 应当等 timer 就位之后才开始加载，时间线却反过来了"
+        )
 
 
-def test_forgetting_timer_stops_the_instance(lab_home: LabHome, launch):
-    """只写 hmr、漏掉 timer，实例起不来——支撑 README「出错了往哪看」那段。
+def test_hmr_alone_will_not_start(lab_home: LabHome, launch):
+    """只写 hmr 一条：实例根本起不来，日志点名缺了 timer。
 
-    两条要一起写。漏掉 timer 的症状是**启动即退出**，日志里点名了缺的东西，
-    读者照日志就能对上自己漏了哪一行。
+    这条撑住第 1 步唯一的判定——**那两条是捆绑的**。
     """
-    profile = lab_home.make_profile("only-hmr", bundles=[], patch=PATCH_ONLY_HMR)
-
-    print("\ncordis.patch.yml 的内容（故意漏掉 timer 那条）：")
-    for line in profile.read_patch().splitlines():
-        print(f"    | {line}")
+    events_path = lab_home.root / "events-only-hmr.jsonl"
+    profile = lab_home.make_profile(
+        "only-hmr", bundles=[], patch=with_observer(ONLY_HMR, events_path)
+    )
+    profile.link_plugin("lab-recorder", OBSERVER)
 
     inst = launch(profile, wait_http=False)
-    dead = wait_dead(inst, DIE_TIMEOUT)
 
-    print(f"\n进程退出了吗？ {dead}（退出码 {inst.proc.returncode}）")
-    logs = inst.logs(tail=20)
-    hit = [ln.strip() for ln in logs.splitlines() if "timer" in ln]
-    print(f"日志里点名 timer 的行：{hit or '（没找到）'}")
-    if not hit:
+    # 验「不该活着」：等一段固定时间，不能轮询提前退出
+    deadline = time.monotonic() + 20.0
+    while time.monotonic() < deadline and inst.alive():
+        time.sleep(0.3)
+
+    logs = inst.logs()
+    print("\n══ 只写 hmr 一条会怎样 ═══════════════════════════════════")
+    print(f"进程还活着？ {inst.alive()}（退出码 {inst.proc.returncode}）")
+    verdict = [ln for ln in logs.splitlines() if "waiting for service" in ln]
+    print(f"日志里的判词：{verdict or '（没找到，看完整日志）'}")
+    if not verdict:
         print(logs)
 
-    assert dead, f"预期启动失败，但它活了 {DIE_TIMEOUT} 秒还在跑：\n{logs}"
-    assert inst.proc.returncode != 0, "启动失败应当是非零退出码"
-    assert hit, f"日志里应当点名缺的 timer，读者才对得上自己漏了哪行：\n{logs}"
+    assert not inst.alive(), "只有 hmr 的实例居然活着——那 timer 就不是必需的了"
+    assert verdict, f"应当有 waiting for service 的判词：\n{logs}"
+    assert any("timer" in ln for ln in verdict), f"判词该点名 timer：{verdict}"

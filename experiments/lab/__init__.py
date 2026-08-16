@@ -24,6 +24,7 @@ from .core import (
     rmtree_safe,
 )
 from .dump import DumpResult, JsExpr, dump_config
+from .events import entry_ids, of_kind, read_events, reports, states_of, timeline
 from .instance import Instance, acquire_lock, assert_ports_free, http_get, port_listening, release_lock, start_instance
 
 __all__ = [
@@ -47,10 +48,16 @@ __all__ = [
     "assert_ports_free",
     "dsh_bin",
     "dump_config",
+    "entry_ids",
     "http_get",
     "make_junction",
+    "of_kind",
     "port_listening",
+    "read_events",
     "release_lock",
+    "reports",
     "rmtree_safe",
     "start_instance",
+    "states_of",
+    "timeline",
 ]

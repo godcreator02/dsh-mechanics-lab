@@ -1,0 +1,222 @@
+<title>改别人已经挂上的条目</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --dead:#be123c;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --dead-bg:#ffe4e6;
+  --code-bg:#f2f4f7; --comment:#8b95a3;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre-wrap; word-break:break-word; color:var(--ink)}
+.cm{color:var(--comment)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.bad{color:var(--dead); font-weight:600}
+.gone{color:var(--dead); text-decoration:line-through; opacity:.75}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.danger{border-left-color:var(--dead); background:var(--dead-bg)}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.big{font-size:16px; text-align:center; padding:18px; border:1px dashed var(--line); border-radius:10px; margin:20px 0; font-family:var(--mono); line-height:2}
+.big b{color:var(--loading)}
+.big .p{color:var(--pending)}
+.flow{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:center; margin-top:16px}
+@media (max-width:660px){.flow{grid-template-columns:1fr} .flow .ar{transform:rotate(90deg); justify-self:start}}
+.ar{font-family:var(--mono); color:var(--ink-faint); font-size:16px}
+.lbl{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:6px}
+.silent{border:2px dashed var(--pending); border-radius:10px; padding:18px; text-align:center; font-family:var(--mono); color:var(--pending); font-size:14px; background:var(--pending-bg)}
+.nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
+.nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
+.nav a:hover{text-decoration:underline}
+.nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+</style>
+
+<div class="wrap">
+<div class="crumb">第 8 步 / 共 9 步</div>
+
+<h1>改别人已经挂上的条目</h1>
+<p class="sub">
+  前七步一直在写 <code>- insert:</code>。上一步撞了车才发现：再 insert 一遍同一个 id
+  不是「改」，是「多一条」，而且直接把实例弄挂。真要改，得换个写法。
+</p>
+<div class="meta">
+  uv run pytest experiments/step8_change_an_existing_entry/ -n 0 -s · 4 个用例 · 约 19 秒
+</div>
+
+<section>
+  <h2>两种写法</h2>
+  <h3>差别只在有没有 insert</h3>
+
+  <div class="big">
+    <code>- insert:</code> 底下的 → <b>加一条新的</b><br>
+    顶格写 <code>- id: xxx</code> → <span class="p">改已经有的那一条</span>
+  </div>
+
+  <div class="box">
+    <div class="filename">同一个 patch 文件，先加后改</div>
+<pre><span class="cm"># 先挂上</span>
+- insert:
+    - id: speaker
+      name: ./speaker.mjs
+      config:
+        台词: 原来的台词
+        音量: 3
+
+<span class="cm"># 再改它 —— 顶格，不在 insert 底下</span>
+- id: speaker
+  config:
+    台词: <span class="hi">改过的台词</span></pre>
+  </div>
+
+  <div class="flow">
+    <div><span class="lbl">插件实际收到</span>
+      <div class="box"><pre>{"台词": "改过的台词"}</pre></div>
+    </div>
+    <div class="ar">←</div>
+    <div><span class="lbl">原来那份</span>
+      <div class="box"><pre>{"台词": "原来的台词",
+ <span class="gone">"音量": 3</span>}</pre></div>
+    </div>
+  </div>
+
+  <p class="punch">
+    <b><code>音量: 3</code> 没了——覆盖是把整个 <code>config</code> 换掉，不是把新键并进旧的里面。</b>
+    只想改一个键，也得把要保留的键全部重写一遍。
+  </p>
+  <p class="note">
+    另外 speaker 全程只说了 <b>一句</b>——覆盖不会变成两份，它自始至终是同一条。
+  </p>
+</section>
+
+<section>
+  <h2>写错 id 会怎样</h2>
+  <h3>什么都不会发生，而且什么都不会说</h3>
+
+  <div class="box">
+<pre>- insert:
+    - id: speaker
+      name: ./speaker.mjs
+
+- id: <span class="bad">speakr</span>          <span class="cm"># 打错一个字母</span>
+  config:
+    台词: 改不到
+
+- id: speaker         <span class="cm"># 后面这条照样生效</span>
+  config:
+    台词: 后面这条照样生效</pre>
+  </div>
+
+  <div class="silent" style="margin-top:16px">
+    实例照常活着 · <code>speakr</code> 从没成为条目 · 后面那条正常生效<br>
+    <b style="font-size:16px">启动日志：一个字都没有</b>
+  </div>
+
+  <p class="punch warn">
+    <b>不要指望框架提醒你。</b>
+    改一个不存在的 id，既不报错也不警告——那一段就像没写过一样被跳过，
+    你只会发现「怎么没改上」，却拿不到任何线索。
+  </p>
+
+  <p class="note">
+    这跟第 3 步那个坑是同一类：<code>config</code> 键名拼错也是全程静默。
+    <b>DSH 在「你写错了」这类场合普遍不吭声</b>——所以改完一定要回去确认真的改上了。
+  </p>
+</section>
+
+<section>
+  <h2>再 insert 一遍呢</h2>
+  <h3>跟上一步撞车是同一个死法</h3>
+
+  <div class="box">
+<pre>- insert:
+    - id: <span class="bad">speaker</span>
+      name: ./speaker.mjs
+
+- insert:
+    - id: <span class="bad">speaker</span>      <span class="cm"># 又来一条同名的</span>
+      name: ./speaker.mjs</pre>
+  </div>
+
+  <div class="card">
+    <div class="filename">启动日志（退出码 1）</div>
+<pre>Error: dsh: plugin tree failed to load:
+  failed to apply loader entry include (cordis:include):
+  <span class="bad">duplicate loader entry id: speaker</span></pre>
+  </div>
+
+  <p class="punch danger">
+    <b>不是后面盖前面，也不是两份一起跑——实例根本起不来。</b>
+    第 7 步「两处各写一条同 id」和这里「同一处写两遍」，撞的是同一堵墙：
+    树上不允许出现两个一样的 id。
+  </p>
+</section>
+
+<section>
+  <h2>还能改什么</h2>
+  <h3>比如把别人挂上的那条关掉</h3>
+
+  <div class="box">
+<pre><span class="cm"># 前面那条原样留着，一个字不动</span>
+- insert:
+    - id: speaker
+      name: ./speaker.mjs
+
+<span class="cm"># 后面这条说了算</span>
+- id: speaker
+  <span class="hi">disabled: true</span></pre>
+  </div>
+
+  <p class="punch">
+    实例照常活着，speaker 在树上，但<b>一句话都没说</b>——第 4 步那个开关，
+    现在可以隔着距离拨了。
+  </p>
+  <p class="note">
+    这就是「改已有条目」真正有用的地方：<b>你不用去动别人写的那一段</b>，
+    在自己这边追加一条，就能改掉它的 config、关掉它、或者调整它的其它字段。
+  </p>
+</section>
+
+<div class="nav">
+  <a href="step-7.html"><small>上一步</small>← 第 7 步 · 配置不止一处</a>
+  <a href="step-9.html"><small>下一步</small>第 9 步 · 挂上了但没执行 →</a>
+</div>
+<div class="foot">
+  patch 内容、插件收到的 config、启动日志均取自 out/testhome/step8/。<br>
+  「日志一个字都没有」这条另外用叠了整套官方条目的实例复核过，结果相同——不是最小实例特有的。
+</div>
+</div>

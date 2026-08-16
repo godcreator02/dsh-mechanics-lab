@@ -1,167 +1,169 @@
 """第 2 步 · 把自己写的东西挂上去
 
-见同目录 README.md。这一步验四件事：
-  1. patch 文件里加一条指向自己写的模块，实例起来时那个模块的 apply 真的跑了
-  2. 让它跑起来的是 patch 里那一条，不是模块文件躺在那儿
-  3. id 是自己起的名字，name 是 DSH 拿去找模块的那个值 —— 两者各管一件事
-  4. name 写错不会被悄悄跳过，实例直接退出并在日志里点名
+**你不用做任何事，跑一下看输出就行：**
+
+    uv run pytest experiments/step2_mount_your_plugin/ -n 0 -s
+
+第 1 步的实例里只有框架自己的东西。这一步往里加一个**你写的插件**，
+再从事件流里看它是不是真的跑了。
+
+插件就一个文件（`fixtures/hello.mjs`），全部内容是：声明要用观察器、
+在 `apply` 里说一句话。没有 package.json，没有构建，没有依赖安装。
 """
 
 from __future__ import annotations
 
 import json
 import shutil
+import sys
 import time
 from pathlib import Path
 
-import pytest
-from lab import LabHome, LabProfile
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-pytestmark = pytest.mark.instance
+from lab import (  # noqa: E402
+    LAB_ROOT,
+    PKG_HMR,
+    PKG_TIMER,
+    Instance,
+    LabHome,
+    LabProfile,
+    entry_ids,
+    read_events,
+    reports,
+    states_of,
+    timeline,
+)
 
-#: 教学插件的文件名。读者照着做时，这个文件被放进自己的 profile 文件夹。
-PLUGIN_FILE = "hello-plugin.mjs"
+OBSERVER = LAB_ROOT / "observatory" / "lab-recorder"
+HELLO = Path(__file__).resolve().parent / "fixtures" / "hello.mjs"
 
-#: apply 跑起来时写下的那个文件，跟插件文件并排。
-WITNESS_FILE = "hello-ran.json"
+#: 第 1 步立起来的那三条，原样带过来
+BASE = """- insert:
+    - id: timer
+      name: '{timer}'
 
+    - id: hmr
+      name: '{hmr}'
 
-# ── 辅助 ────────────────────────────────────────────────────────────────────
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: {out}
+        flushMs: 100
+"""
 
-
-def _mount(entry_id: str, file_name: str = PLUGIN_FILE) -> str:
-    """生成「加一条指向自己插件」的 patch 片段。
-
-    照着写就行的一小块：一个 id、一个 name。name 那个相对路径是相对
-    profile 文件夹算的，插件文件就放在那儿。
-    """
-    return f"""# 第 2 步：把自己写的插件挂上去
+#: 你写的那条 —— 就多这一段
+YOURS = """
 - insert:
-    - id: {entry_id}
-      name: ./{file_name}
+    - id: hello
+      name: ./hello.mjs
 """
 
 
-def _prepare(home: LabHome, fixtures_dir: Path, profile_name: str, *, patch: str = "") -> LabProfile:
-    """建 profile、把教学插件拷进去，返回 profile。
+def build(lab_home: LabHome, name: str, *, mount_yours: bool) -> tuple[LabProfile, Path]:
+    """搭一个实例：框架三条 +（可选）你写的那条。
 
-    拷贝而不是 link：本步的插件是 profile 文件夹里的一个文件，读者自己写的
-    也是放在那儿的一个文件，两边动作一致。
+    插件是**放进 profile 目录的一个文件**，`name` 写 `./hello.mjs` 相对路径
+    —— 不用 link、不用包名。仪器（lab-recorder）仍然 link，它是装好的设备，
+    不是这一步的教学内容。
     """
-    profile = home.make_minimal_profile(profile_name, patch=patch)
-    shutil.copy2(fixtures_dir / PLUGIN_FILE, profile.dir / PLUGIN_FILE)
-    return profile
+    events = lab_home.root / f"events-{name}.jsonl"
+    patch = BASE.format(timer=PKG_TIMER, hmr=PKG_HMR, out=json.dumps(events.as_posix()))
+    if mount_yours:
+        patch += YOURS
+    profile = lab_home.make_profile(name, bundles=[], patch=patch)
+    profile.link_plugin("lab-recorder", OBSERVER)
+    # 插件文件拷进 profile 目录 —— 读者手动放文件，用例用 copy2，动作一样
+    shutil.copy2(HELLO, profile.dir / "hello.mjs")
+    return profile, events
 
 
-def _wait_for_witness(profile: LabProfile, *, timeout: float = 30.0, interval: float = 0.3) -> dict:
-    """轮询等那个文件出现并读出来。
-
-    用于「验证**应该**发生的事」，轮询比死等更快也更稳。
-    """
-    path = profile.dir / WITNESS_FILE
+def wait_for_events(
+    inst: Instance, path: Path, *, least: int = 5, timeout: float = 40.0
+) -> list[dict]:
     deadline = time.monotonic() + timeout
+    events: list[dict] = []
     while time.monotonic() < deadline:
-        if path.exists():
-            try:
-                return json.loads(path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
-                pass  # 可能正写到一半，再等等
-        time.sleep(interval)
-    raise AssertionError(f"等了 {timeout}s，{WITNESS_FILE} 仍未出现：{path}")
+        events = read_events(path)
+        if len(events) >= least:
+            return events
+        if not inst.alive():
+            break
+        time.sleep(0.3)
+    return events
 
 
-# ── 用例 1 · 挂上去之后，apply 真的跑了 ─────────────────────────────────────
-
-
-def test_your_plugin_actually_runs(lab_home, fixtures_dir, launch):
-    """patch 文件里加一条指向自己写的模块，实例起来时 apply 就被调用了。
-
-    判据是那个文件在不在，不是日志里写了什么 —— 文件在不在是硬事实。
-    """
-    profile = _prepare(lab_home, fixtures_dir, "step2-run", patch=_mount("hello"))
+def test_your_plugin_runs_and_says_so(lab_home: LabHome, launch):
+    """挂上那一条，插件就跑了 —— 它自己说的话进了同一条事件流。"""
+    profile, events_path = build(lab_home, "mine", mount_yours=True)
 
     inst = launch(profile, wait_http=False)
-    try:
-        got = _wait_for_witness(profile)
-    except AssertionError as exc:
-        raise AssertionError(f"{exc}\n实例还活着={inst.alive()}\n{inst.logs()}") from exc
-    finally:
-        inst.stop()
+    events = wait_for_events(inst, events_path, least=8)
 
-    assert got["marker"] == "step2-hello-v1"
-    assert got["appliedAt"], "apply 执行的时刻应该被记下"
-    print(f"\n  {WITNESS_FILE} 落在 {profile.dir}")
-    print(f"  内容：{got}")
+    print("\n══ 加了你写的插件之后 ════════════════════════════════════")
+    print(timeline(events))
+
+    said = reports(events, who="hello")
+    print(f"\n你的插件说的话：{[e.get('note') for e in said]}")
+    print(f"它走过的状态：{states_of(events, 'hello')}")
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert "hello" in entry_ids(events), (
+        f"树上应当有你写的那条，实际 {sorted(entry_ids(events))}"
+    )
+    assert said, "插件的 apply 没说话 —— 它可能压根没被调用"
+    assert said[0]["note"] == "我的 apply 被调用了"
 
 
-# ── 用例 2 · 没加那一条就什么都不会发生 ─────────────────────────────────────
+def test_apply_runs_while_loading(lab_home: LabHome, launch):
+    """插件说话的那一刻它还在 LOADING —— apply 跑在「加载中」，不是「加载完」。
 
-
-def test_nothing_runs_without_the_entry(lab_home, fixtures_dir, launch):
-    """插件文件原样放着、patch 文件里不加那一条 —— apply 不会跑。
-
-    让插件跑起来的是 patch 里那一条，不是文件躺在 profile 文件夹里。
-    这条同时是用例 1 的对照：没有它，「文件出现了」也可能是别的原因造成的。
+    这条不用额外做实验：事件流里 `report` 与 `status` 共用一套时间轴，
+    先后关系直接读得出来。
     """
-    profile = _prepare(lab_home, fixtures_dir, "step2-unmounted")  # 不加那一条
-    witness = profile.dir / WITNESS_FILE
+    profile, events_path = build(lab_home, "timing", mount_yours=True)
 
     inst = launch(profile, wait_http=False)
-    try:
-        # 「验证什么都不该发生」必须固定长等待，不能轮询提前退出 ——
-        # 提前退出只能证明「此刻还没发生」，证明不了「不会发生」。
-        time.sleep(12)
-        alive = inst.alive()
-        assert not witness.exists(), f"没挂上却跑了？{witness}"
-        assert alive, f"实例本身就没起来，这条对照不成立：\n{inst.logs()}"
-    finally:
-        inst.stop()
+    events = wait_for_events(inst, events_path, least=8)
 
-    print(f"\n  patch 文件里没有那一条 → {WITNESS_FILE} 不出现（实例本身活着）")
+    said = reports(events, who="hello")
+    active = [
+        e
+        for e in events
+        if e.get("kind") == "status" and e.get("id") == "hello" and e.get("to") == "ACTIVE"
+    ]
+    assert said and active, f"该有的事件没齐：说话 {len(said)} 条、ACTIVE {len(active)} 条"
+
+    say_ms, active_ms = float(said[0]["ms"]), float(active[0]["ms"])
+    print("\n══ apply 跑在什么时候 ════════════════════════════════════")
+    print(f"  插件说话：      {say_ms:8.1f}ms")
+    print(f"  它变 ACTIVE：   {active_ms:8.1f}ms")
+    print("  → apply 跑完了，这个条目才被标记为 ACTIVE")
+
+    assert say_ms < active_ms, "插件说话应当早于它变 ACTIVE —— apply 是在 LOADING 期跑的"
 
 
-# ── 用例 3 · id 是自己起的，name 才是用来找模块的 ───────────────────────────
+def test_without_the_entry_nothing_runs(lab_home: LabHome, launch):
+    """对照组：文件原样放着、不加那一条，插件就完全不存在。
 
-
-def test_id_is_yours_name_finds_the_module(lab_home, fixtures_dir, launch):
-    """把 id 换成一个跟文件名毫无关系的词，插件照样跑。
-
-    两个字段各管一件事：
-      name —— DSH 拿它去找你那个模块，写错就找不到
-      id   —— 你给这一条起的名字，随便起
+    这条排除「它是自己被扫到的」这种可能 —— 挂载只认 patch 里写没写。
     """
-    profile = _prepare(lab_home, fixtures_dir, "step2-id", patch=_mount("随便起的名字"))
+    profile, events_path = build(lab_home, "unmounted", mount_yours=False)
+    assert (profile.dir / "hello.mjs").exists(), "前提：文件确实放在那儿了"
 
     inst = launch(profile, wait_http=False)
-    try:
-        got = _wait_for_witness(profile)
-    except AssertionError as exc:
-        raise AssertionError(f"{exc}\n实例还活着={inst.alive()}\n{inst.logs()}") from exc
-    finally:
-        inst.stop()
+    wait_for_events(inst, events_path, least=5)
 
-    assert got["marker"] == "step2-hello-v1"
-    print("\n  id 跟文件名毫无关系，插件照常跑 —— 找模块用的是 name")
+    # 验「不该发生」：固定等一段，不能轮询提前退出
+    time.sleep(6.0)
+    events = read_events(events_path)
 
+    print("\n══ 文件在、但没写那一条 ══════════════════════════════════")
+    print(f"树上的条目：{sorted(entry_ids(events))}")
+    said = [e.get("note") for e in reports(events, who="hello")]
+    print(f"它说的话：{said or '（一句都没有）'}")
 
-# ── 用例 4 · 写错了不会被悄悄跳过 ───────────────────────────────────────────
-
-
-def test_a_wrong_name_stops_the_instance(lab_home, fixtures_dir, launch):
-    """name 指向一个不存在的文件 —— 实例**直接退出**，日志里点名说找不到。
-
-    这条支撑 README 的「出错了往哪看」：写错不是静默跳过。
-    于是「实例还在跑」本身就是一半证据 —— 剩下一半才是那个文件在不在。
-    """
-    profile = _prepare(lab_home, fixtures_dir, "step2-wrong-name", patch=_mount("hello", "nope.mjs"))
-
-    inst = launch(profile, wait_http=False)
-    try:
-        inst.wait_for(lambda: not inst.alive(), timeout=25, what="实例退出")
-        logs = inst.logs(tail=60)
-    finally:
-        inst.stop()
-
-    assert "ERR_MODULE_NOT_FOUND" in logs, f"报错文本变了，README 的排障提示要跟着改：\n{logs}"
-    assert "nope.mjs" in logs, "报错里应该把它拼出来的完整路径写出来"
-    print("\n  写错 name → 实例退出，日志里给出它去找的那个完整路径")
+    assert inst.alive(), "实例应当照常活着 —— 少挂一个插件不是错误"
+    assert "hello" not in entry_ids(events), "没写那一条，它不该出现在树上"
+    assert not reports(events, who="hello"), "没挂上却说话了？那它是从别处被加载的"

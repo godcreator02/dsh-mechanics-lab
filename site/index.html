@@ -1,0 +1,210 @@
+<title>DSH 插件系统 · 九步</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9;
+  --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --pending:#b45309; --dead:#be123c;
+  --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe;
+  --code-bg:#f2f4f7; --comment:#8b95a3;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38;
+  --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --pending:#fbbf24; --dead:#fb7185;
+  --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
+  --code-bg:#10151c; --comment:#5d6773;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38;
+  --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --pending:#fbbf24; --dead:#fb7185;
+  --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
+  --code-bg:#10151c; --comment:#5d6773;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px; margin:0 auto; padding:64px 24px 96px}
+h1{font-size:clamp(30px,5.4vw,48px); line-height:1.12; margin:0 0 12px; letter-spacing:-.035em; font-weight:660; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17.5px; margin:0 0 10px; max-width:60ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:26px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 14px}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:56px}
+code{font-family:var(--mono); font-size:.9em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+
+.steps{display:grid; gap:10px}
+.step{
+  display:grid; grid-template-columns:44px 1fr auto; gap:16px; align-items:center;
+  padding:15px 18px; border:1px solid var(--line); border-radius:11px; background:var(--card);
+  text-decoration:none; color:inherit; transition:border-color .15s, transform .15s;
+}
+.step:hover{border-color:var(--loading); transform:translateX(3px)}
+.num{
+  font-family:var(--mono); font-size:15px; font-weight:700; color:var(--loading);
+  background:var(--loading-bg); border-radius:8px; text-align:center; padding:7px 0;
+}
+.what{font-size:16.5px; font-weight:600; letter-spacing:-.01em}
+.gets{font-size:13px; color:var(--ink-soft); margin-top:3px}
+.tag{
+  font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:5px;
+  background:var(--code-bg); color:var(--ink-faint); white-space:nowrap;
+}
+.tag.dbg{background:var(--instrument-bg); color:var(--instrument)}
+
+.pair{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+@media (max-width:640px){.pair{grid-template-columns:1fr}}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:16px 18px}
+.box h3{margin:0 0 8px; font-size:15px; font-weight:600}
+.box p{font-size:13.5px; color:var(--ink-soft); margin:0}
+pre{margin:0; font-family:var(--mono); font-size:12px; line-height:1.6; white-space:pre-wrap; color:var(--ink)}
+.cm{color:var(--comment)}
+.hi{color:var(--loading); font-weight:600}
+.punch{margin:22px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.foot{margin-top:72px; padding-top:22px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.95}
+</style>
+
+<div class="wrap">
+
+<h1>DSH 插件系统 · 九步</h1>
+<p class="sub">
+  每一步是一个实验：跑一条命令，看真实输出。不用照着敲、不用自己搭环境——
+  实验自己起隔离的实例、自己收数据，你只看结果。
+</p>
+<div class="meta">36 个用例 · 全套 56 秒 · 页面上的每个数字都读自实验跑出来的事件流</div>
+
+<section>
+  <h2>怎么读</h2>
+  <div class="pair">
+    <div class="box">
+      <h3>能跑 → 能配 → 能查 → 能热更</h3>
+      <p>顺序按「你想干什么」排，不按系统结构排。一路走完，能写插件、能自己排错、能热开发。</p>
+    </div>
+    <div class="box">
+      <h3>先用后懂</h3>
+      <p>有些东西第一次出现时只说「照着写」，等你用熟了、并且撞上需要理解它的问题时，再回头拆开讲。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>九步</h2>
+  <div class="steps">
+
+    <a class="step" href="https://claude.ai/code/artifact/ae9cf24e-6568-404c-bc64-ff2edb6fdb43">
+      <div class="num">1</div>
+      <div>
+        <div class="what">最小实例与那台仪器</div>
+        <div class="gets">一个实例最少要两条；以及后面每步都靠的那只眼睛怎么工作</div>
+      </div>
+      <span class="tag">timer / hmr</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/5e39dfd1-0fc6-4c13-82bf-697aeb856f33">
+      <div class="num">2</div>
+      <div>
+        <div class="what">把自己写的东西挂上去</div>
+        <div class="gets">一个文件就是一个插件；apply 跑在「加载中」而不是「加载完」</div>
+      </div>
+      <span class="tag">apply / insert</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/2425cb61-aac4-4d10-90c5-bcd6b156e7e5">
+      <div class="num">3</div>
+      <div>
+        <div class="what">给它传配置</div>
+        <div class="gets">写什么收什么；键名拼错时没有任何人会告诉你</div>
+      </div>
+      <span class="tag">config</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/484c5048-38bb-4e21-9b1d-688becb2ec73">
+      <div class="num">4</div>
+      <div>
+        <div class="what">临时关掉它</div>
+        <div class="gets">留在树上但从不运行；跟「压根没写」是两件事</div>
+      </div>
+      <span class="tag">disabled</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/4c759df4-9940-4c62-8d18-88d65cc1fbcf">
+      <div class="num">5</div>
+      <div>
+        <div class="what">挂不上，怎么查</div>
+        <div class="gets">六种写错的真实报错；module 和 package 这两个词决定往哪查</div>
+      </div>
+      <span class="tag dbg">排错 ①</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/aca04649-df40-4d98-9906-6979cefc3588">
+      <div class="num">6</div>
+      <div>
+        <div class="what">改了代码立刻生效</div>
+        <div class="gets">存盘就重来；放大到微秒能看见新旧两个重叠的那 200 微秒</div>
+      </div>
+      <span class="tag">hmr / root</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/c7054de7-d114-4c87-b9b7-0eb1417624a0">
+      <div class="num">7</div>
+      <div>
+        <div class="what">配置不止一处</div>
+        <div class="gets">home 那处对每个 profile 都生效；两处是拼起来的，同 id 就撞车</div>
+      </div>
+      <span class="tag">两处 patch</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/03e1a6af-8ecd-4347-a2ea-e9f7f24e79c1">
+      <div class="num">8</div>
+      <div>
+        <div class="what">改别人已经挂上的条目</div>
+        <div class="gets">insert 是加、顶格写 id 是改；覆盖是整个换掉不是合并</div>
+      </div>
+      <span class="tag">覆盖</span>
+    </a>
+
+    <a class="step" href="https://claude.ai/code/artifact/c6570cb5-b08b-4404-9d4c-2b4a3e16b441">
+      <div class="num">9</div>
+      <div>
+        <div class="what">挂上了但没执行</div>
+        <div class="gets">那行一直照着写的 inject 到底是什么；等不到就全员陪葬</div>
+      </div>
+      <span class="tag dbg">排错 ②</span>
+    </a>
+
+  </div>
+</section>
+
+<section>
+  <h2>为什么每个数字都能信</h2>
+  <p>
+    实验里装了一台采集器。它<b>不是外挂的探针，是树上一个普通条目</b>——写在同一个
+    patch 文件里，跟被观测的插件平级，没有任何特权。所以你在每张图里都会看到它。
+  </p>
+  <div class="box">
+<pre><span class="cm">// 它订阅框架事件</span>
+ctx.on(<span class="hi">"internal/status"</span>, (fiber, oldValue) =&gt; { … });
+
+<span class="cm">// 也开一个口子，让插件自己说话</span>
+ctx.<span class="hi">provide</span>("labObserver", { for(callerCtx) { … } });</pre>
+  </div>
+  <p class="punch">
+    <b>「框架说的」和「插件说的」进同一条流、共用一套时间轴</b>——
+    所以「插件说它拿到了 config」和「框架说这个条目就绪了」的先后关系，
+    是直接读出来的，不是推断的。
+  </p>
+  <p style="margin-top:16px; font-size:14px; color:var(--ink-soft)">
+    它也有能力上限：<b>拿不到自己挂载之前的历史</b>。采集器自己也要被加载，
+    在它睁眼之前发生的事没人记——所有毫秒数都相对它睁眼那一刻，不是进程启动。
+  </p>
+</section>
+
+<div class="foot">
+  跑法：<code>uv run pytest experiments/step1_run_an_instance/ -n 0 -s</code>（每步各自可跑）<br>
+  全套 36 个用例并行跑完 56 秒；每步一个隔离的假 home，互不干扰。<br>
+  页面上的时间线、报错原文、文件树、配置内容，全部取自跑完后的实验产物。
+</div>
+
+</div>

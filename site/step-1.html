@@ -1,0 +1,308 @@
+<title>最小实例与那台仪器</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe;
+  --code-bg:#f2f4f7; --comment:#8b95a3; --auto:#94a3b8;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
+  --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150;
+  --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+h4{font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin:30px 0 10px}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+.scroll{overflow-x:auto}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre; overflow-x:auto; color:var(--ink)}
+.cm{color:var(--comment)} .auto{color:var(--auto)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.inst-c{color:var(--instrument); font-weight:600}
+.stage{display:grid; grid-template-columns:minmax(0,320px) minmax(0,1fr); gap:22px; align-items:start}
+@media (max-width:760px){.stage{grid-template-columns:1fr}}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.chart{min-width:660px}
+.axis{position:relative; height:22px; margin-left:132px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:10px; color:var(--ink-faint)}
+.tick{position:absolute; transform:translateX(-50%); bottom:3px}
+.tick::after{content:""; position:absolute; left:50%; bottom:-6px; width:1px; height:5px; background:var(--line)}
+.lane{display:flex; align-items:center; height:34px; border-bottom:1px solid var(--line-soft)}
+.lane:last-child{border-bottom:0}
+.lane-name{width:132px; flex:none; font-family:var(--mono); font-size:12px; color:var(--ink-soft); padding-right:12px; text-align:right; white-space:nowrap}
+.lane-name b{color:var(--ink); font-weight:600}
+.tag{display:inline-block; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:5px}
+.tag.i{background:var(--instrument-bg); color:var(--instrument)}
+.track{position:relative; flex:1; height:100%}
+.bar{position:absolute; top:9px; height:16px; border-radius:3px; transform-origin:left center; transform:scaleX(0); transition:transform .5s cubic-bezier(.22,.7,.3,1)}
+.playing .bar{transform:scaleX(1)}
+.bar.pending{background:var(--pending-bg); border:1px solid var(--pending)}
+.bar.loading{background:var(--loading-bg); border:1px solid var(--loading)}
+.bar.active{background:var(--active-bg); border:1px solid var(--active)}
+.bar.inst{background:var(--instrument-bg); border:1px solid var(--instrument)}
+.legend{display:flex; flex-wrap:wrap; gap:16px; margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--ink-soft)}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+.legend .pending{background:var(--pending-bg); border:1px solid var(--pending)}
+.legend .loading{background:var(--loading-bg); border:1px solid var(--loading)}
+.legend .active{background:var(--active-bg); border:1px solid var(--active)}
+.legend .inst{background:var(--instrument-bg); border:1px solid var(--instrument)}
+.reading{display:grid; grid-template-columns:auto 1fr; gap:6px 18px; align-items:baseline; font-family:var(--mono); font-size:13px; margin:18px 0 0; padding-top:16px; border-top:1px dashed var(--line)}
+.reading dt{color:var(--ink-faint); white-space:nowrap}
+.reading dd{margin:0}
+.reading dd b{color:var(--loading); font-weight:600}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
+.nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
+.nav a:hover{text-decoration:underline}
+.nav .none{color:var(--ink-faint); font-family:var(--mono); font-size:13px}
+.nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+@media (prefers-reduced-motion:reduce){.bar{transition:none; transform:scaleX(1)}}
+</style>
+
+<div class="wrap">
+<div class="crumb">第 1 步 / 共 9 步</div>
+
+<h1>最小实例与那台仪器</h1>
+<p class="sub">
+  一个 DSH 实例能瘦到什么程度？顺便把后面每一步都要用的那只眼睛装上——
+  它是树上的一条，不是外挂的探针。
+</p>
+<div class="meta">
+  uv run pytest experiments/step1_run_an_instance/ -n 0 -s · 2 个用例 · 约 5 秒
+</div>
+
+<!-- ── 仪器 ── -->
+<section>
+  <h2>先说仪器</h2>
+  <h3>它凭什么能看见</h3>
+  <p>
+    要看清插件加载时发生了什么，得有个东西在进程里听着。这台采集器叫
+    <code>lab-recorder</code>，它<b>本身就是一个普通插件条目</b>——写在同一个 patch 文件里，
+    跟被观测的东西平级，没有任何特权。所以后面每张图里你都会看到它。
+  </p>
+
+  <div class="card">
+    <h4 style="margin-top:0">它怎么听见框架说话</h4>
+    <pre><span class="cm">// fiber 每次状态变化触发一次，带旧状态。</span>
+<span class="cm">// 这是抓住 LOADING 这种几毫秒窄窗口的唯一办法 —— 轮询必然错过。</span>
+ctx.on(<span class="hi">"internal/status"</span>, (fiber, oldValue) =&gt; {
+  push("status", {
+    id:   fiber.entry?.options?.id,
+    from: FIBER_STATE[oldValue],
+    to:   FIBER_STATE[fiber.state],
+  });
+});</pre>
+    <p class="note">
+      <code>FIBER_STATE</code> 那张数字→名字的表得手写死在代码里：它在 cordis 里是
+      TypeScript 的 <code>const enum</code>，编译后被内联成数字字面量，
+      <b>运行时根本不存在这个对象</b>，import 不到。
+    </p>
+  </div>
+
+  <div class="card">
+    <h4 style="margin-top:0">它怎么让别的插件也能说话</h4>
+    <pre><span class="cm">// 框架事件只回答「框架对这个条目做了什么」，</span>
+<span class="cm">// 回答不了「这个插件自己拿到了什么」—— 那只有插件自己知道。</span>
+ctx.<span class="hi">provide</span>("labObserver", {
+  <span class="cm">// 传一次自己的 ctx，采集器反查你在树上的 id ——</span>
+  <span class="cm">// 比让插件自报名字可靠：它写死的名字未必等于条目 id</span>
+  for(callerCtx) {
+    const who = whoOf(callerCtx);
+    return (note, data) =&gt; push(<span class="hi">"report"</span>, { who, note, data });
+  },
+});</pre>
+    <p class="note">
+      于是「插件说的」和「框架说的」进同一条流、共用一套时间轴——<b>先后关系直接读得出来</b>，
+      不用去拼两份数据。从第 2 步起，每个插件都会用到它。
+    </p>
+  </div>
+
+  <p class="punch warn">
+    <b>它的能力上限：拿不到自己挂载之前的历史。</b>
+    采集器自己也要被加载，在它 apply 之前发生的事没人记——所以事件流第一批是
+    <code>snapshot</code>（睁眼时看到的样子），那之前的过程是丢的。
+    下面所有毫秒数都相对<b>它睁眼那一刻</b>，不是进程启动。
+  </p>
+</section>
+
+<!-- ── 现场 ── -->
+<section>
+  <h2>这一步</h2>
+  <h3>一个实例最少需要什么</h3>
+  <p>
+    只写 <code>timer</code> 和 <code>hmr</code> 两条。加上采集器，再算上框架自己放的树根，
+    一共四条——这是能瘦到的极限。
+  </p>
+
+  <h4>现场</h4>
+  <div class="stage">
+    <div>
+      <div class="box">
+        <div class="filename"><b>假 home</b> 的全部内容</div>
+<pre>out/testhome/step1/
+├─ profiles/
+│  ├─ <span class="auto">node_modules/</span>   <span class="cm">252 条，dsh 自建</span>
+│  └─ minimal/
+│     ├─ <span class="you">package.json</span>
+│     ├─ <span class="you">cordis.patch.yml</span>
+│     ├─ <span class="auto">cordis.yml</span>       <span class="cm">dsh 写的</span>
+│     └─ node_modules/
+│        └─ <span class="inst-c">lab-recorder</span> <span class="cm">→ link</span>
+├─ logs/
+└─ <span class="auto">events.jsonl</span>        <span class="cm">采集器写的</span></pre>
+        <p class="note">
+          <span class="you">绿色</span>是我们放的，<span class="auto">灰色</span>是 dsh 生成的。
+          上一层那个 252 条的 <code>node_modules</code> 是 dsh 维护的链接农场——
+          <code>timer</code> / <code>hmr</code> 写包名能被找到就靠它，不用手工装。
+        </p>
+      </div>
+    </div>
+    <div>
+      <div class="box">
+        <div class="filename">profiles/minimal/<b>package.json</b></div>
+<pre>{
+  "name": "dsh-profile-minimal",
+  "private": true,
+  "dsh": { "profile": { <span class="hi">"bundles": []</span> } },
+  "dependencies": {
+    "lab-recorder": "link:…/observatory/lab-recorder"
+  }
+}</pre>
+      </div>
+      <div class="box">
+        <div class="filename">profiles/minimal/<b>cordis.patch.yml</b> — 组合就写在这</div>
+<pre><span class="cm"># 一个实例最少需要的两条</span>
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+<span class="cm"># 仪器，独立一块 —— YAML 数组允许多个 insert 块</span>
+- insert:
+    - id: <span class="inst-c">lab-recorder</span>
+      name: lab-recorder
+      config:
+        out: "…/out/testhome/step1/events.jsonl"
+        flushMs: 100</pre>
+      </div>
+      <div class="box">
+        <div class="filename">profiles/minimal/<b>cordis.yml</b> — dsh 每次启动重写，别改它</div>
+<pre><span class="cm"># dsh profile root — an empty entry list. The tree is composed
+# as patches: … Edit cordis.patch.yml, not this file.</span>
+[]</pre>
+      </div>
+    </div>
+  </div>
+
+  <h4>跑出来</h4>
+  <div class="card scroll">
+    <div class="chart" data-play>
+      <div class="axis" data-axis></div>
+      <div data-lanes></div>
+      <div class="legend">
+        <span><i class="pending"></i>PENDING 等依赖</span>
+        <span><i class="loading"></i>LOADING 正在跑 apply</span>
+        <span><i class="active"></i>ACTIVE 就绪</span>
+        <span><i class="inst"></i>仪器</span>
+      </div>
+    </div>
+    <dl class="reading">
+      <dt>timer 变 ACTIVE</dt><dd><b>1.8 ms</b></dd>
+      <dt>hmr 才开始 LOADING</dt><dd><b>1.9 ms</b></dd>
+      <dt>hmr 加载耗时</dt><dd>12.6 ms（1.9 → 14.5）—— 四条里最慢的</dd>
+    </dl>
+    <p class="punch">
+      <b>hmr 一直在 PENDING 等着，直到 timer 变成 ACTIVE 才开始加载。</b>
+      顺序不是 patch 里的书写顺序决定的，是依赖决定的。
+    </p>
+  </div>
+
+  <p>
+    把 <code>timer</code> 那两行删掉再跑一次，实例根本起不来，退出码 1，日志点名：
+  </p>
+  <div class="box"><pre>@deepseek-ai/cordis-plugin-hmr: <span class="hi">pending (waiting for service: timer)</span></pre></div>
+  <p class="note" style="margin-top:12px">
+    这两条是捆绑的。至于「等一个不来的服务」到底意味着什么，第 9 步会拆开讲。
+  </p>
+</section>
+
+<div class="nav">
+  <span class="none"><small>上一步</small>—— 这是第一步</span>
+  <a href="step-2.html"><small>下一步</small>第 2 步 · 把自己写的东西挂上去 →</a>
+</div>
+<div class="foot">
+  文件树与配置取自跑完后的 out/testhome/step1/，长路径已缩短。<br>
+  时间线读自 events.jsonl，只做了一步转换：事件流记「何时从 A 变成 B」，条形图要「从何时到何时处于某状态」。
+</div>
+</div>
+
+<script>
+const T_MAX = 24;
+const LANES = [
+  {id:"include", spans:[["loading",1.2,14.8],["active",14.8,T_MAX]]},
+  {id:"timer",   spans:[["pending",1.2,1.4],["loading",1.4,1.8],["active",1.8,T_MAX]]},
+  {id:"hmr",     spans:[["pending",1.2,1.9],["loading",1.9,14.5],["active",14.5,T_MAX]]},
+  {id:"lab-recorder", inst:true, spans:[["inst",1.2,1.5],["active",1.5,T_MAX]]},
+];
+const pct = (ms) => (ms / T_MAX * 100).toFixed(3) + "%";
+document.querySelectorAll("[data-axis]").forEach((ax) => {
+  for (let t = 0; t <= T_MAX; t += 4) {
+    const el = document.createElement("span");
+    el.className = "tick"; el.style.left = pct(t); el.textContent = t + "ms";
+    ax.appendChild(el);
+  }
+});
+const host = document.querySelector("[data-lanes]");
+LANES.forEach((lane, i) => {
+  const row = document.createElement("div"); row.className = "lane";
+  const name = document.createElement("div"); name.className = "lane-name";
+  name.innerHTML = lane.inst ? `<b>${lane.id}</b><span class="tag i">仪器</span>` : lane.id;
+  row.appendChild(name);
+  const track = document.createElement("div"); track.className = "track";
+  lane.spans.forEach(([kind, from, to], j) => {
+    const bar = document.createElement("div");
+    bar.className = "bar " + kind;
+    bar.style.left = pct(from); bar.style.width = pct(to - from);
+    bar.style.transitionDelay = (i * 60 + j * 90) + "ms";
+    bar.title = `${lane.id}: ${kind} ${from}ms → ${to}ms`;
+    track.appendChild(bar);
+  });
+  row.appendChild(track); host.appendChild(row);
+});
+const io = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("playing"); io.unobserve(e.target); } });
+}, { threshold: 0.25 });
+document.querySelectorAll("[data-play]").forEach((el) => io.observe(el));
+</script>

@@ -1,0 +1,250 @@
+<title>挂不上，怎么查</title>
+<style>
+:root{
+  --ink:#12171f; --ink-soft:#5a6472; --ink-faint:#8b95a3;
+  --paper:#f7f8fa; --card:#ffffff; --line:#dfe3e9; --line-soft:#eceff3;
+  --pending:#b45309; --loading:#1d4ed8; --active:#047857; --instrument:#7c3aed; --dead:#be123c;
+  --pending-bg:#fef3c7; --loading-bg:#dbeafe; --active-bg:#d1fae5; --instrument-bg:#ede9fe; --dead-bg:#ffe4e6;
+  --code-bg:#f2f4f7; --comment:#8b95a3; --auto:#94a3b8;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
+}}
+:root[data-theme="dark"]{
+  --ink:#e8ecf2; --ink-soft:#98a3b3; --ink-faint:#6b7686;
+  --paper:#0d1117; --card:#151a22; --line:#262d38; --line-soft:#1d232c;
+  --pending:#fbbf24; --loading:#60a5fa; --active:#34d399; --instrument:#a78bfa; --dead:#fb7185;
+  --pending-bg:#3b2f0d; --loading-bg:#12294d; --active-bg:#0d3a2c; --instrument-bg:#2c2150; --dead-bg:#3f1220;
+  --code-bg:#10151c; --comment:#5d6773; --auto:#4d5765;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased}
+.wrap{max-width:980px; margin:0 auto; padding:44px 24px 96px}
+.crumb{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:26px}
+h1{font-size:clamp(26px,4.6vw,40px); line-height:1.15; margin:0 0 10px; letter-spacing:-.03em; font-weight:640; text-wrap:balance}
+.sub{color:var(--ink-soft); font-size:17px; margin:0 0 12px; max-width:62ch}
+.meta{font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin-top:24px}
+h2{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px}
+h3{font-size:23px; margin:0 0 12px; letter-spacing:-.015em; font-weight:600; text-wrap:balance}
+p{margin:0 0 14px; max-width:64ch}
+section{margin-top:52px}
+code{font-family:var(--mono); font-size:.92em; background:var(--code-bg); padding:1px 5px; border-radius:4px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:20px 0}
+pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white-space:pre-wrap; word-break:break-word; color:var(--ink)}
+.cm{color:var(--comment)} .auto{color:var(--auto)}
+.hi{color:var(--loading); font-weight:600}
+.you{color:var(--active); font-weight:600}
+.bad{color:var(--dead); font-weight:600}
+.box{background:var(--code-bg); border:1px solid var(--line); border-radius:9px; padding:14px 16px}
+.box + .box{margin-top:12px}
+.filename{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-bottom:8px}
+.filename b{color:var(--ink-soft); font-weight:600}
+.note{margin:12px 0 0; font-size:13px; color:var(--ink-soft); max-width:none}
+.punch{margin:20px 0 0; padding:16px 18px; border-left:3px solid var(--loading); background:var(--loading-bg); border-radius:0 8px 8px 0; font-size:15px; max-width:none}
+.punch b{font-weight:640}
+.warn{border-left-color:var(--pending); background:var(--pending-bg)}
+.danger{border-left-color:var(--dead); background:var(--dead-bg)}
+
+/* 分诊：写法 → 结果 */
+.tri{display:grid; gap:12px; margin-top:18px}
+.row{display:grid; grid-template-columns:minmax(0,230px) minmax(0,1fr); gap:16px; border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--card); align-items:start}
+@media (max-width:720px){.row{grid-template-columns:1fr}}
+.row.ok{border-color:var(--active); background:var(--active-bg)}
+.way{font-family:var(--mono); font-size:13px; font-weight:600}
+.why{font-size:12.5px; color:var(--ink-soft); margin-top:5px; font-family:system-ui,sans-serif}
+.errcode{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:5px; background:var(--dead-bg); color:var(--dead); font-weight:600; margin-bottom:7px}
+.errcode.dir{background:var(--pending-bg); color:var(--pending)}
+.msg{font-family:var(--mono); font-size:11.5px; line-height:1.6; color:var(--ink); word-break:break-word}
+
+/* 分叉图 */
+.fork{font-family:var(--mono); font-size:13px; line-height:2; margin-top:8px}
+.fork .k{color:var(--loading); font-weight:600}
+.fork .p{color:var(--pending); font-weight:600}
+.fork .g{color:var(--comment)}
+.big{font-size:17px; font-weight:600; text-align:center; padding:14px; border:1px dashed var(--line); border-radius:10px; margin:18px 0; font-family:var(--mono)}
+.big b{color:var(--loading)}
+.nav{display:flex; justify-content:space-between; gap:16px; margin-top:72px; padding-top:22px; border-top:1px solid var(--line)}
+.nav a{font-family:var(--mono); font-size:13px; color:var(--loading); text-decoration:none; max-width:46%}
+.nav a:hover{text-decoration:underline}
+.nav .none{color:var(--ink-faint); font-family:var(--mono); font-size:13px; max-width:46%}
+.nav small{display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px}
+.foot{margin-top:36px; font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); line-height:1.9}
+</style>
+
+<div class="wrap">
+<div class="crumb">第 5 步 / 共 9 步</div>
+
+<h1>挂不上，怎么查</h1>
+<p class="sub">
+  同一个能跑的插件文件，只把条目那行 <code>name</code> 换六种写法。
+  六次全都起不来——但报错各不相同，认得出来就能一眼定位。
+</p>
+<div class="meta">
+  uv run pytest experiments/step5_when_it_wont_load/ -n 0 -s · 8 个用例 · 约 13 秒
+</div>
+
+<section>
+  <h2>先看结论</h2>
+  <h3>报错里那个词决定了往哪查</h3>
+
+  <div class="big">
+    <code>name</code> 是不是 <b>./</b> 开头 —— 就这两个字符，决定了 DSH 怎么找它
+  </div>
+
+  <div class="card">
+    <div class="fork">
+<pre><span class="k">./ 开头</span>  ────  <b>当路径找</b>，相对 profile 目录
+           ├─ 文件在        <span class="you">✓ 跑起来</span>
+           ├─ 文件不在      <span class="bad">Cannot find <b>module</b> '…'</span>
+           └─ 指到的是目录  <span class="p">Directory import … is not supported</span>
+
+<span class="k">不带 ./</span>  ────  <b>当包名找</b>，去 node_modules 里翻
+           ├─ 包装进来了    <span class="you">✓ 跑起来</span>
+           └─ 没这个包      <span class="bad">Cannot find <b>package</b> '…'</span></pre>
+    </div>
+    <p class="punch">
+      <b>同样是 <code>ERR_MODULE_NOT_FOUND</code>，说 module 的是按路径找，说 package 的是按包名找。</b>
+      看到 package 就别再去核对文件在不在了——它压根没往那个方向找。
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>六种写法</h2>
+  <h3>文件一直躺在 profile 目录里，一个字没改</h3>
+
+  <div class="tri">
+    <div class="row ok">
+      <div>
+        <div class="way you">name: ./tool.mjs</div>
+        <div class="why">对照组：写对了</div>
+      </div>
+      <div><span class="msg you">✓ 实例起来，插件正常跑，说了它该说的话。</span></div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="way">name: ./typo.mjs</div>
+        <div class="why">路径拼错了，那个文件不存在</div>
+      </div>
+      <div>
+        <span class="errcode">ERR_MODULE_NOT_FOUND</span>
+        <div class="msg">Cannot find <b class="bad">module</b> '&lt;profile 目录&gt;\typo.mjs'<br>imported from &lt;profile 目录&gt;\</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="way">name: ./tool</div>
+        <div class="why">少写扩展名——<code>tool.mjs</code> 就在旁边</div>
+      </div>
+      <div>
+        <span class="errcode">ERR_MODULE_NOT_FOUND</span>
+        <div class="msg">Cannot find <b class="bad">module</b> '&lt;profile 目录&gt;\tool'</div>
+        <div class="note" style="margin-top:8px; font-size:12px">
+          跟上一种是同一类：按路径找，就找 <code>./tool</code> 这个字面，不会替你补 <code>.mjs</code>。
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="way">name: ./toolbox</div>
+        <div class="why">指到一个目录，里面有 <code>index.mjs</code></div>
+      </div>
+      <div>
+        <span class="errcode dir">ERR_UNSUPPORTED_DIR_IMPORT</span>
+        <div class="msg">Directory import '&lt;profile 目录&gt;\toolbox' is not supported<br>resolving ES modules</div>
+        <div class="note" style="margin-top:8px; font-size:12px">
+          按路径找的时候<b>不认目录</b>，也不会去翻里面的 <code>index.mjs</code>——那是「按包名找」才有的待遇。
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="way bad">name: tool.mjs</div>
+        <div class="why">只少了开头两个字符 <code>./</code></div>
+      </div>
+      <div>
+        <span class="errcode">ERR_MODULE_NOT_FOUND</span>
+        <div class="msg">Cannot find <b class="bad">package</b> 'tool.mjs'<br>imported from &lt;profile 目录&gt;\</div>
+        <div class="note" style="margin-top:8px; font-size:12px">
+          <b>这种最坑：文件就在旁边躺着，报错却说找不到「包」。</b>
+          因为没有 <code>./</code>，它整个被当成包名拿去 node_modules 里翻了。
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="way">name: step5-not-linked</div>
+        <div class="why">写了个包名，但那个包没装进来</div>
+      </div>
+      <div>
+        <span class="errcode">ERR_MODULE_NOT_FOUND</span>
+        <div class="msg">Cannot find <b class="bad">package</b> 'step5-not-linked'</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="way">name: D:\…\tool.mjs</div>
+        <div class="why">写了 Windows 盘符绝对路径</div>
+      </div>
+      <div>
+        <span class="errcode dir">ERR_UNSUPPORTED_ESM_URL_SCHEME</span>
+        <div class="msg">Only URLs with a scheme in: file, data, and node are supported.<br>
+        On Windows, absolute paths must be valid <b>file://</b> URLs. Received protocol 'd:'</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:16px">
+    判词都是三段式，从外往里剥：<code>plugin tree failed to load</code> →
+    <code>failed to import loader entry <b>tool</b></code>（点名是哪个条目）→ 具体原因。
+    紧跟着还有一行带方括号的错误代码，<b>认代码比认句子快</b>。
+  </p>
+</section>
+
+<section>
+  <h2>还有一件要紧的</h2>
+  <h3>一条挂不上，整个实例都起不来</h3>
+
+  <div class="card">
+    <div class="filename">失败那次启动里，别的条目其实都跑完了</div>
+<pre>timer          <span class="you">→ ACTIVE</span>
+hmr            <span class="you">→ ACTIVE</span>
+lab-recorder   <span class="you">→ ACTIVE</span>
+tool           <span class="bad">连条目都没建起来</span>
+
+<span class="cm">…然后全体被撤下来，进程退出，退出码 1</span></pre>
+  </div>
+
+  <p class="punch danger">
+    <b>不是「跳过挂不上的那条、别的照跑」，是全员陪葬。</b>
+    所以「别的插件都好好的」不能当成自己那条没问题的证据——
+    真到那一步，实例根本就没起来。排错第一现场永远是启动日志。
+  </p>
+
+  <p class="note">
+    顺带一提：实例是走正常卸载流程退出的，不是硬崩——所以采集器还来得及把事件刷完，
+    连收尾那条都写出来了。
+  </p>
+</section>
+
+<div class="nav">
+  <a href="step-4.html"><small>上一步</small>← 第 4 步 · 临时关掉它</a>
+  <span class="none"><small>下一步</small>第 6 步 · 改了代码想立刻生效</span>
+</div>
+<div class="foot">
+  六种写法各起一个实例，报错原文取自 out/testhome/step5/ 的启动日志，长路径已换成 &lt;profile 目录&gt;。<br>
+  同一份插件文件在六次里原样不动——变的只有条目那一行 name。
+</div>
+</div>
