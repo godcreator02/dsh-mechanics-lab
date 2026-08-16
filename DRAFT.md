@@ -171,6 +171,12 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 | 我（读观测数据） | `PENDING → UNLOADING → DISPOSED` = 条目等超时被放弃 | 那是 `boot()` 失败后 catch 里 `ctx.fiber.dispose()` 的**整树回滚**。同一份事件流，缺了「进程还活着吗」这一个最粗的对照，读出了完全相反的结论 | **L0 复核 L9** |
 | 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换。⚠️ **这条不是「文档没说」而是「项目正本抄错了」**——官方 `zh/user/develop/basic/publish.md:123` 原话就是「patch 会替换目标行的整个 `config` 值，而不是深度合并各键」 | v1 E1 |
 | 项目正本 | client 模块表是实例 boot 时的快照 | 表成员增量热维护，包元数据按名惰性缓存且永不过期 | v1 E6 |
+| 我（源码推理） | 裸包名以 dsh 安装目录为锚，机制是 `bareModuleBaseUrl` | **那段代码从未执行**——`bareModuleBaseUrl` 是 `boot()` 的第 5 个参数，唯一调用点只传 4 个，`HostResolvedRootInclude` 是**死代码**。真机制是标准 parent-walk + `$DSH_HOME/profiles/node_modules` **符号链接农场**（实测 252 条 junction）。结论没变（官方包不用 link），机制全错 | **L3 调研 + 实测** |
+
+⚠️ 最后一条的教训值得单列：**从源码得出机制解释，必须追到调用点确认参数真的传了。**
+那段死代码写得极好——专门的子类名、`isAbsolute()` 判断、详尽 JSDoc——
+**越是写得好的代码越容易让人忘记问「它到底被调用了吗」**。可选参数尤其危险，
+它的默认分支往往才是实际走的那条。
 
 ## 八、与官方文档的对照盘点（2026-08-16）
 

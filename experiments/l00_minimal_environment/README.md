@@ -278,15 +278,46 @@ name.startsWith(".")       →  import(new URL(name, ctx.baseUrl))  // URL 解�
 否则                        →  import(name)                        // 包解析
 ```
 
-### 裸包名 → dsh 安装目录
-
-`profile-boot` 把自己的 `package.json` 当 `bareModuleBaseUrl` 传给 `boot()`。
-官方注释说得很直白：
-
-> use it when the host, rather than the configuration project, owns the complete plugin set
+### 裸包名 → 官方包不用 link
 
 实测：挂一个**没有** link 进 profile 的 `@deepseek-ai/cordis-plugin-timer`，
 照样 `state=2` 激活。**官方包不需要 link。**
+
+⚠️ **但机制的第一版解释是错的**（2026-08-16 修正）。原来写的是
+「`profile-boot` 把自己的 `package.json` 当 `bareModuleBaseUrl` 传给 `boot()`」，
+依据是 `mountRootInclude()` 里那个专门处理裸包名的 `HostResolvedRootInclude` 子类。
+
+**那段代码从未执行。** `bareModuleBaseUrl` 是 `boot()` 的第 5 个参数，而唯一的调用点
+（`profile-boot-*.js:247`）只传了 4 个：
+
+```js
+const ctx = await boot(NAME, rootConfig, structuredClone(allPatches(composed)), (hostCtx) => {…})
+//                                                                             ↑ 第 4 个，没有第 5 个
+```
+
+于是 `bareModuleBaseUrl === void 0` 恒成立，`builtins.include` 永远是朴素版 `Include`。
+那个子类是**真实存在但从未激活的死代码**——而且它逻辑清晰、注释详尽，很有迷惑性。
+
+真实机制平淡得多：**标准 Node parent-walk + 一层共享 `node_modules`**。
+
+```
+$DSH_HOME/profiles/
+├── node_modules/          ← 符号链接农场（本机实测 252 条）
+│   └── @deepseek-ai/
+│       ├── cordis-plugin-timer  → <npx 缓存>/…/cordis-plugin-timer   [junction]
+│       └── …
+└── <profile 名>/          ← ctx.baseUrl 锚在这里
+    └── node_modules/      ← 我们 link 自己 fixture 的地方
+```
+
+profile 目录向上遍历**一层**就撞见那份共享 `node_modules`。农场由 `dsh-app-boot` 的
+`healScaffoldModuleFallback` 每次 `prepareProfile` 时幂等维护（对 dsh 自身依赖做 BFS，
+每个包一条 junction，安装位置变了会重新指）。
+
+**结论没变，机制变了**：锚点仍是 profile 目录、算法仍是标准包解析，不存在特殊锚点。
+我们自己的 fixture 不在农场里，所以**仍然必须 link**。
+
+这条修正的教训写在下面「一条读源码的教训」。
 
 ### 相对路径 → profile 目录，且必须指到文件
 
@@ -308,6 +339,22 @@ name.startsWith(".")       →  import(new URL(name, ctx.baseUrl))  // URL 解�
 
 `builtins` 出厂是空对象，只有 `mountRootInclude()` 往里塞了两个：
 `cordis:include` 和 `cordis:group`。没有第三个。
+
+### 一条读源码的教训
+
+上面那个 `bareModuleBaseUrl` 的错误，根子在**只读了函数体、没追调用链**。
+
+那段代码写得非常好——有专门的子类名（`HostResolvedRootInclude`）、有 `isAbsolute()`
+判断、有详尽的 JSDoc 解释「when the host, rather than the configuration project,
+owns the complete plugin set」。**越是写得好的代码，越容易让人忘了问一句：
+它到底被调用了吗？**
+
+所以纪律加一条：**从源码得出的机制解释，必须追到调用点确认参数真的传了**。
+可选参数尤其危险——它的默认分支往往才是实际走的那条。
+
+（这个错误是 subagent 顺调用链核查时发现的。它给的替代解释——共享 node_modules
+农场——随后被实测证实：`.testhome/l00/profiles/node_modules` 下 252 条，
+`cordis-plugin-timer` 是一条指向 npx 缓存的 junction。）
 
 ---
 

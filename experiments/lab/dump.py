@@ -128,7 +128,20 @@ def dump_config(
 ) -> DumpResult:
     """跑 `dsh --dump-config`，返回解析后的组合树。
 
-    不启动任何实例：读文件、合成、打印、退出。零风险，秒级。
+    不启动任何实例：读文件、合成、打印、退出。秒级。
+
+    ⚠️ **但它不是只读的。** dump 路径也会调 `prepareProfile()`，而那个函数
+    **无条件** `writeFileSync` 重写 profile 的 `cordis.yml`（空根）。所以：
+
+      * 想验证「空根被框架重写成 `[]`」时，**光跑一次 dump 就已经改过它了**——
+        必须在 dump 之前取证，不能 dump 完再看
+      * `--dump-default-config` 同样会重写，没有纯只读的那条路
+
+    源码依据：`dsh/lib/profile-boot-*.js` 的 `prepareProfile()`；
+    `dsh/lib/dump-config-*.js` 里 dump 路径对它的调用。无条件重写是有意为之——
+    JSDoc 说 vendored Loader 的 tree write-back（插件自我 dispose 时会持久化
+    当前树）可能把已组合的行烤进这个文件，那会让下次启动时每个 bundle 的
+    insert 都翻倍。
 
     Args:
         default_only: 用 `--dump-default-config` —— 只叠 bundle 层，跳过活层与

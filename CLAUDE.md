@@ -103,6 +103,26 @@ L0 是「先总后分」的总：一次看清整棵树的形状，后面六部�
 
 **三档互相校验**才是对的做法。文档说的和实测不符时，**那种不一致恰恰是最有价值的产出**。
 
+### 🔑 读源码先看有没有 `src/`——别读打包产物
+
+**9 个包在 npm 包里带了 TypeScript 原文件**，而且正好是最关键的那几个：
+
+| 包 | `src/` 内容 |
+|---|---|
+| `cordis` | 9 个 .ts，97 KB —— Fiber / Context / Service 的正身 |
+| `cordis-plugin-loader` | 7 个 .ts —— `config/{entry,group,tree,utils,isolate}.ts` |
+| `cordis-plugin-include` | `src/index.ts` —— **patch 三种语义的唯一实现** |
+| `cordis-plugin-hmr` | 2 个 .ts |
+| `cordis-plugin-timer` / `cordis-plugin-group` / `cosmokit` / `schemastery` | 小 |
+
+路径：`<npx 缓存>\node_modules\@deepseek-ai\<包名>\src\`。
+
+前几课一直在读 `lib/index.js`（打包后、744 行、变量名压过），**白费了很多力气**——
+TS 原文件带完整 JSDoc 和类型标注、按职责分文件，同样的问题往往一眼可见。
+
+⚠️ **例外**：`dsh-*` 系列（`dsh-app-boot`、`dsh` 本体）**没有 `src/`**，
+只能读 `lib/` 打包产物。所以「先 `Test-Path <包>\src`」应该是读源码的第一个动作。
+
 ### 实测 > 源码推理
 
 源码推理错过：从 `dsh-client-modules` 的源码位置推出「缺 `exports["./client"]`
