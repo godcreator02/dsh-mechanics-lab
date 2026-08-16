@@ -92,7 +92,7 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。两个产
 
 所以：
 - 每条写进教材的判定都要标注状态——**待验 / 已实测 / 已推翻**
-- 引用文档要标出处与版本（`docs/official/…/publish.zh.md:123`），
+- 引用文档要标出处与版本（`docs/official/zh/user/develop/basic/publish.md:123`），
   不要写「官方说……」——文档会改，标了版本才知道对照的是哪一版
 - 源码位置可以写进「为什么」，但不能单独作为判定依据
 
@@ -104,8 +104,11 @@ GLOSSARY.md        术语表：按 Cordis / Loader / DSH / 自造 四层分组�
 SYLLABUS.md        课程大纲：十四课各讲什么、假说、实验设计、难点
 DRAFT.md           方案草稿：意图、纠偏记录、推翻清单、**与官方文档的对照盘点**
 README.md          箱子说明：破例声明、端口占用、怎么跑
-docs/official/     ⚠️ 官方 docs 完整快照（215 篇，版本钉 47f9438）
-                   **开课前先 grep 这里**；导览见其 README.md
+docs/official/     ⚠️ 官方 docs 完整快照（版本钉 47f9438）。**开课前先 grep 这里**
+  README.md        导览：哪个目录讲什么、对应哪一课、怎么重拉
+  zh/              中文 105 篇  ← 平时看这个
+  en/              英文 110 篇（多出的 5 篇是仓库内部工作文件，无中文版）
+                   两侧目录结构完全一致，同一路径即同一篇的两个语言版本
 demo/              教具：lab-inspector（DSH 内嵌面板，兼 L12 的 client 插件样板）
 observatory/       观测台：lab-recorder（注入式采集）+ 看板（独立只读服务）
 index.html         v1 教材（旧结构，含已被推翻的判定，待处置）

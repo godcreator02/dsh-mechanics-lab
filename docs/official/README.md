@@ -1,31 +1,69 @@
 # 官方文档存档
 
-DSH 官方仓库 `docs/` 目录的完整快照，**215 个 markdown 文件，2.93 MB**。
+DSH 官方仓库 `docs/` 目录的完整快照，**215 篇 markdown、2.93 MB**，按语言分成两棵树。
 
 | | |
 |---|---|
 | 来源 | `github.com/deepseek-ai/deepseek-harness` 的 `docs/` |
 | 版本 | **`47f9438`**（钉死的 commit，不是 `master`） |
 | 拉取时间 | 2026-08-16 |
-| 目录结构 | 与仓库 `docs/` 下一致（去掉了 `docs/` 前缀） |
 
-## 为什么钉 commit 而不是拉最新
+```
+docs/official/
+├── README.md   ← 本文件（我们写的，不属于任何一侧）
+├── zh/         中文 105 篇  ← 平时看这个
+└── en/         英文 110 篇
+```
 
-我们的实测结论是**对着某一版文档**说「这条文档写了 / 没写 / 写得不一样」的。
-文档会改，一旦拉了新版，所有这类对照就失去基准，分不清是「我们看错了」还是
-「文档后来改了」。要更新就换个目录另存一份，两版并列。
+**两侧目录结构完全一致**：同一条相对路径就是同一篇文档的两个语言版本。
+比如 `zh/user/develop/basic/publish.md` 和 `en/user/develop/basic/publish.md`。
 
-重拉的命令记在本文末尾。
+## 中英差 5 篇
 
-## 中英文
+`en/` 多出来的这 5 篇没有中文版，全是仓库内部工作文件、不是用户向文档：
 
-每篇都有两个版本：`x.md`（英文）和 `x.zh.md`（中文）。**中文不是机翻**——
-仓库里有 `verify-translation-pairing` 脚本维护双语配对，`cordis-api/` 那几篇
-的开头还写着「本中文文件是通过双语配对维护的经评审对侧」。
+| 文件 | 是什么 |
+|---|---|
+| `AGENTS.md` | 给 AI 助手的仓库指示 |
+| `cordis-api/inherited.md` | Cordis API 的继承成员清单 |
+| `i18n/style-samples.md` | 翻译风格样例 |
+| `i18n/terminology.md` | 术语对照表 |
+| `i18n/translation-prompt.md` | 翻译用提示词 |
 
-grep 时建议只搜 `*.zh.md`，否则每条命中都是双份。
+`zh/` 里没有只此一份的文件——中文是英文的完整子集。
+
+## 中文的可信度
+
+**不是机翻。** 仓库有一套双语配对机制（`zh/i18n/README.md` 有完整说明）：
+每对文档由 `foo.md` + `foo.zh.md` + 一份记录两侧内容哈希的 `foo.i18n.yaml` 组成，
+配对必须整体合并，PR 不允许只改一侧。`cordis-api/` 那几篇开头还写着
+「本中文文件是通过双语配对维护的经评审对侧」。
+
+结构一致性也有门禁：标题深度与顺序、列表项数量、表格行列数、链接目标、
+**逐字节一致的代码块**——两侧一一对应。
+
+## ⚠️ 我们的目录结构和官方是反的
+
+官方在 `zh/i18n/README.md` 里明确写了它的约定：
+
+> 一对文档是三个同目录文件……**不用语言目录**，不用独立翻译仓库，不用中英混排的单文件。
+
+我们这里偏偏用了语言目录。理由是**用途不同**：
+
+- 官方要**维护**双语——同目录才能让配对门禁、链接校验、逐字节比对跑起来
+- 我们只**读和 grep** ——混在一起的话每次 grep 都是双份命中，噪声一倍
+
+### 代价：跨语言链接失效
+
+每篇开头那行 `[English](xxx.md)` / `[中文](xxx.zh.md)` 现在指不到东西了
+（`.zh.md` 后缀已去掉，两侧也不在同一目录）。**篇内的相对链接同样如此**。
+这是重组的已知代价——存档是拿来读的，不是拿来渲染成网站的。
+
+要跳到另一语言版本，把路径里的 `zh/` 换成 `en/` 即可，其余部分一模一样。
 
 ## 目录导览（按对本实验台的价值排序）
+
+以下路径都相对 `zh/`（英文同路径换 `en/`）。
 
 ### 🔴 `cordis-api/` — 机制的一手正本
 
@@ -34,28 +72,29 @@ grep 时建议只搜 `*.zh.md`，否则每条命中都是双份。
 
 | 文件 | 讲什么 | 关联 |
 |---|---|---|
-| `fiber.zh.md` | Fiber 的完整 API：`state` / `uid` / `update()` / `restart()` / `effect()` / **`getEffects()`** | L5、L6、**L13** |
-| `context.zh.md` | Context 的 API | L3 |
-| `registry.zh.md` | 插件注册表 | L4 |
-| `service.zh.md` | Service 基类 | L3 |
-| `events.zh.md` | 事件 API | 观测台 |
+| `fiber.md` | Fiber 完整 API：`state` / `uid` / `update()` / `restart()` / `effect()` / **`getEffects()`** | L5、L6、**L13** |
+| `context.md` | Context 的 API | L3 |
+| `registry.md` | 插件注册表 | L4 |
+| `service.md` | Service 基类 | L3 |
+| `events.md` | 事件 API | 观测台 |
 
-⚠️ **`fiber.getEffects()` 是个我们一直没用上的现成观测接口**——它返回当前 fiber
-上所有已注册 effect 的元数据树（带 label，形如 `ctx.on("event")`）。
-L13 要查「hmr 的 patch watcher 还在不在」，用它可以**直接看**，
-不必靠「改文件看有没有反应」这种间接观测。
+⚠️ **`fiber.getEffects()` 是个一直没用上的现成观测接口**——返回当前 fiber 上所有
+已注册 effect 的元数据树（带 label，形如 `ctx.on("event")`）。L13 要查
+「hmr 的 patch watcher 还在不在」，用它可以**直接看**，不必靠「改文件看有没有反应」
+这种间接观测——而间接观测正是 v1 E3 整批数据作废的原因。
 
-### 🟠 `user/develop/` — 开发者教程（本次点名要读的）
+### 🟠 `user/develop/` — 开发者教程（2026-08-16 已通读中文版）
 
 `basic/`（index → tool → config → publish）+ `framework/`（index / service / events）
-+ `practice/`。**比预期详细得多**，见下面的盘点。
++ `practice/`。**比预期详细得多**——对照盘点见 `DRAFT.md` 第八节，
+其中 12 条是我们绕远路重新发现的。
 
-### 🟠 `subsystems/` — 92 个文件，每个子系统一篇
+### 🟠 `subsystems/` — 92 篇，每个子系统一篇
 
-`core.zh.md`（56 KB）里有自动生成的 `cordis-surface` 区块，列出每个服务的
-签名与触发模式。要查「某个服务由谁提供、有哪些方法」看这里。
+`core.md`（56 KB）里有自动生成的 `cordis-surface` 区块，列出每个服务的签名与
+触发模式。要查「某个服务由谁提供、有哪些方法」看这里。
 
-### 🟡 `postmortem/` — 官方事后分析，只有 4 篇但都是真事故
+### 🟡 `postmortem/` — 官方事故报告，只有 4 篇但都是真事故
 
 | 编号 | 事故 | 关联 |
 |---|---|---|
@@ -64,13 +103,11 @@ L13 要查「hmr 的 patch watcher 还在不在」，用它可以**直接看**�
 | 0003 | web agent GUI 反馈环 | — |
 | 0004 | landlock 部分通知误判子进程失败 | — |
 
-0002 讲的正是我们 L2 测过的 `!!js` 条件表达式——**官方踩过坑并写了报告**。
-
 ### 🟡 根目录的单篇
 
-`glossary.zh.md`（**官方术语表**）、`architecture.zh.md`、`cordis-primer.zh.md`、
-`config-catalog.zh.md`（133 KB，全部配置项）、`module-graph.zh.md`、
-`capability-seams.zh.md`、`defensive-patterns.zh.md`、`testing.zh.md`。
+`glossary.md`（**官方术语表**）、`architecture.md`、`cordis-primer.md`、
+`config-catalog.md`（133 KB，全部配置项）、`module-graph.md`、
+`capability-seams.md`、`defensive-patterns.md`、`testing.md`。
 
 ### 🟢 `cordis-tutorial/` — 16 篇，从零搭 Cordis
 
@@ -82,22 +119,40 @@ L13 要查「hmr 的 patch watcher 还在不在」，用它可以**直接看**�
 
 ## 怎么重拉
 
+两步：下载，然后按语言重组。
+
 ```powershell
-$sha = (Invoke-RestMethod "https://api.github.com/repos/deepseek-ai/deepseek-harness/commits/master").sha
-$dest = "<新目录>"
+$sha  = (Invoke-RestMethod "https://api.github.com/repos/deepseek-ai/deepseek-harness/commits/master").sha
+$dest = "<新目录>"   # 换个目录另存，别覆盖旧版——两版并列才能看出文档改了什么
+
 $tree = Invoke-RestMethod "https://api.github.com/repos/deepseek-ai/deepseek-harness/git/trees/$sha`?recursive=1"
 $tree.tree | Where-Object { $_.path -match '^docs/.*\.md$' } | ForEach-Object -ThrottleLimit 8 -Parallel {
-    $out = Join-Path $using:dest (($_ -replace '^docs/','') -replace '/','\')
+    $out = Join-Path $using:dest (($_.path -replace '^docs/','') -replace '/','\')
     New-Item -ItemType Directory -Force (Split-Path $out -Parent) | Out-Null
     Invoke-WebRequest "https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/$using:sha/$($_.path)" -OutFile $out
 }
+
+# 重组：*.zh.md → zh/ 去后缀，其余 *.md → en/
+foreach ($f in Get-ChildItem $dest -Recurse -File -Filter *.md) {
+    $rel = $f.FullName.Substring($dest.Length + 1)
+    $to  = if ($rel -like '*.zh.md') { Join-Path "$dest\zh" ($rel -replace '\.zh\.md$','.md') }
+           else                      { Join-Path "$dest\en" $rel }
+    New-Item -ItemType Directory -Force (Split-Path $to -Parent) | Out-Null
+    Move-Item -LiteralPath $f.FullName -Destination $to -Force
+}
 ```
+
+## 为什么钉 commit 而不是拉最新
+
+我们的实测结论是**对着某一版文档**说「这条文档写了 / 没写 / 写得不一样」的。
+文档会改，一旦拉了新版，所有这类对照就失去基准，分不清是「我们看错了」还是
+「文档后来改了」。
 
 ## 使用纪律
 
 **文档是证据，不是结论。** 它写的是设计意图与承诺的行为，我们测的是这一版部署
 的实际行为，两者可能不一致——**那种不一致恰恰是本实验台最有价值的产出**。
 
-所以引用文档时永远标明出处与版本，例如
-「`user/develop/basic/publish.zh.md` 第 123 行（`47f9438`）」，
+引用时永远标明出处与版本，例如
+「`docs/official/zh/user/develop/basic/publish.md:123`（`47f9438`）」，
 不要写成「官方说……」。

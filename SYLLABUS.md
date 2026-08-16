@@ -202,7 +202,7 @@ L5 的重点是 effect 语义，不是重放机制。
 profile 目录下不建这个文件也照跑，启动后框架自己建出来，内容就是源码里
 `PROFILE_ROOT_CONFIG` 那个常量（三行注释 + `[]`）。本课只需复述，不必重测。
 
-⚠️ **五层顺序官方文档已写全**（`docs/official/user/develop/basic/publish.zh.md:112-119`，
+⚠️ **五层顺序官方文档已写全**（`docs/official/zh/user/develop/basic/publish.md:112-119`，
 逐条列明 bundle → profile 活层 → home 层 → overlay）。所以本课的定位要改：
 **不是「去发现顺序」，是「验证这一版部署的实际行为与文档承诺一致」**——
 一致就复述，不一致就是重大发现。这个区别决定了用例怎么写（对照式而非探索式）。
@@ -214,7 +214,7 @@ profile 目录下不建这个文件也照跑，启动后框架自己建出来，
 
 **要回答**：`- insert:`（带/不带 id）与 `- id:` 覆盖各是什么语义？
 
-⚠️ **「整字段替换」官方文档已明写**（`basic/publish.zh.md:123`），当初记成
+⚠️ **「整字段替换」官方文档已明写**（`zh/user/develop/basic/publish.md:123`），当初记成
 「推翻项目正本」是因为项目正本抄错了文档，不是文档没说。本课同样是**对照验证**
 而非发现。
 
@@ -364,7 +364,7 @@ profile 目录下不建这个文件也照跑，启动后框架自己建出来，
 
 ### 🔑 白捡的观测工具：`fiber.getEffects()`
 
-补读官方文档时发现的（`docs/official/cordis-api/fiber.zh.md`）：它返回当前 fiber
+补读官方文档时发现的（`docs/official/zh/cordis-api/fiber.md`）：它返回当前 fiber
 上所有**已注册 effect 的元数据树**，带 label，形如 `ctx.on("event")`、
 `ctx.provide("name")`。
 

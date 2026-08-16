@@ -158,7 +158,7 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 | 我（实验设计） | 教学插件拿不到服务时应该 `throw` 把问题吵出来 | **探针不该在观测点抛错**——它把「根本没 apply」和「apply 了但服务是 undefined」混成同一个结果（实例起不来），两种完全不同的语义无法分辨。改成如实记录后真相立刻清楚 | **L3** |
 | 我（实验设计） | `except LabError` 能判出「启动失败」 | **`start_instance(wait_http=False)` 立即返回、不做存活检查**，那个 except 永远不触发。L3 用例 7 因此把两次失败都读成「启动成功」，进而伪造出「bundle 组合是变量」这个假问题。**用例根本没在测它自称在测的东西** | **L0 复核 L3** |
 | 我（读观测数据） | `PENDING → UNLOADING → DISPOSED` = 条目等超时被放弃 | 那是 `boot()` 失败后 catch 里 `ctx.fiber.dispose()` 的**整树回滚**。同一份事件流，缺了「进程还活着吗」这一个最粗的对照，读出了完全相反的结论 | **L0 复核 L3** |
-| 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换。⚠️ **这条不是「文档没说」而是「项目正本抄错了」**——官方 `basic/publish.zh.md:123` 原话就是「patch 会替换目标行的整个 `config` 值，而不是深度合并各键」 | v1 E1 |
+| 项目正本 | `config` 覆盖是按键 merge | 按字段整体替换。⚠️ **这条不是「文档没说」而是「项目正本抄错了」**——官方 `zh/user/develop/basic/publish.md:123` 原话就是「patch 会替换目标行的整个 `config` 值，而不是深度合并各键」 | v1 E1 |
 | 项目正本 | client 模块表是实例 boot 时的快照 | 表成员增量热维护，包元数据按名惰性缓存且永不过期 | v1 E6 |
 
 ## 八、与官方文档的对照盘点（2026-08-16）
@@ -175,18 +175,18 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 
 | 结论 | 文档出处 |
 |---|---|
-| FiberState 六态 + 完整状态图 | `user/develop/framework/index.zh.md` 有现成表格 |
-| `config` 是整字段替换，**不深度合并各键** | `user/develop/basic/publish.zh.md:123` 原话 |
+| FiberState 六态 + 完整状态图 | `zh/user/develop/framework/index.md` 有现成表格 |
+| `config` 是整字段替换，**不深度合并各键** | `zh/user/develop/basic/publish.md:123` 原话 |
 | 五层叠加顺序（bundle → 活层 → home → overlay） | 同上 `:112-119`，逐条列明 |
 | 裸包名从 **dsh 安装目录**解析 | 同上 `:128`「内置组合包名称始终从 dsh 安装目录本身解析」 |
-| 相对路径以 **profile 目录**为锚 | `user/develop/basic/index.zh.md:56` |
-| 改 `config` = 卸载旧实例 + 加载新实例 | `basic/config.zh.md:100`；`cordis-api/fiber.zh.md` 的 `update()` 更精确：「校验并应用新配置，**然后重新启动插件**」 |
-| 服务消失 → 依赖方自动 dispose；恢复 → 自动重载 | `framework/index.zh.md:38`、`framework/service.zh.md:102` |
-| effect 逆序清理，多个异步处置器并发、不保证逐个完成 | `framework/index.zh.md:63` |
-| waterfall 监听器**必须** `next()` | `framework/events.zh.md:80` |
-| 状态转换发 `internal/status` | `cordis-api/fiber.zh.md` 的 `fiber.state` |
-| `dsh plugin add` 自动把声明 `dsh.bundle` 的包追加进 `bundles` | `basic/publish.zh.md:83` |
-| `!!js` 的求值时机：先等注入、再基于已注入上下文求值 | `basic/publish.zh.md:151` |
+| 相对路径以 **profile 目录**为锚 | `zh/user/develop/basic/index.md:56` |
+| 改 `config` = 卸载旧实例 + 加载新实例 | `zh/user/develop/basic/config.md:100`；`zh/cordis-api/fiber.md` 的 `update()` 更精确：「校验并应用新配置，**然后重新启动插件**」 |
+| 服务消失 → 依赖方自动 dispose；恢复 → 自动重载 | `zh/user/develop/framework/index.md:38`、`zh/user/develop/framework/service.md:102` |
+| effect 逆序清理，多个异步处置器并发、不保证逐个完成 | `zh/user/develop/framework/index.md:63` |
+| waterfall 监听器**必须** `next()` | `zh/user/develop/framework/events.md:80` |
+| 状态转换发 `internal/status` | `zh/cordis-api/fiber.md` 的 `fiber.state` |
+| `dsh plugin add` 自动把声明 `dsh.bundle` 的包追加进 `bundles` | `zh/user/develop/basic/publish.md:83` |
+| `!!js` 的求值时机：先等注入、再基于已注入上下文求值 | `zh/user/develop/basic/publish.md:151` |
 
 其中「`config` 整字段替换」和「五层顺序」两条，我们当初是当作**推翻项目正本**
 的发现记下来的——实际上官方文档从一开始就是这么写的，是**项目正本抄错了**，
@@ -215,18 +215,18 @@ SPA 兜底 200 要校验响应体；insert 块要原样保留。
 
 ### C 类 · 需要澄清的两处
 
-1. **「插件路径必须是绝对路径」**（`basic/index.zh.md:56`）——这是**教程语境
+1. **「插件路径必须是绝对路径」**（`zh/user/develop/basic/index.md:56`）——这是**教程语境
    下的安全建议**，不是解析规则的全部。实际有三条路径（内置表 / 相对 URL 解析 /
    包解析），官方包用裸名、相对路径指到文件都能工作。文档那句紧接着解释了原因
    （「patch 文件只贡献配置，不会改变 loader 解析模块路径时使用的 profile 目录」）
    ——即 `--patch` overlay 里的相对路径**不以 patch 文件自身为锚**，容易踩坑，
    所以教程让你写绝对路径。
-2. **「如果服务还没准备好，你的插件会等着，不会执行」**（`framework/service.zh.md:32`）
+2. **「如果服务还没准备好，你的插件会等着，不会执行」**（`zh/user/develop/framework/service.md:32`）
    ——这句只描述了**运行期**。boot 期永远等不到会**杀掉整个进程**，文档没提。
 
 ### 一个白捡的工具：`fiber.getEffects()`
 
-`cordis-api/fiber.zh.md` 里有个我们一直没用上的现成接口——返回当前 fiber 上
+`zh/cordis-api/fiber.md` 里有个我们一直没用上的现成接口——返回当前 fiber 上
 所有已注册 effect 的元数据树，带 label（形如 `ctx.on("event")`、`ctx.provide("name")`）。
 
 **这对 L13 是决定性的**：要查「hmr 的 patch watcher 还在不在」，
