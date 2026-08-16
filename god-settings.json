@@ -3,6 +3,29 @@
     "root-id": "",
     "hooks": {
       "block-bare-commit": { "enabled": true }
-    }
+    },
+    "install-ledger": [
+      {
+        "ts": "2026-08-16T21:00",
+        "feature": "project-skeleton",
+        "action": "installed",
+        "plugin_version": "3.0.0",
+        "reason": "接入 god-flow 主循环；待实现池从 docs/drafts/ 迁进 .god-flow/drafts/"
+      },
+      {
+        "ts": "2026-08-16T21:00",
+        "feature": "toolchain",
+        "action": "installed",
+        "plugin_version": "3.0.0",
+        "reason": "撒 ruff + pyright；提交门禁定为三步，pytest 不进门禁（实验装置不是回归测试）"
+      },
+      {
+        "ts": "2026-08-16T21:00",
+        "feature": "docsite",
+        "action": "refused",
+        "plugin_version": "3.0.0",
+        "reason": "本项目已有自建教材站（site/ 一课一页 + index.html），是两大产物之一；docs/ 下 official/ 是 215 篇官方快照，mkdocs 自动导航会把自有文档淹掉；实际要展示的只有 SYLLABUS 与 GLOSSARY，VSCode 预览够用。因此 mkdocs.yml / docs/index.md / docs/stylesheets/ / docs/javascripts/ / mkdocs_hooks/ 在本项目按「有意缺失」处理——升级对齐扫到它们缺失时不要补建，以本条为据。"
+      }
+    ]
   }
 }
