@@ -203,7 +203,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
   代码走一条，配置走另一条，两条从入口到落地互不相干——只是恰好住在同一个插件里。
 </p>
 <div class="meta">
-  uv run pytest experiments/chx_hmr_across_junction/ -n 0 -s · 11 个用例 · 约 140 秒
+  uv run pytest experiments/chx_hmr_across_junction/ -n 0 -s · 14 个用例 · 约 170 秒
 </div>
 
 <section>
@@ -357,6 +357,63 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
     所以 <b>watch 的入口必须本身就是真实路径</b>。
     手填一条 junction 路径不行；在 profile 里建条链接指向外面的源码、让 chokidar 自己跟着爬进去，
     <b>也一样不行</b>——两种方式 watcher 都出声，报的都是链接路径。
+  </p>
+</section>
+
+<section>
+  <h2>重载真正做了什么</h2>
+  <h3>它是卸载 + 重装，不是「换掉一个函数」</h3>
+  <p>
+    上面那条路走通之后，你拿到的东西比想象的粗。三件事都是实测的，
+    实验用的是一个只有一个纯函数、不碰 <code>ctx</code> 的 <code>helper.js</code>——
+    「接口一点没动，只改内部实现」这种最温和的改法。
+  </p>
+
+  <div class="two">
+    <div class="w code">
+      <div class="tag">粒度</div>
+      <h4>拆文件缩不小重载范围</h4>
+      <dl>
+        <dt>改了谁</dt><dd><code>helper.js</code>，<code>index.js</code> 一个字没动</dd>
+        <dt>重来的是</dt><dd><b><code>index.js</code></b> —— <code>hmr/reload</code> 事件报出来的就是插件入口</dd>
+        <dt>机制</dt><dd><code>partialReload</code> 从条目的 <code>name</code> 解析出入口，再看它的依赖树里有没有沾上被改的文件；沾上了就整个入口重新 import</dd>
+        <dt>所以</dt><dd>「把纯逻辑拆出去以便单独热替换」<b>不成立</b>。改三行纯函数，代价跟改主文件一样</dd>
+      </dl>
+    </div>
+    <div class="w code">
+      <div class="tag">代价</div>
+      <h4>模块顶层的状态清零</h4>
+      <dl>
+        <dt>怎么测的</dt><dd>模块顶层放 <code>let loads = 0</code>，每次 <code>apply</code> 加一并报出来</dd>
+        <dt>结果</dt><dd>重载后报 <b>1</b>，不是 2 —— 整个模块被重新求值，那一行也重跑了</dd>
+        <dt>对照</dt><dd>同一个模块被两个条目挂着时这个数会数到 2（模块没换）。同一个计数器，两种现象分得开</dd>
+        <dt>所以</dt><dd>计数器、缓存、连接池、订阅<b>每次热重载全丢</b>。要保住得挪进一个不被重载的 service，或者 dispose 时存出去、apply 时恢复</dd>
+      </dl>
+    </div>
+  </div>
+
+  <p class="punch warn" style="margin-top:20px">
+    <b>那不触发 hmr 呢——代码更新了，跑着的程序能不能自己跟上？</b>
+    不能。ESM 在 <code>import</code> 那一刻就把整棵<b>静态</b>依赖图读盘、解析、编译完了，
+    函数体之后一直在内存里，<b>调用时不会回头看磁盘一眼</b>。
+  </p>
+
+  <div class="card">
+    <div class="filename">把 hmr 关掉（<b>root: []</b>），改 <b>helper.js</b>，之后 15 秒</div>
+<pre>磁盘上现在写着                 <span class="you">算法第二版</span>
+插件的心跳调用 compute()       <span class="hi">21 次</span>
+这 21 次拿到的不同结果         <span class="bad">['算法第一版']</span>   <span class="cm">← 一次都没变</span>
+hmr-change 0 条 · hmr-reload 0 条</pre>
+    <p class="note" style="margin-top:12px; font-size:13px; color:var(--ink-soft)">
+      心跳是为了堵住另一种解释——光看「什么都没发生」，分不出是<b>调用拿到了旧值</b>还是<b>压根没人调用</b>。
+      让它每 700ms 调一次并把结果报出来，后一种就排除了。
+    </p>
+  </div>
+
+  <p>
+    <b>动态 <code>import()</code> 和 <code>require()</code> 确实是「执行到才读盘」</b>——
+    但同样只读第一次，结果立刻进缓存，第二次执行同一行就是缓存命中。
+    所以「运行到了才去读源文件」这个直觉只对首次加载成立，对<b>已经跑起来的代码</b>永远不成立。
   </p>
 </section>
 
@@ -610,7 +667,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
 </section>
 
 <div class="foot">
-  判定全部来自 experiments/chx_hmr_across_junction/ 的十一条用例，源码位置指向 cordis-plugin-hmr 与 dsh-app-boot。<br>
+  判定全部来自 experiments/chx_hmr_across_junction/ 的十四条用例，源码位置指向 cordis-plugin-hmr 与 dsh-app-boot。<br>
   官方文档版本钉在 commit 47f9438。
 </div>
 </div>
