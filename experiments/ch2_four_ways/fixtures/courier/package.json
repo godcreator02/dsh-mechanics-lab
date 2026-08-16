@@ -1,0 +1,9 @@
+{
+  "name": "ch2-courier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "第 9 项的教学插件：一个包，四种交付途径共用",
+  "exports": { ".": "./index.mjs" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}
