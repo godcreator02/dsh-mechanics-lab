@@ -83,16 +83,14 @@ profiles/hello/
 └─ cordis.yml        ← 这个是 dsh 自己写的
 ```
 
-打开 `cordis.yml` 看一眼，里面只有几行注释和一个空数组：
+打开 `cordis.yml` 看一眼，里面只有几行英文注释和一个空数组，注释的最后一句是：
 
 ```yaml
-# dsh profile root — an empty entry list. The tree is composed as patches:
-# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
-# --patch overlays. Edit cordis.patch.yml, not this file.
+# … Edit cordis.patch.yml, not this file.
 []
 ```
 
-最后一行那句 *Edit cordis.patch.yml, not this file* 就是给你的：**这个文件别改**，
+*Edit cordis.patch.yml, not this file* 就是给你的：**这个文件别改**，
 每次启动都会被重写。你要写的一直是 `cordis.patch.yml`。
 
 按 `Ctrl+C`，进程停下，终端回到提示符。**能起、能一直活、停得掉**——这一步就完成了。
@@ -102,14 +100,13 @@ profiles/hello/
 实例起不来的样子很好认：**它没有停在那儿，而是打了一堆东西然后退回提示符。**
 第一行 `Error:` 之后那句就是原因，往下的 `at …` 是调用栈，不用看。
 
-最常见的一种，是两条只抄了一条：
+最常见的一种，是两条只抄了一条。报错里会有这么一行：
 
 ```
-Error: dsh: plugin tree failed to load: dsh: 1 entry did not activate
 @deepseek-ai/cordis-plugin-hmr: pending (waiting for service: timer)
 ```
 
-`waiting for timer` 点名了缺的东西——回去看 `cordis.patch.yml`，`timer` 那两行是不是漏了。
+`waiting for … timer` 点名了缺的东西——回去看 `cordis.patch.yml`，`timer` 那两行是不是漏了。
 **两条要一起写。**
 
 另外两种报错长得完全不一样，照这个对：
