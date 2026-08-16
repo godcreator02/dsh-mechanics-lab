@@ -18,11 +18,14 @@ uv run pytest experiments/l08_tree_hierarchy/ -v
 
 ```
 根组
-├─ include (cordis:include)    ← 树根，配方装在它的 config.patches 里
-│   └─ 配方里的条目…            ⊂include
-├─ timer  ← 兜底补的，与 include **平级**
-└─ hmr    ← 同上
+└─ include (cordis:include)    ← 树根，配方装在它的 config.patches 里
+    ├─ timer                   ⊂include   ← 基线声明的基础设施
+    ├─ hmr                     ⊂include
+    └─ 配方里的其它条目…         ⊂include
 ```
+
+**除了树根，所有条目都在 `include` 的子树里**——它们全来自 patch 文件，
+而整份 patch 就装在 include 的 config 里。
 
 取父条目的办法，照抄 loader 源码 `getOuterStack` 的走法：
 
@@ -260,26 +263,22 @@ patch 每次拍到的 `loader.entries()` 顺序都不一样。某一次是这样
 
 ---
 
-## 这条判定的分量：两种 hmr 处境相反
+## 这条判定的分量：hmr 自己也在重放的射程内
 
-L0 已经指出：**兜底的 `timer`/`hmr` 不在 `include` 的子树里**（跟 `include`
-平级），而**配方热重放重新 compose 的只有 `include` 的子树**——碰不到平级的
-那些。本课把这条区分坐实到了「group 能不能改变归属」这一层：条目落在哪个
-父级子树里，不取决于它是什么类型的插件，只取决于它的 `parent` 指针指向谁。
+本课把归属这件事坐实到了「group 能不能改变归属」这一层：条目落在哪个父级
+子树里，不取决于它是什么类型的插件，只取决于它的 `parent` 指针指向谁——
+嵌进 group 只是让它换个父亲，换不出 `include` 的子树。
 
-于是同样叫 hmr，两种处境完全相反：
+于是有一条对 L17 决定性的推论：**`hmr` 自己就住在 `include` 的子树里**
+（不管它写在活层顶层还是嵌在某个 group 里）。而**配方热重放重新 compose 的
+正是 `include` 的子树**——也就是说，hmr 在它自己触发的那次重放的射程之内，
+每次重放都可能被重挂、watcher 随 effect 一起清掉。
 
-| | 位置 | 配方重放时 |
-|---|---|---|
-| 兜底的 hmr | 根组，与 `include` 平级 | 碰不到它，watcher 稳 |
-| 写在配方里的 hmr | **`include` 子树里**（不管有没有嵌在 group 里） | **可能被重挂，watcher 随 effect 一起清掉** |
+真实部署也是这个形态（web bundle 自带 hmr 条目 ＋ 活层反禁用），本实验台的
+基线同样是。所以「patch 监听哑火」的排查方向只有一个：不是「hmr 不在」，
+是「hmr 还在但 watcher 被清了」。
 
-真实部署里常见的是后者（web bundle 自带 hmr 条目 + 活层反禁用），而最小
-环境是前者——**这很可能就是「一处观察到 patch 监听哑火、而另一处环境
-一切正常」的最可能根源：两边测的根本不是同一个东西。**
-
-**L17（hmr 归属，全课程收口）的实验设计完全依赖这个区分**——不先分清测的是
-哪种 hmr，那一课注定重蹈覆辙。
+**L17（hmr 归属，全课程收口）的实验设计完全建立在这条上。**
 
 ---
 

@@ -1,17 +1,17 @@
 # L0 · 全景：一棵树长什么样
 
-> 12 个用例 ｜ 约 90 秒 ｜ 不需要 web ｜ 🔬 发现型 ｜ 前置：无
+> 9 个用例 ｜ 约 70 秒 ｜ 不需要 web ｜ 🔬 发现型 ｜ 前置：无
 
 **这是「先总后分」的总。** 不求讲透任何一件事，只求让你一次看清整棵树的形状——
 后面六个部分各展开其中一块：
 
 | 本课立住的 | 展开于 |
 |---|---|
-| **配方 ≠ 树**：运行时多三个条目，`--dump-config` 永远看不见 | **L7** |
-| **层级**：兜底的 timer/hmr 在根组、与 `include` 平级 | **L8** |
+| **配方 ≠ 树**：运行时多一个 `cordis:include`，`--dump-config` 永远看不见 | **L7** |
+| **层级**：patch 里写的条目全住在 `include` 的子树里 | **L8** |
 | **boot 期 PENDING 无条件致命** | **L11** |
 | **`name` 有三条解析路径**，互不相通 | **L3** |
-| **`timer`/`hmr` 关不掉** | L8、L17 |
+| **hmr 有两种处境**（在子树里 / 与 `include` 平级），死法完全不同 | L8、L17 |
 
 ---
 
@@ -35,19 +35,19 @@ uv run pytest experiments/l00_minimal_environment/
 
 | 问题 | 答案 |
 |---|---|
-| 最小插件集合是什么 | **你要声明的是空集**，但树里从来不空——见下面第一节 |
+| 最小 bundle 集合是什么 | **空集**。`bundles: []` 照跑，`dsh-base` 整个是可选的 |
 | `cordis.yml` 要自己建吗 | 不要。框架每次启动都重写它 |
-| 运行时的树 = 配方吗 | **不等于**。有三个条目不在任何 patch 文件里 |
-| `timer` / `hmr` 能不要吗 | **不能，也关不掉**。写进活层再 `disabled` 只会让框架另造一份 |
-| 谁保持进程活着 | 框架兜底补的 `timer` + `hmr` 就够 |
-| 兜底的触发条件 | `hmr` **服务**不存在（不是「条目不存在」） |
+| 运行时的树 = 配方吗 | **不等于**。基线下多一个 `cordis:include`，静态 dump 永远看不见 |
+| `timer` / `hmr` 能不要吗 | **不能**。你不写，框架也会在 boot 返回后自己补一份 |
+| 基线为什么自己写上它们 | 树的形状变得完全可预测：id 是我们给的，且它们跟别的条目一样住在 `include` 的子树里 |
+| 谁保持进程活着 | 就这两个的句柄（timer 的定时器 + hmr 的 watcher） |
 | boot 期 PENDING | **无条件致命**，退出码 1 |
-| 裸包名以哪儿为锚 | dsh 安装目录。官方包不用 link |
+| 裸包名以哪儿为锚 | profile 目录，标准 parent-walk。官方包不用 link |
 | 相对路径以哪儿为锚 | profile 目录，且**必须指到文件** |
 
 ---
 
-## 一、「空集」指的是你要写的那个集合
+## 一、「空集」指的是 bundle 名单
 
 `bundles: []`、活层里只挂一个自己的插件，实例照跑不误：
 
@@ -62,10 +62,8 @@ uv run pytest experiments/l00_minimal_environment/
 
 ### ⚠️ 但「空集」很容易被读错
 
-它说的是**你需要声明的集合**为空，**不是**「进程里可以没有插件」。
-树里从来不空——至少三个，见下一节。
-
-而且 `timer` 和 `hmr` 不只是「碰巧在」，是**承重的**：
+它说的是 **bundle 名单**为空，**不是**「进程里可以没有插件」。
+`timer` 和 `hmr` 不是「碰巧在」，是**承重的**：
 
 | | 为什么少不了 |
 |---|---|
@@ -73,27 +71,34 @@ uv run pytest experiments/l00_minimal_environment/
 | `hmr` | `watchUserPatches()` 开头就是 `if (hmr === undefined) throw`。没它 patch 监听建不起来 |
 | 两个合起来 | 空树时**只有**它们的句柄撑着事件循环。没它们进程立刻退出 |
 
-### 试着关掉它们：关不掉
+所以基线（`make_minimal_profile()`）是这么定的：**`bundles: []`，但 patch 里
+显式写上 `timer` 和 `hmr`**。这跟真实部署一致——`dsh-base` 的 patch 头两条
+就是这两个。把 base 拿掉是为了减噪（那 78 个条目里只有这俩跟插件系统有关，
+其余全是业务线），不是为了模拟「没有它们」，那个场景现实中不存在。
 
-最直接的尝试是写进活层再 `disabled: true`。结果是**多造了一份**：
+`test_who_keeps_process_alive` 拿基线看了 15 秒没死：**没有 web 服务、没有任何
+业务插件，就这两个基础设施的句柄（timer 的定时器 + hmr 的 chokidar watcher）
+撑住了事件循环。**
+
+基线跑出来的树，四个条目，一个不多一个不少（`test_baseline_profile` 拿
+`ids == ["census", "hmr", "include", "timer"]` 硬断言）：
 
 ```
-· id=my-hmr      …cordis-plugin-hmr     无 fiber [disabled]   ← 我们禁用的
-· id=a1be1ad8    …cordis-plugin-timer   state=2               ← 框架补的
-· id=169bbc99    …cordis-plugin-hmr     state=2               ← 框架补的
+根组
+└─ include (cordis:include)   ← 树根，唯一的幽灵条目
+    ├─ timer                  ⊂include   ← 基线写的
+    ├─ hmr                    ⊂include   ← 基线写的，root: []
+    └─ census                 ⊂include   ← 你的插件
 ```
 
-因为兜底判的是 `ctx.get("hmr") === void 0`——**服务在不在**。禁用的条目不提供
-服务，所以判定成立，框架照补不误。连带把 `timer` 也补上（源码里 timer 那句
-嵌套在 hmr 判断里）。
+显式带上的两个直接好处：**树的形状完全可预测**（id 是我们给的，断言直接认
+`timer`/`hmr`），**没有意外的条目混进来**。
 
-那段代码在 `boot()` 返回之后无条件执行，**没有任何开关**。
-
-推论，也是这条判定真正的分量：**DSH 实例不存在「没有 hmr」的形态。**
-所以 L13 要查的「patch 监听什么时候会死」，不可能是「hmr 不在」，
-只可能是「hmr 还在但 watcher 被清了」——两个方向的排查手法完全不同。
-
-后面所有课的基线因此定为 `make_minimal_profile()`——`bundles: []`。
+> 补一句源码事实，本实验台的用例不覆盖它：patch 里没有 hmr **服务**时
+> （判据是 `ctx.get("hmr") === void 0`，判服务不判条目），`boot()` 返回之后
+> 框架会自己补一份 timer + hmr，无条件执行、没有开关。推论是
+> **DSH 实例不存在「没有 hmr」的形态**——L17 要查的「patch 监听什么时候会死」
+> 因此不可能是「hmr 不在」，只可能是「hmr 还在但 watcher 被清了」。
 
 ---
 
@@ -102,48 +107,43 @@ uv run pytest experiments/l00_minimal_environment/
 这是本课**最要紧**的一条判定，也是后面每一课的观测前提。
 
 `--dump-config` 告诉你的是「配方算出来是什么」。而进程里真正跑着的那棵树，
-比配方多三个条目：
+比配方多**一个**条目：
 
 | 条目 | 何时出现 | 来自哪里 |
 |---|---|---|
 | `cordis:include` | boot 期就在 | `mountRootInclude()`，是**整棵树的根** |
-| `timer` | boot 返回**之后** | profile-boot 的兜底 |
-| `hmr` | boot 返回**之后** | 同上，`config: {root: []}` |
 
-它们不在任何 patch 文件里，静态 dump 永远看不见。源码（`dsh/lib/profile-boot`，
-`boot()` 返回后）：
+只有它一个，而且这不是巧合，是**结构性**的：整份配方就装在它自己的
+`config.patches` 里（下一小节），它不可能出现在自己装的那份 config 中，
+否则就是自指。所以不管配方怎么写、带不带 bundle，静态 dump 都看不见它。
 
-```js
-if (ctx.get("hmr") === void 0) {
-  if (ctx.get("timer") === void 0) await ctx.loader.create({ name: "…timer" })
-  await ctx.loader.create({ name: "…hmr", config: { root: [] } })
-}
-await watchUserPatches(ctx, { filename: profile 活层, … })
-await watchUserPatches(ctx, { filename: home 层, … })
-```
+`test_effective_config_vs_entry_tree` 就是照着这句写的断言——dump 的 id 集合
+跟运行时树的 id 集合相减，`ghosts == {"include"}`。
 
-注意 `loader.create` **没传 id**——id 由 loader 自动生成。所以幽灵条目的 id
-每次启动都不一样（`a561686b`、`bd9e6d44`、`58bcb02e`……），**不能拿 id 认它们**，
-只能认 `name`。
-
-普查员靠拍两张快照把它们逼出来：
+普查员拍两张快照，顺带看到状态迁移：
 
 ```
 ── boot 期：boot() 还没返回 ──
     服务：loader
-    · id=include     cordis:include      state=1
-    · id=census      l00-census          state=1
+    · id=include         cordis:include                     state=1
+    ·     id=timer       @deepseek-ai/cordis-plugin-timer   无 fiber  ⊂include
+    ·     id=hmr         @deepseek-ai/cordis-plugin-hmr     无 fiber  ⊂include
+    ·     id=census      l00-census                         state=1   ⊂include
 
 ── settle：boot() 返回之后 ──
     服务：loader, timer, hmr
-    · id=include     cordis:include      state=2
-    · id=census      l00-census          state=2
-    · id=bd9e6d44    …cordis-plugin-timer  state=2
-    · id=879630c6    …cordis-plugin-hmr    state=2
+    · id=include         cordis:include                     state=2
+    ·     id=timer       @deepseek-ai/cordis-plugin-timer   state=2   ⊂include
+    ·     id=hmr         @deepseek-ai/cordis-plugin-hmr     state=2   ⊂include
+    ·     id=census      l00-census                         state=2   ⊂include
 ```
 
-顺带看到状态迁移：boot 期两个条目都是 `1`（LOADING），settle 时都是 `2`（ACTIVE）。
-插件自己的 `apply` 跑在 LOADING 期——**在自己的 apply 里是看不到自己 ACTIVE 的**。
+boot 期那张有两处值得停一下：
+
+- **插件自己的 `apply` 跑在 LOADING 期**（`census` 是 `state=1`）——在自己的
+  apply 里既看不到自己 ACTIVE，也看不到同一份 patch 里别的条目建好没有：
+  拍到这一刻，`timer` 和 `hmr` 连 fiber 都还没有
+- **服务列表里只有 `loader`**。`timer`/`hmr` 服务是 boot 返回后才齐的
 
 ### `include` 是什么：整个配方装在它的 config 里
 
@@ -169,69 +169,46 @@ const rootInclude = {
 ### 层级：谁在子树里，谁不在
 
 `loader.entries()` 是扁平遍历（自己 + 所有嵌套子树），光看列表分不出层级。
-给普查员补上 `parent` 之后，真实结构是：
+给普查员补上 `parent` 之后：
 
 ```
 根组
-├─ include (cordis:include)    ← 树根
-│   └─ census                  ⊂include   ← 配方里的条目住在子树
-├─ f6ca8c01 (timer)            ← 兜底补的，跟 include **平级**
-└─ 730a50ab (hmr)              ← 同上
+└─ include (cordis:include)    ← 树根
+    ├─ timer                   ⊂include
+    ├─ hmr                     ⊂include
+    └─ census                  ⊂include
 ```
 
-⚠️ **兜底的 `timer`/`hmr` 不在 include 的子树里。** 配方热重放重新 compose 的
-只是 include 的子树，碰不到它们——所以兜底的 hmr 能稳稳撑住 patch 监听，
-不会被自己触发的重放干掉。
+**除了树根，全都在 `include` 的子树里**——因为它们全来自 patch 文件，
+而整份 patch 就装在 include 的 config 里。这不是巧合，是同一件事的两面。
 
-**这推出一条对 L13 很要紧的区分**：同样叫 hmr，两种处境完全不同。
+⚠️ **这对 L17 很要紧**：配方热重放重新 compose 的，正是 `include` 的子树。
+也就是说 `hmr` 自己就落在会被重放波及的范围内——每次重放它都可能被重挂、
+watcher 随 effect 一起清掉。真实部署也是这个形态（web bundle 自带 hmr 条目
+＋活层反禁用），所以「patch 监听哑火」的排查方向只有一个：
+**不是「hmr 不在」，是「hmr 还在但 watcher 被清了」。**
 
-| | 兜底的 hmr | 写在配方里的 hmr |
-|---|---|---|
-| 位置 | 根组，与 include 平级 | **include 的子树里** |
-| 配方重放时 | 碰不到它 | **可能被重挂，watcher 随 effect 一起清掉** |
-
-真实部署里常见的正是后者（web bundle 自带 hmr 条目 + 活层反禁用），
-而最小环境是前者。**这很可能就是「一处观察到 patch 监听哑火、
-我们的实验环境却一切正常」的根源**——两边测的根本不是同一个东西。
-
-（这条是推论，L13 去坐实。）
+（这条是推论，L17 去坐实。）
 
 ---
 
-## 三、兜底判的是服务，不是条目
+## 三、基线的 hmr 是 `root: []`：热重放工作，热重载不工作
 
-`ctx.get("hmr") === void 0` 这一句判的是**服务在不在**。这个区别有后果：
+基线给 hmr 的 config 是 `{root: [], debounce: 100}`——**watch root 是空的**。
 
-- 条目写了但 `disabled: true` → 服务不存在 → 框架**照样再补一个**
-- 条目写了且激活了 → 服务存在 → 不补
+空 root 不等于「什么都不监听」。`watchUserPatches()` 是按**精确路径**注册的
+（profile 那个活层文件、home 那个 patch 文件），跟 root 完全无关。所以：
 
-对照实验（自己挂 `my-timer` + `my-hmr`）：
+| 改什么 | 空 root 的 hmr |
+|---|---|
+| **patch 文件** | ✅ 照常热重放——监听按精确路径注册，不看 root |
+| **插件源码** | ❌ 不监听任何代码文件，不会热重载 |
 
-```
-· id=my-timer   …cordis-plugin-timer   state=2
-· id=my-hmr     …cordis-plugin-hmr     state=2
-树里的 hmr 条目共 1 个：['my-hmr']
-```
+这两件事很容易被混成一件，「改了没反应」的排查会因此走岔。
 
-只有一个。兜底没触发。
-
-**这条有个反直觉的后果**：常见做法是靠活层「反禁用」web bundle 出厂那条
-`disabled: true` 的 hmr。在反禁用生效之前，服务是不存在的，所以框架其实一直
-在补一个 `root: []` 的兜底 hmr——**patch 监听从来没断过**。
-
-所以「hmr 条目没在启动时启用的进程，patch 文件改了没人看」这个说法**不成立**。
-真正的区别只是兜底那个 `root: []` **不监听代码文件**：热重放工作，热重载不工作。
-这两件事很容易被混成一件（→ L13 坐实）。
-
-### 兜底那个 hmr 有个硬限制
-
-`config: {root: []}`——**watch root 是空的**。它足够撑起 `watchUserPatches`
-（那是按精确路径注册的，跟 root 无关），但**不监听任何代码文件**。
-
-所以最小基线下：**改 patch 文件会热重放，改插件源码不会热重载。**
-
-要测代码热重载就得自己挂 hmr 并给一个真的 root——`make_minimal_profile(hmr_root=[...])`
-就是干这个的。
+要测代码热重载，得给一个真的 watch root：`make_minimal_profile(hmr_root=["."])`。
+`test_baseline_profile` 两个变体（默认 `[]` / 指定 `["."]`）验的就是这个开关，
+两种都是四个条目、形状不变，区别只在 hmr 的 config。
 
 ---
 
@@ -279,8 +256,11 @@ name.startsWith(".")       →  import(new URL(name, ctx.baseUrl))  // URL 解�
 
 ### 裸包名 → 官方包不用 link
 
-实测：挂一个**没有** link 进 profile 的 `@deepseek-ai/cordis-plugin-timer`，
-照样 `state=2` 激活。**官方包不需要 link。**
+实测：**基线自己就是这个实验**。`timer` / `hmr` 两条写的都是裸包名
+（`@deepseek-ai/cordis-plugin-*`），而 profile 的 `node_modules` 里只有我们
+自己 link 的教学插件、从来没有它们——照样 `state=2` 激活。
+**官方包不需要 link。**（`test_bare_name_resolution` 把两头都打印出来：
+profile 里没有、上一层的共享 `node_modules` 里有。）
 
 ⚠️ **但机制的第一版解释是错的**（2026-08-16 修正）。原来写的是
 「`profile-boot` 把自己的 `package.json` 当 `bareModuleBaseUrl` 传给 `boot()`」，
@@ -359,8 +339,9 @@ owns the complete plugin set」。**越是写得好的代码，越容易让人�
 
 ## 六、谁保持进程活着
 
-Node 进程在事件循环空了之后就退出。空树 + 兜底的 timer/hmr，看了 15 秒没死——
-**框架兜底那两个就够撑住事件循环**（chokidar 的 watcher 和 timer 的句柄）。
+Node 进程在事件循环空了之后就退出。基线跑起来看了 15 秒没死——
+**就 `timer` 和 `hmr` 这两个的句柄撑着事件循环**（timer 的定时器、
+hmr 的 chokidar watcher）。
 
 不需要 web 服务，不需要 `dsh-base`。
 
@@ -371,10 +352,10 @@ Node 进程在事件循环空了之后就退出。空树 + 兜底的 timer/hmr�
 `LabHome.make_minimal_profile()` —— 后面所有课的基线：
 
 ```python
-# 默认：靠框架兜底。patch 监听可用，代码热重载不可用
+# 默认：hmr 的 root 是 []。patch 监听可用，代码热重载不可用
 profile = home.make_minimal_profile("demo", patch=my_patch)
 
-# 要测代码热重载：自挂 timer+hmr，给一个真的 watch root
+# 要测代码热重载：给一个真的 watch root
 profile = home.make_minimal_profile("demo", hmr_root=["."], patch=my_patch)
 ```
 
@@ -395,14 +376,15 @@ profile = home.make_minimal_profile("demo", hmr_root=["."], patch=my_patch)
 
 三个设计要点，都是踩过坑换来的：
 
-1. **拍两张快照**（apply 当下 + 延后 2 秒）。幽灵条目是 `boot()` 返回之后才补的，
-   只拍一张永远看不到它们。
+1. **拍两张快照**（apply 当下 + 延后 2 秒）。只拍一张看到的是半成品：插件的
+   `apply` 跑在 LOADING 期，那一刻同批的别的条目可能连 fiber 都还没建
+   （上面 boot 期那张里的 `timer`/`hmr` 就是），服务表也还没齐。
 2. **观测点绝不抛错**。拿不到 loader 就如实记 `null`。L3 第一版拿不到服务就
    `throw`，把「根本没跑到这」和「跑到了但没拿到」混成同一个结果。
 3. **记录数组建在模块级，写文件时写整个数组**——见下。
 
 延后用 Node 原生 `setTimeout`，**不用 `ctx.setTimeout`**——后者是 timer 服务
-提供的，而 timer 在不在正是本课要测的东西，拿被测对象当测量工具就循环论证了。
+提供的，拿被测系统的一部分当测量工具，观测和被观测就纠缠在一起了。
 
 ### 第 3 条是怎么来的：工具把自己的问题藏住了
 
@@ -419,14 +401,16 @@ profile = home.make_minimal_profile("demo", hmr_root=["."], patch=my_patch)
 （模块级变量只在**模块被重新 import** 时才清空，条目重挂不清。
 这两件事的区别正好是 L11 的主题。）
 
-### 一个还没坐实的观察
+### 那次 settle 丢失，后来查清了
 
-上面那次 settle 丢失，最合理的解释是兜底 `loader.create()` 会 `tree.write()`
-写回 `cordis.yml`，而那正是 root include 的 config 文件，于是触发一次整树刷新。
+当时最合理的猜测是「框架在 boot 返回后 `loader.create()` 补条目，
+连带 `tree.write()` 写回 `cordis.yml`，触发一次整树刷新」。
 
-但**这条没被直接证实**：修好工具之后两次复跑都是 `apply 1 次`，没抓到重挂。
-旧版工具已经把当时的证据覆盖掉了，所以只能说「符合观察」，不能说「已验证」。
-真要坐实，得在 L10 用观测台的事件流去抓——那里才有分辨「重放发生了但条目没变」
-和「重放根本没发生」的手段。
+**这条因果链在源头上就不成立**（L7 往下读了一层源码）：`Loader` 作为根树，
+它的 `write()` 是空操作，注释写着 *"Loader's root tree is in-memory;
+writes are no-ops."*——只有某个 `Include` 实例自己的子树落盘时才真的
+`writeFile`。修好工具之后的每次复跑也都是 `apply 1 次`，没再见过。
 
-**记在这里而不是删掉**：一个只见过一次、又拿不出证据的现象，比没见过更危险。
+所以那次丢失更可能就是**旧版普查员自己的缺陷**（`record` 建在 `apply` 里、
+被覆盖后「重挂过」和「只挂了一次」长得一模一样），不是框架真做了整树刷新。
+现在基线显式带上 timer/hmr，那条 `loader.create()` 路径根本不会被走到。

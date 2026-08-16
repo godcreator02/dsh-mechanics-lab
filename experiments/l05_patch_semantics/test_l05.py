@@ -381,11 +381,9 @@ def test_duplicate_id_at_boot_is_fatal(lab_home, fixtures_dir, launch):
     （它只在 insert 时 `buildMap` 建索引，从不检查冲突），所以两个条目会一起
     进最终的组合数组，冲突留到 `EntryGroup.update` 才被发现。
     """
-    profile = lab_home.make_profile("l05-dup-boot", bundles=[])
-    profile.link_plugin("lab-patch", fixtures_dir / "lab-patch")
     w1 = lab_home.root / "w-dup-1.json"
     w2 = lab_home.root / "w-dup-2.json"
-    profile.write_patch(f"""# L5 用例 8：同 id 双挂载，撞在 boot 期
+    profile = lab_home.make_minimal_profile("l05-dup-boot", patch=f"""# L5 用例 8：同 id 双挂载，撞在 boot 期
 - insert:
     - id: dup
       name: lab-patch
@@ -397,6 +395,7 @@ def test_duplicate_id_at_boot_is_fatal(lab_home, fixtures_dir, launch):
       config:
         witness: {json.dumps(w2.as_posix())}
 """)
+    profile.link_plugin("lab-patch", fixtures_dir / "lab-patch")
 
     dump, stderr = dump_with_warnings(lab_home, profile.name)
     dup_entries = [e for e in dump.entries if isinstance(e, dict) and e.get("id") == "dup"]

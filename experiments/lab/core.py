@@ -33,10 +33,11 @@ LAB_PORT_RANGE = range(3090, 3100)
 BUNDLE_BASE = "@deepseek-ai/dsh-base"
 BUNDLE_WEB = "@deepseek-ai/dsh-web-app"
 
-#: 插件系统的两个基础设施包。它们住在 dsh 的安装目录里，**不在 profile 的
-#: node_modules 下** —— 但照样能用裸包名引用：裸包名以 dsh 安装目录为锚
-#: （profile-boot 把自己的 package.json 当 `bareModuleBaseUrl` 传给 boot），
-#: 而不是以 profile 为锚。L0 实测。
+#: 插件系统的两个基础设施包，基线一律显式写进 patch（见 `make_minimal_profile`）。
+#: 它们**不在 profile 自己的 node_modules 下**，但照样能用裸包名引用 —— 靠的是
+#: 标准 Node parent-walk：profile 目录往上一层就是 `$DSH_HOME/profiles/node_modules`，
+#: 那是 dsh 的 `healScaffoldModuleFallback` 每次 prepareProfile 时幂等维护的
+#: 符号链接农场。不存在什么特殊锚点（L0 实测 + 顺调用链核实）。
 PKG_TIMER = "@deepseek-ai/cordis-plugin-timer"
 PKG_HMR = "@deepseek-ai/cordis-plugin-hmr"
 

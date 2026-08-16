@@ -28,31 +28,35 @@
 
 ## ✅ L0 · 全景：一棵树长什么样
 
-> ✅ 12 个用例 / 约 90s / 不需要 web ｜ 🔬 发现型 ｜ 前置：无
+> ✅ 9 个用例 / 约 70s / 不需要 web ｜ 🔬 发现型 ｜ 前置：无
 
 **先总后分的「总」。** 不求讲透任何一件事，只求让你一次看清整棵树的形状——
 后面六个部分各展开其中一块。
 
-一个 DSH 实例最少需要什么才能跑起来？答案是**你要声明的插件集合为空**
-（`bundles: []` 就能跑），**但树里从来不空**。
+一个 DSH 实例最少需要什么才能跑起来？答案是 **bundle 名单可以为空**
+（`bundles: []` 就能跑，`dsh-base` 整个是可选的），**但 `timer` 和 `hmr`
+是承重的**——hmr 包级硬依赖 timer，`watchUserPatches()` 开头就是
+`if (hmr === undefined) throw`，而空树时只有这两个的句柄撑着事件循环。
 
 五条判定，每条都在后面有专属的一课深入：
 
 | 判定 | 展开于 |
 |---|---|
-| **配方 ≠ 树**：运行时多三个条目，`--dump-config` 永远看不见 | **L7** |
-| **层级**：兜底的 timer/hmr 在根组、与 include 平级，不在配方子树里 | **L8** |
+| **配方 ≠ 树**：运行时多一个 `cordis:include`，`--dump-config` 永远看不见 | **L7** |
+| **层级**：patch 里写的条目全住在 `include` 的子树里 | **L8** |
 | **boot 期 PENDING 无条件致命**（`assertEntriesActivated`） | **L11** |
 | **`name` 有三条解析路径**，互不相通 | **L3** |
-| **`timer`/`hmr` 关不掉**，写进活层再 `disabled` 只会让框架另造一份 | L8、L17 |
+| **hmr 自己也在配方重放的射程内**，所以「监听哑火」只可能是 watcher 被清 | L8、L17 |
 
-立住的词：**幽灵条目**、普查员、兜底、空根。
+立住的词：**幽灵条目**、普查员、空根、承重的基础设施。
 
-**产出**：`make_minimal_profile()`——后面所有课的基线。相比 `dsh-base`（78 个条目）
-启动快一截，事件流从几百条降到十几条，且剩下的每一条都跟被测对象有关。
+**产出**：`make_minimal_profile()`——后面所有课的基线：`bundles: []`，
+**但 patch 里显式写上 timer 与 hmr**。相比 `dsh-base`（78 个条目）启动快一截，
+事件流从几百条降到十几条；同时树的形状完全可预测——
+`include` + `timer` + `hmr` + 你自己的条目，id 全是我们给的。
 
-⚠️ 兜底那个 hmr 是 `root: []`——够监听 patch 文件，**不监听代码文件**。
-要测代码热重载得自己挂：`make_minimal_profile(hmr_root=[...])`。
+⚠️ 基线的 hmr 是 `root: []`——够监听 patch 文件（按精确路径注册，与 root 无关），
+**不监听代码文件**。要测代码热重载得传：`make_minimal_profile(hmr_root=["."])`。
 
 ---
 
@@ -234,17 +238,15 @@ home 层注册了 watcher，`dsh.profile.bundles` 列表本身与各 bundle 自�
 
 ## ✅ L7 · 配方 ≠ 树：`include` 与幽灵条目
 
-> 6 个用例 / 约 60s / 不需要 web ｜ 🔬 发现型 ｜ 前置：L4、L0
+> 3 个用例 / 约 15s / 不需要 web ｜ 🔬 发现型 ｜ 前置：L4、L0
 
 **要回答**：`--dump-config` 算出来的东西，和进程里跑着的那棵树，差在哪？
 
-**L0 已立住**：差三个条目，全都不在任何 patch 文件里。
+**L0 已立住**：差一个条目，而且这是结构性的。
 
 | 条目 | 谁造的 | id | 何时 |
 |---|---|---|---|
 | `cordis:include` | `mountRootInclude()` | 固定 `include` | boot 期 |
-| `timer` | profile-boot 兜底 | **随机生成** | boot **返回后** |
-| `hmr` | 同上，`config: {root: []}` | **随机生成** | 同上 |
 
 **本课要展开的**：
 
@@ -252,15 +254,13 @@ home 层注册了 watcher，`dsh.profile.bundles` 列表本身与各 bundle 自�
    由此推出一条实现事实：**「配方热重放」就是「改 `include` 这一个条目的 config」**
    （`watchUserPatches` 的回调重新 compose 出 patches，然后 `entry.update({config})`）。
    这条是 L14 的地基，必须在这里钉死。
-2. 兜底的触发条件是 `ctx.get("hmr") === void 0`——**判服务不判条目**。
-   L0 验过：写进活层再 `disabled: true` 只会让框架另造一份，**关不掉**。
-3. 幽灵条目的 id 每次启动都不一样，**只能认 `name` 不能认 id**——这是后面所有课
-   写断言时的硬约束。
-4. 🔬 **未坐实的观察**（L0 记下的）：兜底 `loader.create()` 会 `tree.write()` 写回
-   `cordis.yml`，而那正是 root include 的 config 文件——可能触发一次整树刷新。
-   只见过一次、证据被旧版工具覆盖了，本课或 L14 用事件流去抓。
+2. **它为什么必然看不见**：整份 effective config 就装在它自己的 config 里，
+   它出现在其中就是自指。所以不管配方怎么写、带不带 bundle，dump 都没有它。
+3. 反过来那半边也要验：`recipe_ids <= tree_ids`——配方里写的每一条都真的上了树，
+   没有「算出来了却没挂上」的漏网条目。
 
-**观测手段**：`fixtures/l00-census` 普查员（拍两张快照：apply 当下 + 延后）。
+**观测手段**：`fixtures/l07-census` 普查员（拍两张快照：apply 当下 + 延后；
+比 L0 那份多两件事——摘 `include` 的 `config.patches` 摘要、可选的第三张快照）。
 
 ## ✅ L8 · 层级：谁在子树里、谁不在
 
@@ -272,23 +272,19 @@ home 层注册了 watcher，`dsh.profile.bundles` 列表本身与各 bundle 自�
 
 ```
 根组
-├─ include (cordis:include)    ← 树根，配方装在它的 config 里
-│   └─ 配方里的条目…            ⊂include
-├─ timer  ← 兜底，与 include **平级**
-└─ hmr    ← 同上
+└─ include (cordis:include)    ← 树根，配方装在它的 config 里
+    ├─ timer                   ⊂include
+    ├─ hmr                     ⊂include
+    └─ 配方里的其它条目…         ⊂include
 ```
 
-**这条判定的分量**：配方热重放重新 compose 的**只有 include 的子树**，
-碰不到平级的那些。于是同样叫 hmr，两种处境完全相反——
+**这条判定的分量**：配方热重放重新 compose 的**正是 include 的子树**，
+而 `hmr` 自己就住在里面——它在自己触发的那次重放的射程之内，每次重放都可能
+被重挂、watcher 随 effect 一起清掉。
 
-| | 位置 | 配方重放时 |
-|---|---|---|
-| 兜底的 hmr | 根组，与 include 平级 | 碰不到它，watcher 稳 |
-| 写在配方里的 hmr | **include 子树里** | **可能被重挂，watcher 随 effect 一起清掉** |
-
-真实部署里常见的是后者（web bundle 自带 hmr 条目、再靠活层反禁用），而最小环境是前者。
-**「同样的操作在一处让 patch 监听哑火、在另一处却一切正常」很可能就源于这个差别**——
-两边测的根本不是同一个东西。**L17 的实验设计完全依赖本课的结论。**
+本课要坐实的是「归属由什么决定」：嵌进 group 只是换个父亲，换不出 include 的
+子树。于是「patch 监听哑火」的排查方向收敛成一个：不是「hmr 不在」，
+是「hmr 还在但 watcher 被清了」。**L17 的实验设计完全依赖本课的结论。**
 
 **本课补上的三件事（全部实测）**：
 
@@ -572,30 +568,22 @@ L17 全部推倒重来。
 
 **要回答**：是谁在监听 patch 文件？它什么时候会死？
 
-**已知机制**（源码，兜底部分 **L0 已实测证实**）：
-- `profile-boot` 在 boot 末尾判 `ctx.get("hmr") === void 0`——**判服务不判条目**，
-  服务不在就运行时创建一个 `root: []` 的兜底 hmr
-- 然后 `watchUserPatches` 把 profile 活层和 home 层的监听注册上去，
+**已知机制**（源码）：
+- `watchUserPatches` 把 profile 活层和 home 层的监听注册上去，
   **且只在 boot 时调用这一次**，之后没有任何代码会重新注册
 - `hmr.registerConfig()` 建立的 watcher，清理挂在 **hmr 插件自己的 fiber** 上
 - → 推论：**hmr 条目一旦经历 dispose + 重建，patch 监听就永久没了**
 
-**L8 提供的关键区分**（本课的实验设计完全依赖它）：
-
-| | 位置 | 配方重放时 |
-|---|---|---|
-| 兜底的 hmr | 根组，与 include 平级 | 碰不到它 |
-| 配方里的 hmr | include 子树里 | **可能被重挂** |
-
-**真实部署多是后者，最小环境是前者**——所以「一处哑火、另一处正常」很可能根本
-不是矛盾，是**两边测的不是同一个东西**。
+**L8 提供的关键前提**（本课的实验设计完全依赖它）：`hmr` 自己就住在
+`include` 的子树里，而配方热重放重新 compose 的正是这棵子树——**hmr 在自己
+触发的那次重放的射程之内**。
 
 **实验设计**（必须**单轮观测**）：
 - 每轮改动前**重启实例**，一次只观测一件事，避免多轮改动互相干扰
-- 场景 A：boot 时活层就有 hmr 反禁用条（配方拥有 hmr，在 include 子树里）
-- 场景 B：boot 时没有（游离的兜底 hmr，与 include 平级）
 - 关键一问：**只改 hmr 条目自己的 `config`（比如往 `root` 加一项），会不会导致
-  patch 监听自断？**——而按 L8，这一问在两个场景下答案可能相反
+  patch 监听自断？**
+- 对照：改**别的**条目的 config（同一次重放波及别人、不波及 hmr），
+  监听应当毫发无损——两边一比才能把「重放本身」和「重挂 hmr」分开
 
 **核心任务：把下面这条推论测实或证伪。**
 

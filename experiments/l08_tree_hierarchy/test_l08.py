@@ -160,10 +160,7 @@ def test_group_builds_nested_subtree(lab_home: LabHome, fixtures_dir: Path, laun
         列表里——「扁平遍历」不是一句空话，深度必须靠 parent 链自己算出来
     """
     census_out = lab_home.root / "census-nesting.json"
-    profile = lab_home.make_profile("nesting", bundles=[])
-    profile.link_plugin("l08-census", fixtures_dir / "l08-census")
-    profile.link_plugin("l08-leaf", fixtures_dir / "l08-leaf")
-    profile.write_patch(census_patch("census", census_out, extra="""
+    profile = lab_home.make_minimal_profile("nesting", patch=census_patch("census", census_out, extra="""
     - id: outer-group
       name: '@deepseek-ai/cordis-plugin-group'
       group: true
@@ -177,6 +174,8 @@ def test_group_builds_nested_subtree(lab_home: LabHome, fixtures_dir: Path, laun
             - id: leaf-2
               name: l08-leaf
 """))
+    profile.link_plugin("l08-census", fixtures_dir / "l08-census")
+    profile.link_plugin("l08-leaf", fixtures_dir / "l08-leaf")
 
     inst = launch(profile, wait_http=False)
     got = watch(inst)
@@ -270,10 +269,11 @@ def test_disabled_propagation(
     确实会让条目自己不激活——group 是**例外**，不是「disabled 不管用了」。
     """
     census_out = lab_home.root / f"census-disabled-{tag}.json"
-    profile = lab_home.make_profile(f"disabled{tag}", bundles=[])
+    profile = lab_home.make_minimal_profile(
+        f"disabled{tag}", patch=census_patch(f"census-{tag}", census_out, extra=extra)
+    )
     profile.link_plugin("l08-census", fixtures_dir / "l08-census")
     profile.link_plugin("l08-leaf", fixtures_dir / "l08-leaf")
-    profile.write_patch(census_patch(f"census-{tag}", census_out, extra=extra))
 
     inst = launch(profile, wait_http=False)
     got = watch(inst)
@@ -331,16 +331,11 @@ def test_isolate_gives_each_group_its_own_service_instance(lab_home: LabHome, fi
     组内各挂一个消费者，`inject` 硬依赖 `labFlavor` 并把看到的值写进见证文件。
     如果隔离生效，两份见证应当各自对应各自组里的值，不串。
     """
-    profile = lab_home.make_profile("isolate", bundles=[])
-    profile.link_plugin("l08-census", fixtures_dir / "l08-census")
-    profile.link_plugin("lab-flavor", fixtures_dir / "lab-flavor")
-    profile.link_plugin("lab-flavor-taster", fixtures_dir / "lab-flavor-taster")
-
     census_out = lab_home.root / "census-isolate.json"
     witness_a = lab_home.root / "witness-flavor-a.json"
     witness_b = lab_home.root / "witness-flavor-b.json"
 
-    profile.write_patch(census_patch("census", census_out, extra=f"""
+    profile = lab_home.make_minimal_profile("isolate", patch=census_patch("census", census_out, extra=f"""
     - id: group-a
       name: '@deepseek-ai/cordis-plugin-group'
       group: true
@@ -371,6 +366,9 @@ def test_isolate_gives_each_group_its_own_service_instance(lab_home: LabHome, fi
           config:
             witness: {json.dumps(witness_b.as_posix())}
 """))
+    profile.link_plugin("l08-census", fixtures_dir / "l08-census")
+    profile.link_plugin("lab-flavor", fixtures_dir / "lab-flavor")
+    profile.link_plugin("lab-flavor-taster", fixtures_dir / "lab-flavor-taster")
 
     inst = launch(profile, wait_http=False)
 

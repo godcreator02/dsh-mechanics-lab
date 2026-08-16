@@ -216,20 +216,21 @@ config: {
 ✅ 由此推出一条实现事实：**「配方热重放」就是「改 include 这一个条目的 config」**
 （`watchUserPatches` 的回调重新 compose 出 patches，然后 `entry.update({config})`）。
 
-✅ **层级要紧**（L0 实测）：配方里的条目住在 **include 的子树**里，
-而兜底补的 `timer`/`hmr` 在**根组、与 include 平级**：
+✅ **层级要紧**（L0 实测）：**patch 里写的条目一律住在 include 的子树里**。
+本实验台的基线把 `timer`/`hmr` 也显式写进 patch，所以它们同样在子树里：
 
 ```
 根组
-├─ include                  ← 树根
-│   └─ 配方里的条目…         ⊂include
-├─ timer  ← 兜底，平级
-└─ hmr    ← 兜底，平级
+└─ include                  ← 树根
+    ├─ timer                ⊂include   ← 基线自己声明的
+    ├─ hmr                  ⊂include   ← 同上
+    └─ 你的条目…             ⊂include
 ```
 
-配方重放重新 compose 的只有 include 的子树，**碰不到平级的那些**。
-所以同样叫 hmr，兜底的那个和写在配方里的那个处境完全不同——
-后者每次重放都可能被重挂、watcher 随 effect 一起清掉。
+⚠️ **这对 hmr 尤其要紧**：配方重放重新 compose 的正是 include 的子树，
+而 hmr 自己就住在那里面——它在自己触发的那次重放的射程之内，每次重放都可能
+被重挂、watcher 随 effect 一起清掉。真实部署（web bundle 自带 hmr 条目
+＋活层反禁用）与本实验台的基线都是这个形态。
 
 ### 🟩 name 的三条解析路径
 
@@ -239,7 +240,7 @@ config: {
 |---|---|---|
 | `cordis:xxx` | 内置表 `loader.builtins` | 不解析文件 |
 | `./xxx` `../xxx` | **URL 解析** | `ctx.baseUrl` = **profile 目录** |
-| 其它（裸包名） | **包解析** | dsh **安装目录**（`bareModuleBaseUrl`） |
+| 其它（裸包名） | **包解析** | 同样是 profile 目录，靠标准 parent-walk 往上找 |
 
 三条路的实际后果（L0 实测）：
 
@@ -376,8 +377,8 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 ```
 
 顺带看到 **hmr 硬依赖 `timer`**，而且是**包级**声明的（不是条目级 `inject`）。
-这解释了 L0 观测到的兜底顺序：框架补 hmr 之前先补 timer，
-否则 hmr 会卡在 PENDING 等一个永远不来的服务。
+所以这两条基础设施是捆绑的：只写 hmr 不写 timer，hmr 会卡在 PENDING 等一个
+永远不来的服务，而 boot 期 PENDING 无条件致命——实例起不来。
 
 跟 `bundle` 一样，`hmr` 在这套系统里有两个互不相干的实现：
 
@@ -498,27 +499,30 @@ junction 是完全无效的（实测：改真实源码文件毫无反应）。
 
 **在运行时的树里、却不在任何 patch 文件里的条目。** L0 立的词。
 
-`--dump-config` 算的是「配方」，进程里跑的是「树」，两者差三个：
+`--dump-config` 算的是「配方」，进程里跑的是「树」。基线下两者**只差一个**：
 
 | 条目 | 谁造的 | id |
 |---|---|---|
 | `cordis:include` | `mountRootInclude()`，**整棵树的根** | 固定 `include` |
-| `timer` | profile-boot 兜底 | **随机生成** |
-| `hmr` | profile-boot 兜底，`root: []` | **随机生成** |
 
-⚠️ 后两个的 id 每次启动都不一样，**只能认 `name` 不能认 id**。
+它之所以必然是 ghost，是**结构性**的：整份 effective config 就装在它自己的
+`config.patches` 里，它不可能出现在自己装的那份 config 中，否则就是自指。
+所以不管 config 怎么写、带不带 bundle，`--dump-config` 都看不见它。
 
-⚠️ **关不掉。** 那段兜底在 `boot()` 返回后无条件执行，没有开关；
-把 `timer`/`hmr` 写进活层再 `disabled: true` 只会让框架**另造一份**
-（判据是服务不是条目）。所以 **DSH 实例不存在「没有 hmr」的形态**——
-「patch 监听死了」只可能是「hmr 还在但 watcher 被清了」，
-不可能是「hmr 不在」。
+> 补一条源码事实，本实验台的用例不覆盖它：patch 里没有 hmr **服务**时
+> （判据是 `ctx.get("hmr") === void 0`，判服务不判条目，所以写了条目再
+> `disabled: true` 也拦不住），框架会在 `boot()` 返回后自己补一份 timer +
+> hmr，无条件执行、没有开关。推论是 **DSH 实例不存在「没有 hmr」的形态**
+> ——「patch 监听死了」只可能是「hmr 还在但 watcher 被清了」，不可能是
+> 「hmr 不在」。本实验台的基线一律显式带上 timer/hmr，不走这条路。
 
 ### ⬜ 普查员（census）
 
 L0 的核心观测工具（`l00-census`）：拿 `ctx.get("loader")` 遍历 `loader.entries()`，
 把运行时那棵树整个序列化下来。**拍两张快照**——`apply` 当下（boot 期）和延后两秒
-（settle），因为幽灵条目是 `boot()` 返回之后才补的，只拍一张永远看不见。
+（settle）。两张都要，是因为 boot 期看到的是半成品：自己停在 `state=1`
+（LOADING），同批的别的条目可能连 fiber 都还没建，服务表也没齐；
+boot 返回之后才都是 `state=2`（ACTIVE）。
 
 跟见证文件的区别：见证文件说「我在」，普查员说「**树上都有谁**」。
 
@@ -606,8 +610,8 @@ config 摘要。
 | **host 侧 hmr** | **client 侧 hmr** | `cordis-plugin-hmr`（chokidar 监听 Node 进程）vs `dsh-client-hmr`（500ms 轮询 + SSE 推浏览器） |
 | **起点快照** | **快照面** | 我们**主动拍**的一张照片（仪器）vs 系统**自己拍了不更新**的那些缓存（被测对象） |
 | **`hmr/change`** | 「检测到变化」 | ✅ 它其实是「**看到了但没处理**」——四条分支都不匹配时才发。真正处理了的反而不发这个事件 |
-| **配方** | **树** | ✅ `--dump-config` 算出的 vs 进程里真跑着的。后者多三个**幽灵条目**（`cordis:include` + 兜底的 timer/hmr），静态 dump 永远看不见 |
-| **裸包名** | **相对路径** | 两套解析算法。✅ 前者以 dsh 安装目录为锚且认 `package.json`；后者以 profile 为锚、走纯 URL 解析、**必须指到文件** |
-| **hmr 条目在不在** | **hmr 服务在不在** | ✅ 兜底判的是**服务**。条目写了但 `disabled: true` → 服务不在 → 框架照样再补一个 |
-| **兜底 hmr** | **自挂 hmr** | ✅ 兜底那个 `root: []`——够监听 patch 文件（精确路径注册，与 root 无关），但**不监听代码文件**。所以最小环境下热重放工作、热重载不工作 |
+| **配方** | **树** | ✅ `--dump-config` 算出的 vs 进程里真跑着的。基线下后者多一个**幽灵条目**（`cordis:include`——整份 config 装在它自己的 config 里，不可能自指），静态 dump 永远看不见 |
+| **裸包名** | **相对路径** | 两套解析算法。✅ 前者认 `package.json`、靠标准 parent-walk 找到 `profiles/node_modules` 那层共享目录；后者走纯 URL 解析、**必须指到文件** |
+| **hmr 条目在不在** | **hmr 服务在不在** | 框架那条 fallback 判的是**服务**（源码判读，本实验台不覆盖）。条目写了但 `disabled: true` → 服务不在 → 框架照样再补一个 |
+| **`root: []`** | **给了真 watch root** | ✅ 空 root 够监听 patch 文件（精确路径注册，与 root 无关），但**不监听代码文件**。基线默认就是空 root——热重放工作、热重载不工作，要测热重载得传 `hmr_root` |
 | **见证流** | **事件流** | 「我说我在」（自己的插件主动写）vs「框架说谁在」（订阅 Cordis 事件）。互为佐证 |

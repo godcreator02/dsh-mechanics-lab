@@ -188,14 +188,17 @@ def test_profile_minimal_files(lab_home: LabHome, fixtures_dir: Path, launch):
 def test_empty_bundles_boots(lab_home: LabHome, fixtures_dir: Path, launch):
     """问题 2：配方能不能是空的？
 
-    `bundles: []` + 活层里只有普查员自己。没有 dsh-base，没有任何 DSH 业务插件。
-    这一跑要么证明「DSH 的插件系统能脱离 DSH 的业务层独立运行」，
-    要么证明「有什么东西是硬前提」—— 两个结果都有用。
+    `bundles: []` + 活层里只有基础设施两条和普查员自己。没有 dsh-base，
+    没有任何 DSH 业务插件。这一跑要么证明「DSH 的插件系统能脱离 DSH 的业务层
+    独立运行」，要么证明「有什么东西是硬前提」—— 两个结果都有用。
+
+    注意「空」说的是 **bundle 名单**空，不是 patch 空：`timer` / `hmr` 是承重的
+    （hmr 包级 `services.required: ["timer"]`，`watchUserPatches()` 开头就是
+    `if (hmr === undefined) throw`），基线把它们显式写进 patch。
     """
     census_out = lab_home.root / "census-empty.json"
-    profile = lab_home.make_profile("empty", bundles=[])
+    profile = lab_home.make_minimal_profile("empty", patch=census_patch(census_out))
     profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.write_patch(census_patch(census_out))
 
     dumped = dump_config(lab_home, profile.name)
     print(f"\n--dump-config 算出 {len(dumped.entries)} 个条目：")
@@ -269,43 +272,40 @@ def test_bare_name_resolution(lab_home: LabHome, fixtures_dir: Path, launch):
     这直接决定 L1–L3 一直在做的那件事（`link_plugin` 把包 junction 进
     profile 的 node_modules）是不是必需的。
 
-    源码里有两套锚点，且**用途不同**：
-      * `ctx.baseUrl` = profile 目录（`boot()` 里设的），子树条目走这个
-      * `bareModuleBaseUrl` = dsh 安装目录（profile-boot 传的 `INSTALL_ANCHOR`），
-        注释说「when the host, rather than the configuration project, owns the
-        complete plugin set」
+    **基线自己就是这个实验**：`timer` / `hmr` 两条写的都是裸包名
+    （`@deepseek-ai/cordis-plugin-*`），而我们从来没 link 过它们——profile 的
+    node_modules 里只有自己 link 的教学插件。它们照样激活，说明 profile 自己的
+    node_modules 不是唯一锚点。
 
-    实验：挂一个 `@deepseek-ai/cordis-plugin-timer`，但**不** link 进 profile。
-    它只存在于 dsh 的安装目录里。加载成功 = 裸包名以 host 为锚；
-    加载失败 = 以 profile 为锚，我们的 link 是必需的。
+    机制是标准 Node parent-walk：profile 目录往上一层就是
+    `$DSH_HOME/profiles/node_modules`，那是 dsh 的 `healScaffoldModuleFallback`
+    每次 `prepareProfile` 时幂等维护的符号链接农场。本用例把这两头都打印出来。
     """
     census_out = lab_home.root / "census-bare.json"
-    profile = lab_home.make_profile("bare", bundles=[])
+    profile = lab_home.make_minimal_profile("bare", patch=census_patch(census_out))
     profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.write_patch(census_patch(census_out, extra="""
-    - id: unlinked-timer
-      name: '@deepseek-ai/cordis-plugin-timer'
-"""))
-
-    linked = profile.dir / "node_modules" / "@deepseek-ai" / "cordis-plugin-timer"
-    print(f"\ntimer 有没有被 link 进 profile？ {linked.exists()}（预期 False）")
 
     inst = launch(profile, wait_http=False)
     got = watch(inst)
+
+    linked = profile.dir / "node_modules" / "@deepseek-ai" / "cordis-plugin-timer"
+    farm = lab_home.root / "profiles" / "node_modules" / "@deepseek-ai" / "cordis-plugin-timer"
+    print(f"\ntimer 被 link 进 profile 了吗？        {linked.exists()}（预期 False）")
+    print(f"上一层的共享 node_modules 里有吗？    {farm.exists()}（预期 True）")
 
     census = read_census(census_out)
     settle_snap = phase(census, "settle")
     show_entries(settle_snap, "settle 快照")
     print(f"\n进程还活着？ {got['alive']}（退出码 {got['exit_code']}）")
 
-    entries = (settle_snap or {}).get("entries") or []
-    timer_entry = next((e for e in entries if e["id"] == "unlinked-timer"), None)
-    if timer_entry is None:
-        print("  没 link 的 timer 条目：树里找不到 → 裸包名以 profile 为锚，link 是必需的")
-        print(f"\n{got['logs']}")
-    else:
-        print(f"  没 link 的 timer 条目：{timer_entry}")
-        print("  → 裸包名以 dsh 安装目录为锚，官方包不需要 link")
+    assert settle_snap is not None, f"普查员没被加载：\n{got['logs']}"
+    assert not linked.exists(), "前提被破坏：timer 竟然被 link 进 profile 了"
+    for eid in ("timer", "hmr"):
+        e = next((x for x in settle_snap["entries"] if x["id"] == eid), None)
+        assert e is not None and e["fiberState"] == 2, (
+            f"裸包名 {eid} 没能激活 —— 那 link 就是必需的\n{got['logs']}"
+        )
+    print("  → 裸包名不用 link 进 profile：parent-walk 找到了上一层的共享 node_modules")
 
 
 @pytest.mark.parametrize(
@@ -339,7 +339,7 @@ def test_relative_name_resolution(
     """
     label = "dir" if not suffix else "file"
     census_out = lab_home.root / f"census-rel-{label}.json"
-    profile = lab_home.make_profile(f"rel{label}", bundles=[])
+    profile = lab_home.make_minimal_profile(f"rel{label}")
     # 故意**不** link —— 全靠相对路径找过去
     source = (fixtures_dir / "l00-census").resolve()
     # 假 home 和 fixtures 都在实验台里，必然同盘，relpath 一定算得出
@@ -348,7 +348,8 @@ def test_relative_name_resolution(
     print(f"  profile 在 {profile.dir}")
     print(f"  相对路径   {spec}")
 
-    profile.write_patch(f"""# 相对路径引用
+    # 拼在基线那块之后 —— patch 文件是 YAML 数组，允许多个 `- insert:` 块
+    profile.write_patch(profile.read_patch() + f"""# 相对路径引用
 - insert:
     - id: census
       name: {json.dumps(spec)}
@@ -385,14 +386,15 @@ def test_who_keeps_process_alive(lab_home: LabHome, fixtures_dir: Path, launch):
     在占着事件循环。候选就那么几个：timer 的定时器、hmr 的文件 watcher、
     web 服务的监听套接字。
 
-    本用例不预设答案，只做一件事：**把空树跑给它看**，看它活不活。
-    活着 → 框架兜底补的 timer/hmr 就够撑住；
+    本用例把**基线**跑给它看：没有 web 服务、没有任何业务插件，树上只有
+    `include` + `timer` + `hmr` + 普查员。活着 → 这两个基础设施的句柄就够撑住；
     死了 → 保活需要更多东西，那「最小集合」的定义就得往上加。
     """
     census_out = lab_home.root / "census-alive.json"
-    profile = lab_home.make_profile("alive", bundles=[])
+    profile = lab_home.make_minimal_profile(
+        "alive", patch=census_patch(census_out, delay_ms=1000)
+    )
     profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.write_patch(census_patch(census_out, delay_ms=1000))
 
     inst = launch(profile, wait_http=False)
     # 比别的用例看得久：要排除「刚开始活着、过一会儿事件循环空了才退」
@@ -476,15 +478,14 @@ def test_pending_at_boot_is_fatal(lab_home: LabHome, fixtures_dir: Path, launch)
     """
     census_out = lab_home.root / "census-pending.json"
     witness = lab_home.root / "needy-witness.json"
-    profile = lab_home.make_profile("pending", bundles=[])
-    profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.link_plugin("l00-needy", fixtures_dir / "l00-needy")
-    profile.write_patch(census_patch(census_out, extra=f"""
+    profile = lab_home.make_minimal_profile("pending", patch=census_patch(census_out, extra=f"""
     - id: needy
       name: l00-needy
       config:
         witness: {json.dumps(witness.as_posix())}
 """))
+    profile.link_plugin("l00-census", fixtures_dir / "l00-census")
+    profile.link_plugin("l00-needy", fixtures_dir / "l00-needy")
 
     inst = launch(profile, wait_http=False)
     got = watch(inst, seconds=20.0)
