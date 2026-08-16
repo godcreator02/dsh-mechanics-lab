@@ -12,6 +12,31 @@ dependencies = [
     "markdown>=3.7",
 ]
 
+
+
+[tool.ruff]
+line-length = 120
+# 文档代码块不进门禁——ruff 0.16 起默认格式化 md 内代码块，会压掉手工对齐的行内注释
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "C4", "PTH", "TID", "A005"]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+
+
+[tool.pyright]
+# 档位钉死不随上游默认漂移；pythonVersion 按 requires-python 下界分析、随其联动改
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+
+
+
 [tool.pytest.ini_options]
 testpaths = ["experiments"]
 # 实验带教学性质，输出本身就是产物的一部分。
@@ -36,11 +61,17 @@ markers = [
     "static: 纯 --dump-config，不起进程（快，零风险）",
 ]
 
+
+
 [tool.uv]
 # 本项目禁止使用全局 Python：一切经 `uv run`，解释器与依赖都锁在 .venv 里
 package = false
 
+
+
 [dependency-groups]
 dev = [
+    "pyright>=1.1.411",
     "pytest-xdist>=3.8.0",
+    "ruff>=0.16.3",
 ]
