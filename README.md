@@ -10,8 +10,9 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。
 - **实验** —— `experiments/` 下一课一目录，各自完全自包含
 - **教材** —— 从简单到困难的原理讲解，每条判定标注由哪个实验验证
 
-怎么在这个项目里干活见 `CLAUDE.md`；课程大纲见 `SYLLABUS.md`；
-术语见 `GLOSSARY.md`；探索历史（推翻的判断、走死的路线）见 `trajectory/`。
+怎么在这个项目里干活见 `CLAUDE.md`；其余文档都在 `docs/` 下——
+课程大纲 `docs/SYLLABUS.md`、术语 `docs/GLOSSARY.md`、
+探索历史 `docs/trajectory/`、官方文档快照 `docs/official/`。
 
 ## 跑
 

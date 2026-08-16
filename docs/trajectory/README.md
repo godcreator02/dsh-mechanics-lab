@@ -5,12 +5,12 @@
 
 ## 跟现状文档的分工
 
-| | 现状文档 | 本目录 |
-|---|---|---|
-| 装什么 | 项目此刻是什么样 | 探索史：实验、放弃的路线、决策 |
-| 形态 | **覆盖式更新**，过期就改 | **一次了断后冻结**，写完不改 |
-| 判据 | 这句话半年后还代表当前真相吗 | 这承载的是探索意志吗 |
-| 在哪 | `CLAUDE.md` / `GLOSSARY.md` / `SYLLABUS.md` / 各课 README | 这里 |
+    现状文档   本目录  
+ --- --- --- 
+  装什么   项目此刻是什么样   探索史：实验、放弃的路线、决策  
+  形态   **覆盖式更新**，过期就改   **一次了断后冻结**，写完不改  
+  判据   这句话半年后还代表当前真相吗   这承载的是探索意志吗  
+  在哪   `CLAUDE.md` / `GLOSSARY.md` / `SYLLABUS.md` / 各课 README   这里  
 
 两条界线：
 
@@ -53,12 +53,12 @@
 
 ## 篇目
 
-| 篇 | 了断 | 日期 |
-|---|---|---|
-| [0001-实验台从下游视角转向独立研究](0001-turn-to-independent-research.md) | 转向 | 2026-08-15 |
-| [0002-E3 观测信号选错导致整批数据作废](0002-e3-wrong-observation-signal.md) | 走死 | 2026-08-15 |
-| [0003-PENDING 致命性悬案与用例的假绿](0003-pending-fatality-and-false-green.md) | 推翻 | 2026-08-16 |
-| [0004-裸包名锚点的机制解释推翻](0004-bare-specifier-anchor-refuted.md) | 推翻 | 2026-08-16 |
-| [0005-补读官方文档：12 条重复劳动](0005-official-docs-catch-up.md) | 转向 | 2026-08-16 |
-| [0006-教学目录按加载链条重排](0006-syllabus-reordered.md) | 转向 | 2026-08-16 |
-| [0007-六课并行交给 subagent](0007-six-lessons-in-parallel.md) | 采纳 | 2026-08-16 |
+  篇   了断   日期  
+ --- --- --- 
+  [0001-实验台从下游视角转向独立研究](0001-turn-to-independent-research.md)   转向   2026-08-15  
+  [0002-E3 观测信号选错导致整批数据作废](0002-e3-wrong-observation-signal.md)   走死   2026-08-15  
+  [0003-PENDING 致命性悬案与用例的假绿](0003-pending-fatality-and-false-green.md)   推翻   2026-08-16  
+  [0004-裸包名锚点的机制解释推翻](0004-bare-specifier-anchor-refuted.md)   推翻   2026-08-16  
+  [0005-补读官方文档：12 条重复劳动](0005-official-docs-catch-up.md)   转向   2026-08-16  
+  [0006-教学目录按加载链条重排](0006-syllabus-reordered.md)   转向   2026-08-16  
+  [0007-六课并行交给 subagent](0007-six-lessons-in-parallel.md)   采纳   2026-08-16  
