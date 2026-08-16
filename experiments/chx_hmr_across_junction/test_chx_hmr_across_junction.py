@@ -49,8 +49,11 @@
     那堵墙归第 10 项）。改一次代码，**两个条目都重来**，各自沿用各自的 `config`。
   * **⑪** —— 同 id 的撞车分两种时机：启动时撞进程退出（第 10 项），
     **运行中撞则被兜住**——整次更新回滚，原条目毫发无损，实例继续健康。
+  * **⑫⑬⑭** —— 重载的**粒度**与**代价**。改一个被 `import` 的纯算法文件
+    （`helper.js`，接口一点没动）：重来的是整个插件入口、模块顶层状态清零；
+    而 hmr 关掉之后，跑着的代码**永远**拿不到新实现。
 
-七个判定（详见各用例的 docstring）：
+十个判定（详见各用例的 docstring）：
 
   * **经 junction 装进来的模块，URL 是链接那一头的真实路径**，不含 `node_modules`。
     所以 hmr 那三处 `url.includes('/node_modules/')` 一处都不命中 —— 挡住热重载的
@@ -87,6 +90,23 @@
     没有。hmr 这边只记两条 warn、发一个 `hmr/config-update-failed`，进程照跑，
     之后改代码照样热重载。**所以活层改错了不会搞死实例**，它回到上一个好状态。
     跟启动时撞车正好成对：那时没有「上一个好状态」可退，只能退出进程。
+  * **拆文件缩不小重载范围**（⑫）。改一个只有一个纯函数、不碰 ctx 的 `helper.js`，
+    `hmr/reload` 报出来的文件是 **`index.js`** —— 插件入口是原子重载单位。
+    `partialReload` 从条目的 `name` 解析出入口，再看它的依赖树里有没有沾上被改的
+    文件；沾上了就整个入口重新 import。所以「把纯逻辑拆出去以便单独热替换」
+    这个想法不成立，代价跟改主文件一样。
+  * **重载是卸载 + 重装，不是「换掉一个函数、保住状态」**（⑬）。模块顶层的计数器
+    重载后回到 1 而不是 2 —— 整个模块被重新求值，`let loads = 0` 那行也重跑了。
+    插件里的内存状态（计数器、缓存、连接池、订阅）每次热重载全部丢失；要保住得
+    自己安排：挪进一个不被重载的 service，或者 dispose 时存出去、apply 时恢复。
+    跟 ⑩ 对照着看最清楚：那里同一个模块被两个条目挂着，计数器数到 2（模块没换）。
+  * **函数调用不会回头读磁盘**（⑭）。ESM 在 import 那一刻就把整棵**静态**依赖图
+    读盘、解析、编译完了，函数体之后一直在内存里。把 hmr 关掉（`root: []`）改
+    `helper.js`，插件的心跳在之后 15 秒里调了二十来次 `compute()`，**每一次都是
+    旧实现**。所以「不触发 hmr 也能跟上」不成立 —— 没人清 `loadCache`、没人重新
+    `import()`，旧模块就一直用到进程退出。
+    （动态 `import()` / `require()` 确实是「执行到才读盘」，但同样只读第一次，
+    之后走缓存。）
 """
 
 from __future__ import annotations
@@ -127,6 +147,9 @@ FIRST, SECOND = "第一版", "第二版"
 #: 包里那份 patch 的 config 里写着的那句话。用例把前者改成后者 —— 这是「改配方」。
 CFG_FIRST, CFG_SECOND = "配置第一版", "配置第二版"
 
+#: `helper.js` 那个纯函数返回的字符串。改它就是「只改内部实现、接口一点没动」。
+ALGO_FIRST, ALGO_SECOND = "算法第一版", "算法第二版"
+
 #: 「验证什么都不该发生」用的固定等待。热重载是一两秒的事，15 秒远超它 ——
 #: 这类断言不许轮询提前退出：提前退出只能证明「此刻还没发生」。
 SETTLE = 15.0
@@ -155,7 +178,7 @@ ENTRY = """
 - insert:
     - id: greeter
       name: {entry_name}
-"""
+{entry_config}"""
 
 
 # ── 搭台 ────────────────────────────────────────────────────────────────────
@@ -175,7 +198,14 @@ def copy_package(dest: Path) -> Path:
 
 
 def build(
-    lab_home: LabHome, name: str, *, placement: str, watch: str, ignored: list[str] | None = None, live_extra: str = ""
+    lab_home: LabHome,
+    name: str,
+    *,
+    placement: str,
+    watch: str,
+    ignored: list[str] | None = None,
+    live_extra: str = "",
+    entry_config: str = "",
 ) -> tuple[LabProfile, Path, Path]:
     """搭一个 profile。
 
@@ -188,10 +218,12 @@ def build(
             **条目由包自己那份 `cordis.patch.yml` 生**，活层一个字不写。
             这才是 publish.md 描述的分发形态；`"linked"` 是把「装进来」和
             「自注册」拆开之后的前一半。
-        watch: hmr 的 `root` 除了 `'.'` 还加什么。
-            ``"profile"`` —— 什么都不加，就 `['.']`（默认值，也是 dsh-base 写的那个）。
-            ``"source"`` —— 加**源码包目录的真实路径**。
-            ``"junction"`` —— 加 **node_modules 里那条 junction 的路径**。
+        watch: hmr 的 `root` 填什么。
+            ``"none"`` —— 填 `[]`，**一个目录都不盯**。代码那条路整个关掉
+            （patch 文件仍然是热的，那条走 registerConfig、与 root 无关）。
+            ``"profile"`` —— `['.']`（默认值，也是 dsh-base 写的那个）。
+            ``"source"`` —— `['.']` 再加**源码包目录的真实路径**。
+            ``"junction"`` —— `['.']` 再加 **node_modules 里那条 junction 的路径**。
             后两个指的是磁盘上同一份代码的两条路径。
         ignored: hmr 的 `ignored` 名单。不传就不写这个键，走 schema 默认值
             ``['**/node_modules', '**/.*', 'cache', 'data']``。
@@ -207,10 +239,10 @@ def build(
 
     if placement == "inline":
         pkg_dir = copy_package(profile_dir / PKG_NAME)
-        entry = ENTRY.format(entry_name=f"./{PKG_NAME}/index.js")
+        entry = ENTRY.format(entry_name=f"./{PKG_NAME}/index.js", entry_config=entry_config)
     elif placement == "linked":
         pkg_dir = copy_package(lab_home.root / f"src-{name}" / PKG_NAME)
-        entry = ENTRY.format(entry_name=PKG_NAME)
+        entry = ENTRY.format(entry_name=PKG_NAME, entry_config=entry_config)
     elif placement == "bundle":
         pkg_dir = copy_package(lab_home.root / f"src-{name}" / PKG_NAME)
         entry = ""  # 条目归包自己那份 patch 生，活层不写
@@ -228,12 +260,17 @@ def build(
         raise ValueError(f"未知 placement：{placement}")
 
     junction_dir = profile_dir / "node_modules" / PKG_NAME
-    extra = {"profile": [], "source": [pkg_dir.as_posix()], "junction": [junction_dir.as_posix()]}[watch]
+    roots = {
+        "none": [],
+        "profile": ["."],
+        "source": [".", pkg_dir.as_posix()],
+        "junction": [".", junction_dir.as_posix()],
+    }[watch]
 
     patch = BASE.format(
         timer=PKG_TIMER,
         hmr=PKG_HMR,
-        roots=json.dumps(["."] + extra),
+        roots=json.dumps(roots),
         ignored="" if ignored is None else f"        ignored: {json.dumps(ignored)}\n",
         out=json.dumps(events.as_posix()),
         entry=entry + live_extra,
@@ -797,6 +834,157 @@ def test_duplicate_id_added_while_running(lab_home: LabHome, launch):
 
     assert inst.alive(), f"实例应当仍然活着：\n{inst.logs()}"
     assert got == [FIRST, SECOND], f"一次失败的配置更新不该弄坏代码热重载，实际 {got}"
+
+
+def edit_helper(pkg_dir: Path) -> Path:
+    """把**辅助文件**里的「算法第一版」改成「算法第二版」，一个字不碰 index.js。
+
+    这是「只改内部实现、接口一点没动」那种改法 —— ⑫⑭ 各自在 hmr 开着和关着的
+    情况下改它。
+    """
+    helper = pkg_dir / "helper.js"
+    text = helper.read_text(encoding="utf-8")
+    assert ALGO_FIRST in text, f"前提：{helper} 里本来写着{ALGO_FIRST}"
+    helper.write_text(text.replace(ALGO_FIRST, ALGO_SECOND), encoding="utf-8")
+    return helper
+
+
+def said_field(events: list[dict], field: str, who: str = "greeter") -> list:
+    """某个条目历次上报里某个字段的值，按时间顺序。"""
+    return [d[field] for e in reports(events, who=who) if field in (d := e.get("data") or {})]
+
+
+def test_editing_an_imported_helper_reloads_the_whole_plugin(lab_home: LabHome, launch):
+    """⑫ 改一个被 `import` 的辅助文件 —— 重来的是**整个插件入口**，不是那个文件。
+
+    `helper.js` 里只有一个纯函数，不碰 ctx、不注册任何东西。用例改它的实现，
+    `index.js` 一个字不动。
+
+    判据落在两处，缺一不可：
+
+      * **插件报出的「算出来」变成新值** —— 新实现确实生效了
+      * **`hmr/reload` 事件里的文件名是 `index.js`** —— 重载的单位是插件入口，
+        不是被改的那个文件。`partialReload` 从每个条目的 `name` 解析出插件入口，
+        再看它的依赖树里有没有沾上被改的文件；沾上了就整个入口重新 import
+        （`cordis-plugin-hmr/src/index.ts:407-443`）
+
+    第二条的实际含义：**把代码拆成多个文件缩不小重载范围**。改一个几行的纯函数，
+    付出的代价跟改主文件一样 —— 整个插件 dispose 再装回来。
+    """
+    profile, events_path, index_js = build(lab_home, "helper", placement="bundle-nested", watch="profile")
+    pkg_dir = index_js.parent
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+    assert said_field(read_events(events_path), "算出来") == [ALGO_FIRST]
+
+    helper = edit_helper(pkg_dir)
+    inst.wait_for(
+        lambda: len(said_field(read_events(events_path), "算出来")) >= 2, timeout=25.0, what="插件重新报出算出来的值"
+    )
+
+    events = read_events(events_path)
+    algo = said_field(events, "算出来")
+    reload_files = [f for e in of_kind(events, "hmr-reload") for f in (e.get("files") or [])]
+
+    print("\n══ ⑫ 只改被 import 的 helper.js ═════════════════════════")
+    print(f"  改的是：{helper.name}（index.js 一个字没动）")
+    print(f"  插件报过的「算出来」：{algo}")
+    print(f"  插件报过的「版本」：　{said_versions(events)}（没改代码里那句，所以两次一样）")
+    print(f"  hmr 说它重载了谁：　 {[Path(str(f)).name for f in reload_files]}")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert algo == [ALGO_FIRST, ALGO_SECOND], f"新实现该生效，实际 {algo}"
+    assert said_versions(events) == [FIRST, FIRST], "index.js 没改，那句话两次都该是第一版"
+    assert states_of(events, "greeter").count("ACTIVE") == 2, "整个条目该重挂一次"
+    assert reload_files, "该有 hmr/reload 事件"
+    assert all("index.js" in str(f) for f in reload_files), (
+        f"重载单位是插件入口 index.js，不是被改的 helper.js，实际 {reload_files}"
+    )
+
+
+def test_reload_wipes_module_level_state(lab_home: LabHome, launch):
+    """⑬ 热重载之后，模块顶层的状态**归零**。
+
+    插件模块顶层有 `let loads = 0`，每次 `apply` 把它加一并报出来。
+
+    重载会把整个模块重新求值，那一行也重跑，于是计数器回到 0、apply 之后报 1。
+    所以两次都报 **1**，而不是 1 和 2。
+
+    跟 ⑩ 摆在一起看最清楚：那里同一个模块被两个条目挂着，两次 apply 共享**同一个**
+    模块实例，这个数会数到 2。同一个计数器，两种现象分得开 —— 数到 2 说明模块没换，
+    停在 1 说明模块是新的。
+
+    实际含义：hmr 是**卸载 + 重装**，不是「换掉一个函数、保住状态」。插件里的
+    内存状态（计数器、缓存、连接池、订阅）在每次热重载时全部丢失。要保住得自己
+    安排 —— 挪进一个不被重载的 service，或者在 dispose 里存出去、apply 里恢复。
+    """
+    profile, events_path, index_js = build(lab_home, "wipe", placement="bundle-nested", watch="profile")
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+
+    edit_code(index_js)
+    got = wait_said(inst, events_path, count=2, timeout=25.0)
+
+    events = read_events(events_path)
+    loads = said_field(events, "载入次数")
+
+    print("\n══ ⑬ 重载之后模块顶层的计数器 ═══════════════════════════")
+    print(f"  插件报过的版本：　{got}")
+    print(f"  模块顶层计数器：　{loads}")
+    print("  （报 [1, 1] = 模块被重新求值、旧状态没了；报 [1, 2] = 同一个模块实例又跑了一次）")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert got == [FIRST, SECOND], f"该热重载，实际 {got}"
+    assert loads == [1, 1], f"重载应当把模块顶层状态清掉，实际 {loads}"
+
+
+def test_with_hmr_off_the_running_code_never_notices(lab_home: LabHome, launch):
+    """⑭ 把 hmr 关掉（`root: []`），改纯算法文件 —— 跑着的代码**永远拿不到新实现**。
+
+    这一条回答的是「函数调用时会不会回头读磁盘」。答案是不会：ESM 在 import 那
+    一刻就把整棵静态依赖图读盘、编译完了，函数体之后一直在内存里。
+
+    光看「改完什么都没发生」不够 —— 那有两种解释：调用拿到了旧值，或者压根没人
+    调用。所以插件开了**心跳**：每 700ms 调一次 `compute()` 并把结果报出来。
+    改文件之后再等 15 秒，那期间它调了二十来次，每一次都是旧值 —— 后一种解释
+    就排除了。
+
+    `root: []` 只关掉代码那条路。patch 文件仍然是热的（那条走 registerConfig、
+    按精确路径注册，与 `root` 无关）—— 这一项不动它。
+    """
+    profile, events_path, index_js = build(
+        lab_home, "hmroff", placement="inline", watch="none", entry_config="      config:\n        心跳毫秒: 700\n"
+    )
+    pkg_dir = index_js.parent
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+    inst.wait_for(lambda: len(said_field(read_events(events_path), "第几次")) >= 3, timeout=20.0, what="心跳跑起来")
+    before = len(said_field(read_events(events_path), "第几次"))
+
+    helper = edit_helper(pkg_dir)
+    Instance.settle(SETTLE)
+
+    events = read_events(events_path)
+    beats = said_field(events, "算出来", who="greeter")
+    ticks = said_field(events, "第几次")
+
+    print("\n══ ⑭ hmr root: []，改 helper.js ═════════════════════════")
+    print(f"  改的是：{helper.name} —— 磁盘上现在写着{ALGO_SECOND}")
+    print(f"  改动前心跳跳了 {before} 次，此刻共 {len(ticks)} 次")
+    print(f"  心跳报过的不同结果：{sorted(set(beats))}")
+    print(f"  {hmr_noise(events)}")
+    print(f"  插件报过的版本：{said_versions(events)}")
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert len(ticks) > before + 10, f"改动之后心跳该接着跳很多次，改前 {before} 此刻 {len(ticks)}"
+    assert set(beats) == {ALGO_FIRST}, f"每一次调用都该拿到旧实现，实际见过 {sorted(set(beats))}"
+    assert not of_kind(events, "hmr-reload"), "root 是空的，不该有任何重载"
+    assert states_of(events, "greeter").count("ACTIVE") == 1, "条目自始至终只该跑起来一次"
 
 
 def test_code_reload_keeps_the_old_config(lab_home: LabHome, launch):
