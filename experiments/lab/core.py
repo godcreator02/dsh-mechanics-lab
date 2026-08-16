@@ -269,35 +269,35 @@ class LabHome:
         patch: str = "",
         hmr_root: list[str] | None = None,
     ) -> LabProfile:
-        """L0 定出的最小基线：**一个 bundle 都不叠**。
+        """后面所有课的基线：**不叠任何 bundle，但显式带上 timer 与 hmr**。
 
-        「能跑起实验的最小插件集合」这个问题，L0 给出的答案是**空集**：
-        插件系统的基础设施不由 bundle 提供，而是框架自带的。空树启动后，
-        进程里已经有三个条目，全都不在任何 patch 文件里：
+        不叠 bundle 是为了去噪声——`dsh-base` 那 78 个 entry 里只有两个跟插件
+        系统本身有关（就是 timer 和 hmr），其余 76 个全是业务线，会往事件流里
+        灌几百条与被测对象无关的事件。
 
-            cordis:include  树根。整棵配方树挂在它下面，boot 期就在
-            timer           兜底补的。hmr 硬依赖它
-            hmr             兜底补的，`root: []`
+        **但基础设施要自己显式带上**，理由是它更贴近真实：`dsh-base` 的 patch
+        头两条就是 timer 和 hmr，所以任何真实部署里它们都在。把 base 拿掉是为了
+        减噪，不是为了模拟「没有它们」——那个场景现实中不存在。
 
-        兜底的判定条件是 **hmr 服务在不在**（`ctx.get("hmr") === void 0`），
-        不是「hmr 条目在不在」—— 所以条目写了但没激活（比如 disabled），
-        框架照样会再补一个。
+        显式带上还有两个直接好处：
 
-        这条基线相比 `dsh-base`（78 个条目）的好处是决定性的：启动快一截，
-        事件流从几百条降到十几条，且流里剩下的每一条都跟被测对象有关。
+          * **树的形状完全可预测**，id 是这里给的（`timer` / `hmr`），
+            断言可以认 id
+          * **不触发框架的 fallback**（`boot()` 返回后判 `ctx.get("hmr")` 那段），
+            也就没有随机 id 的 entry 混进树里
+
+        树上唯一不来自 patch 文件的 entry 因此只剩 `cordis:include`——它是树根，
+        整份 effective config 装在它的 `config.patches` 里。
 
         Args:
-            patch: 追加的活层内容。会拼在基础设施条目**之后** —— 活层是
-                YAML 数组，可以有多个 `- insert:` 块，各块独立生效。
-            hmr_root: 不传（默认）就用框架兜底那个 `root: []` 的 hmr ——
-                够用来监听 patch 文件，但**不监听代码文件**，改插件源码不会
-                热重载。要测代码热重载就传监听目录，那时自挂的 timer+hmr
-                会让服务提前就位，兜底自然不触发。
+            patch: 追加的 user patch layer 内容。会拼在基础设施两条**之后**——
+                patch 文件是 YAML 数组，可以有多个 `- insert:` 块，各块独立生效。
+            hmr_root: hmr 的 watch root，默认 `[]`。空 root 够监听 patch 文件
+                （那是按精确路径注册的，与 root 无关），但**不监听代码文件**。
+                要测代码热重载就传监听目录。
         """
-        infra = ""
-        if hmr_root is not None:
-            roots = json.dumps(hmr_root)
-            infra = f"""# 自挂基础设施：接管框架兜底，好给 hmr 一个真的 watch root
+        roots = json.dumps(hmr_root if hmr_root is not None else [])
+        infra = f"""# 基础设施：显式带上，不依赖框架的 fallback
 - insert:
     - id: timer
       name: '{PKG_TIMER}'

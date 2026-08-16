@@ -8,6 +8,8 @@ dependencies = [
     "pyyaml>=6.0.3",
     # 实验就是测试：参数化用例、fixture 管实例生命周期、断言内省
     "pytest>=9.0",
+    # 教材由各课 README 生成，需要 markdown → HTML（表格、围栏代码块）
+    "markdown>=3.7",
 ]
 
 [tool.pytest.ini_options]

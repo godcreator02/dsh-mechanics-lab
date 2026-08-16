@@ -216,30 +216,24 @@ def test_empty_bundles_boots(lab_home: LabHome, fixtures_dir: Path, launch):
     assert census is not None, "空 bundles 下普查员都没被加载 —— 记下日志里的原因"
 
 
-def test_ghost_entries(lab_home: LabHome, fixtures_dir: Path, launch):
-    """问题 4（本课核心）：运行时的树跟配方一样吗？
+def test_effective_config_vs_entry_tree(lab_home: LabHome, fixtures_dir: Path, launch):
+    """问题 4（本课核心）：entry tree 跟 effective config 一样吗？
 
-    源码里 `profile-boot` 在 `boot()` 返回之后有这么一段：
+    **不一样，差一个 `cordis:include`。**
 
-        if (ctx.get("hmr") === void 0) {
-          if (ctx.get("timer") === void 0) await ctx.loader.create({ name: "…timer" })
-          await ctx.loader.create({ name: "…hmr", config: { root: [] } })
-        }
+    它是框架在 boot 期建的树根，而**整份 effective config 就装在它的
+    `config.patches` 里**——所以它必然不出现在自己装的那份 config 中，
+    否则就是自指。`--dump-config` 因此永远看不见它。
 
-    注意 `loader.create` **没传 id** —— id 由 loader 自动生成。这两个条目
-    不在任何 patch 文件里，`--dump-config` 永远看不见它们。
-
-    这一跑要验的判定是：**配方 ≠ 树**。
-    静态 dump 是「配方算出来的样子」，跟进程里真正跑着的那棵树不是一回事。
+    这个差别是**结构性**的：不管 config 怎么写、带不带任何 bundle，它都在。
     """
     census_out = lab_home.root / "census-ghost.json"
-    profile = lab_home.make_profile("ghost", bundles=[])
+    profile = lab_home.make_minimal_profile("tree", patch=census_patch(census_out))
     profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.write_patch(census_patch(census_out))
 
     dumped = dump_config(lab_home, profile.name)
-    recipe_names = {e.get("name") for e in dumped.entries}
-    print(f"\n配方里的条目（{len(recipe_names)} 个）：{sorted(n for n in recipe_names if n)}")
+    recipe_ids = {e.get("id") for e in dumped.entries if isinstance(e, dict)}
+    print(f"\neffective config 里的 id（{len(recipe_ids)} 个）：{sorted(recipe_ids)}")
 
     inst = launch(profile, wait_http=False)
     watch(inst)
@@ -252,136 +246,21 @@ def test_ghost_entries(lab_home: LabHome, fixtures_dir: Path, launch):
     if settle_snap is None or settle_snap.get("entries") is None:
         pytest.skip("拿不到 settle 快照，本用例无从判断 —— 先看上面的输出")
 
-    runtime_names = {e["name"] for e in settle_snap["entries"]}
-    ghosts = sorted(n for n in runtime_names - recipe_names if n)
-    print(f"\n  幽灵条目（树里有、配方里没有）：{ghosts or '（没有）'}")
+    tree_ids = {e["id"] for e in settle_snap["entries"]}
+    ghosts = tree_ids - recipe_ids
+    print(f"\n  树上有、config 里没有的：{sorted(ghosts)}")
 
     boot_ids = {e["id"] for e in (boot_snap or {}).get("entries") or []}
-    settle_ids = {e["id"] for e in settle_snap["entries"]}
-    print(f"  boot 之后新增的条目 id：{sorted(settle_ids - boot_ids)}")
+    print(f"  boot 返回之后新增的 id：{sorted(tree_ids - boot_ids) or '（没有）'}")
 
-    assert ghosts, (
-        "预期框架会补 timer/hmr 两个条目进树。一个都没有的话，"
-        "要么兜底没触发（看 settle 快照的服务表），要么普查员拍晚了"
+    assert ghosts == {"include"}, (
+        f"预期只差 include 一个，实际 {sorted(ghosts)}。"
+        "多出来的说明基线没把基础设施带全，或者框架又补了别的东西"
+    )
+    assert recipe_ids <= tree_ids, (
+        f"config 里有、树上没有的：{sorted(recipe_ids - tree_ids)}"
     )
 
-
-@pytest.mark.parametrize(
-    "kind, entries",
-    [
-        ("显式禁用 hmr", """
-    - id: my-hmr
-      name: '@deepseek-ai/cordis-plugin-hmr'
-      disabled: true
-"""),
-        ("连 timer 一起禁用", """
-    - id: my-timer
-      name: '@deepseek-ai/cordis-plugin-timer'
-      disabled: true
-
-    - id: my-hmr
-      name: '@deepseek-ai/cordis-plugin-hmr'
-      disabled: true
-"""),
-    ],
-)
-def test_infra_cannot_be_opted_out(
-    lab_home: LabHome, fixtures_dir: Path, launch, kind: str, entries: str
-):
-    """能不能**真的不要** timer 和 hmr？
-
-    「最小插件集合是空集」这句话容易被读成「树里可以没有插件」。不是那个意思——
-    是**你要声明的集合**为空，树里从来不空。这一跑就是去撞那堵墙。
-
-    最直接的尝试：把它们显式写进活层再 `disabled: true`。按 L0 已经立住的
-    「兜底判服务不判条目」，禁用的条目不提供服务 → `ctx.get("hmr")` 仍是
-    undefined → 框架照样补一个。也就是说**禁用不但没关掉它，还多造了一份**。
-
-    两个变体的差别是「顺带把 timer 也禁掉」——用来确认兜底会不会连 timer
-    一起补（源码里 timer 那句是嵌套在 hmr 判断里的，单独看不出来）。
-
-    这条判定的分量：它意味着 DSH 实例**不存在「没有 hmr」的形态**。
-    L13 要测的「patch 监听什么时候会死」，因此不可能是「hmr 不在」，
-    只可能是「hmr 还在但 watcher 被清了」——两者的排查方向完全不同。
-    """
-    tag = "nohmr" if "timer" not in entries else "noinfra"
-    census_out = lab_home.root / f"census-{tag}.json"
-    profile = lab_home.make_profile(tag, bundles=[])
-    profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.write_patch(census_patch(census_out, extra=entries))
-
-    inst = launch(profile, wait_http=False)
-    got = watch(inst)
-
-    census = read_census(census_out)
-    settle_snap = phase(census, "settle")
-    show_entries(settle_snap, f"{kind} 之后的 settle 快照")
-    print(f"\n  进程还活着？ {got['alive']}")
-    print(f"  普查员被 apply 了 {applies(census)} 次"
-          f"{'（被重挂过）' if applies(census) > 1 else ''}")
-    if not got["alive"]:
-        print(got["logs"])
-
-    assert settle_snap is not None, f"{kind}：普查员没被加载\n{got['logs']}"
-    rows = settle_snap["entries"]
-
-    for pkg in ("plugin-timer", "plugin-hmr"):
-        mine = [e for e in rows if (e["name"] or "").endswith(pkg)]
-        live = [e for e in mine if not e["disabled"]]
-        print(f"    {pkg}：共 {len(mine)} 条，其中没被禁用的 {len(live)} 条 "
-              f"→ {[e['id'] for e in live]}")
-        assert live, (
-            f"{kind}：禁用之后 {pkg} 就真没了 —— 那说明兜底有本课没发现的前提条件"
-        )
-
-    assert settle_snap["services"]["hmr"], "hmr 服务应当照样在"
-    assert settle_snap["services"]["timer"], "timer 服务应当照样在"
-    print("  → 禁不掉。禁用只是让框架另造一份，服务照样在")
-
-
-def test_hmr_fallback_condition(lab_home: LabHome, fixtures_dir: Path, launch):
-    """问题 5：兜底的触发条件到底是什么？
-
-    源码判的是 `ctx.get("hmr") === void 0` —— **服务**在不在，不是条目在不在。
-    这个区别有后果：条目写了但没激活（比如 `disabled: true`），服务照样是
-    undefined，框架会再造一个。
-
-    对照组：自己挂一个货真价实的 hmr 条目（给它固定 id `my-hmr`）。
-    如果它激活了，服务就在，兜底就不该触发 —— 树里应当**只有**这一个 hmr。
-    """
-    census_out = lab_home.root / "census-ownhmr.json"
-    profile = lab_home.make_profile("ownhmr", bundles=[])
-    profile.link_plugin("l00-census", fixtures_dir / "l00-census")
-    profile.write_patch(census_patch(census_out, extra="""
-    - id: my-timer
-      name: '@deepseek-ai/cordis-plugin-timer'
-
-    - id: my-hmr
-      name: '@deepseek-ai/cordis-plugin-hmr'
-      config:
-        root: []
-"""))
-
-    inst = launch(profile, wait_http=False)
-    got = watch(inst)
-
-    census = read_census(census_out)
-    settle_snap = phase(census, "settle")
-    show_entries(settle_snap, "自带 timer + hmr 时的 settle 快照")
-    if not got["alive"]:
-        print(f"\n{got['logs']}")
-
-    if settle_snap is None or settle_snap.get("entries") is None:
-        pytest.skip("拿不到 settle 快照 —— 先看上面的输出")
-
-    hmr_entries = [e for e in settle_snap["entries"] if (e["name"] or "").endswith("plugin-hmr")]
-    print(f"\n  树里的 hmr 条目共 {len(hmr_entries)} 个：{[e['id'] for e in hmr_entries]}")
-    print(f"  hmr 服务在不在：{settle_snap['services'].get('hmr')}")
-
-    assert len(hmr_entries) == 1, (
-        "自己挂的 hmr 激活后，框架不该再补一个。多于一个说明兜底判的不是服务，"
-        "或者自己那个没激活成功"
-    )
 
 
 def test_bare_name_resolution(lab_home: LabHome, fixtures_dir: Path, launch):
@@ -529,25 +408,25 @@ def test_who_keeps_process_alive(lab_home: LabHome, fixtures_dir: Path, launch):
 
 
 def test_baseline_profile(lab_home: LabHome, fixtures_dir: Path, launch):
-    """把前面七问的结论固化成基线，然后验它 —— `make_minimal_profile()`。
+    """把前面的结论固化成基线，然后验它 —— `make_minimal_profile()`。
 
-    两种形态各起一次：
+    基线做两件事：**不叠任何 bundle**（去噪声），**但显式带上 timer 与 hmr**
+    （贴近真实——`dsh-base` 的 patch 头两条就是它们）。
 
-      默认      靠框架兜底的 timer+hmr。hmr 的 `root: []`，只够监听 patch
-                文件，**代码文件不监听**。绝大多数课够用。
-      hmr_root  自挂 timer+hmr 并给一个真的 watch root。服务提前就位，
-                兜底不触发。要测代码热重载的课用这个。
+    要验三点：
 
-    顺带验一件基础设施的事：活层是 YAML 数组，**允许多个 `- insert:` 块**。
-    基线 API 靠这一点把自己的条目拼在调用方的 patch 前面，不用去解析
-    也不用去改调用方那段字符串。这条不成立的话整个拼接方案就得推翻。
+      1. 树的形状**完全可预测**：include + timer + hmr + 调用方自己的 entry，
+         而且 id 全是我们给的，没有框架 fallback 那种随机 id
+      2. `hmr_root` 能控制 watch root——默认 `[]` 只监听 patch 文件，
+         传目录才监听代码文件（要测热重载的课用得上）
+      3. patch 文件是 YAML 数组、**允许多个 `- insert:` 块**。基线靠这一点把
+         基础设施两条拼在调用方的 patch 前面，不用解析也不用改调用方那段字符串
     """
-    for label, hmr_root in (("默认（兜底）", None), ("自挂 hmr", ["."])):
-        census_out = lab_home.root / f"census-baseline-{'auto' if hmr_root is None else 'own'}.json"
+    for label, hmr_root in (("默认 root []", None), ("指定 watch root", ["."])):
+        tag = "dflt" if hmr_root is None else "rooted"
+        census_out = lab_home.root / f"census-baseline-{tag}.json"
         profile = lab_home.make_minimal_profile(
-            "auto" if hmr_root is None else "own",
-            hmr_root=hmr_root,
-            patch=census_patch(census_out),
+            tag, hmr_root=hmr_root, patch=census_patch(census_out)
         )
         profile.link_plugin("l00-census", fixtures_dir / "l00-census")
 
@@ -560,15 +439,23 @@ def test_baseline_profile(lab_home: LabHome, fixtures_dir: Path, launch):
 
         assert settle_snap is not None, f"{label}：普查员没被加载\n{got['logs']}"
         entries = settle_snap["entries"]
+        ids = sorted(e["id"] for e in entries)
+
+        # ① 形状完全可预测——多一个少一个都说明基线漏了东西或框架补了东西
+        assert ids == ["census", "hmr", "include", "timer"], (
+            f"{label}：树的形状不是预期的四个，实际 {ids}"
+        )
+        # ③ 多 insert 块共存：census 来自调用方的 patch，timer/hmr 来自基线那块
         assert any(e["id"] == "census" for e in entries), (
             f"{label}：多 insert 块没能共存 —— 拼接方案不成立"
         )
 
-        hmr_ids = [e["id"] for e in entries if (e["name"] or "").endswith("plugin-hmr")]
-        print(f"    hmr 条目：{hmr_ids}")
-        assert len(hmr_ids) == 1, f"{label}：hmr 条目应当只有一个，实际 {hmr_ids}"
-        if hmr_root is not None:
-            assert hmr_ids == ["hmr"], "自挂时那一个应当是我们自己的（id 是我们给的）"
+        hmr = next(e for e in entries if e["id"] == "hmr")
+        print(f"    hmr：id={hmr['id']} state={hmr['fiberState']} ⊂{hmr['parent']}")
+        # 基线声明的两条走的是 patch，所以落在 include 的 subtree 里
+        assert hmr["parent"] == "include", (
+            f"{label}：基线声明的 hmr 应当在 include 的 subtree 里，实际 ⊂{hmr['parent']}"
+        )
 
 
 def test_pending_at_boot_is_fatal(lab_home: LabHome, fixtures_dir: Path, launch):

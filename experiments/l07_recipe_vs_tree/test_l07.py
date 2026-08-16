@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from lab import PKG_HMR, PKG_TIMER, Instance, LabHome, LabProfile
+from lab import PKG_HMR, PKG_TIMER, Instance, LabHome, LabProfile, dump_config
 
 
 # ── 辅助 ────────────────────────────────────────────────────────────────────
@@ -282,182 +282,45 @@ def test_recipe_hot_reload_updates_include_config(lab_home: LabHome, fixtures_di
         assert expect in ids_after, f"{expect} 改动之后不该消失，实际 {ids_after}"
 
 
-# ── ② 兜底判服务不判条目，关不掉 ─────────────────────────────────────────────
+# ── ③ include 是树上唯一不来自 patch 文件的 entry ────────────────────────────
 
 
-def test_fallback_creates_even_when_disabled(lab_home: LabHome, fixtures_dir: Path, launch):
-    """② 方向 A：写进活层再 disabled——服务仍然是 undefined，框架照样另造一份。
+def test_include_is_the_only_ghost(lab_home: LabHome, fixtures_dir: Path, launch):
+    """基线显式带上 timer / hmr 之后，树上还剩几个 entry 是 patch 文件里没有的？
 
-    L0 已经把这条钉死了（`l00_minimal_environment/test_l00.py::test_infra_cannot_be_opted_out`），
-    这里在 L7 自己的环境里复核一次：跨课重复是特性，本课的结论不依赖去读 L0 的产出。
+    **答案是一个：`cordis:include`。**
+
+    这跟「差三个」那种形态的区别不只是数量。timer / hmr 之所以曾经也算 ghost，
+    只是因为把 `dsh-base` 拿掉之后没人声明它们、框架的 fallback 补了上来——
+    那是实验台减噪造出来的人工场景，真实部署里 base 的 patch 头两条就是它们。
+
+    而 `include` 是**结构性**的：不管 config 怎么写它都在，因为**整份 effective
+    config 就装在它的 `config.patches` 里**——它要是出现在自己装的那份 config 里，
+    才是自指。所以「effective config ≠ entry tree」这条判定的干净形态就是它。
     """
-    census_out = lab_home.root / "census-fallback-disabled.json"
-    profile = lab_home.make_minimal_profile(
-        "fallback-disabled",
-        patch=census_patch(
-            census_out,
-            extra="""
-    - id: my-hmr
-      name: '@deepseek-ai/cordis-plugin-hmr'
-      disabled: true
-""",
-        ),
-    )
+    census_out = lab_home.root / "census-only-ghost.json"
+    profile = lab_home.make_minimal_profile("only-ghost", patch=census_patch(census_out))
     profile.link_plugin("l07-census", fixtures_dir / "l07-census")
+
+    dumped = dump_config(lab_home, profile.name)
+    recipe_ids = {e.get("id") for e in dumped.entries if isinstance(e, dict)}
+    print(f"\n  effective config 里的 id（{len(recipe_ids)} 个）：{sorted(recipe_ids)}")
 
     inst = launch(profile, wait_http=False)
     settle = inst.wait_for(
         lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照"
     )
-    show_entries(settle, "禁用之后")
+    show_entries(settle, "entry tree")
 
-    hmr_entries = [e for e in settle["entries"] if (e["name"] or "").endswith("plugin-hmr")]
-    print(f"\n  hmr 条目：{[(e['id'], e['disabled']) for e in hmr_entries]}")
-    assert len(hmr_entries) == 2, f"禁用不该关掉服务，框架应该另造一份，实际 {hmr_entries}"
-    live = [e for e in hmr_entries if not e["disabled"]]
-    assert len(live) == 1, "应该恰好有一个没被禁用的（框架补的那份）"
-    assert settle["services"]["hmr"], "hmr 服务应当照样在"
+    tree_ids = {e["id"] for e in settle["entries"]}
+    ghosts = tree_ids - recipe_ids
+    print(f"\n  树上有、config 里没有的 id：{sorted(ghosts)}")
 
-
-def test_fallback_skips_when_own_hmr_active(lab_home: LabHome, fixtures_dir: Path, launch):
-    """② 方向 B：自己挂一个**激活**的 hmr（不禁用）——服务已经在了，框架不再补。
-
-    对照 A：唯一的差别是这次没有 `disabled: true`。落点完全相反，
-    印证兜底判的确实是 `ctx.get("hmr") === void 0`（服务），不是「条目存不存在」。
-    """
-    census_out = lab_home.root / "census-fallback-active.json"
-    profile = lab_home.make_minimal_profile(
-        "fallback-active",
-        patch=census_patch(
-            census_out,
-            extra=f"""
-    - id: my-timer
-      name: '{PKG_TIMER}'
-
-    - id: my-hmr
-      name: '{PKG_HMR}'
-      config:
-        root: []
-""",
-        ),
+    assert ghosts == {"include"}, (
+        f"预期只剩 include 一个，实际 {sorted(ghosts)}——"
+        "多出来的说明基线没把基础设施带全，或者框架又补了别的"
     )
-    profile.link_plugin("l07-census", fixtures_dir / "l07-census")
-
-    inst = launch(profile, wait_http=False)
-    settle = inst.wait_for(
-        lambda: phase(read_census(census_out), "settle"), timeout=20.0, what="settle 快照"
+    # 反过来也要成立：config 里的每一行都在树上找得到，没有谁被悄悄丢掉
+    assert recipe_ids <= tree_ids, (
+        f"config 里有、树上没有的：{sorted(recipe_ids - tree_ids)}"
     )
-    show_entries(settle, "自带激活的 hmr")
-
-    hmr_entries = [e for e in settle["entries"] if (e["name"] or "").endswith("plugin-hmr")]
-    print(f"\n  hmr 条目：{[e['id'] for e in hmr_entries]}")
-    assert len(hmr_entries) == 1, f"服务已经在了，框架不该再补，实际 {hmr_entries}"
-    assert hmr_entries[0]["id"] == "my-hmr"
-
-
-# ── ③ 幽灵条目 id 不稳定，只能认 name ────────────────────────────────────────
-
-
-def test_ghost_ids_differ_names_stable(lab_home: LabHome, fixtures_dir: Path, launch):
-    """③ 幽灵条目的 id 每次启动都不一样，只能认 name 不能认 id。
-
-    源码依据：兜底那两句 `ctx.loader.create({ name: … })` **没传 id**——id 由
-    loader 自动生成。跑两个完全独立的最小 profile（配方一模一样，只有名字不同），
-    各自读一次 settle 快照，比对兜底补的 timer/hmr：id 应该不同，
-    name（包名后缀）应该一样。这是后面所有课写断言时的硬约束。
-    """
-    runs: dict[str, dict[str, str]] = {}
-    for label in ("ghosta", "ghostb"):
-        out = lab_home.root / f"census-ghost-{label}.json"
-        profile = lab_home.make_minimal_profile(label, patch=census_patch(out))
-        profile.link_plugin("l07-census", fixtures_dir / "l07-census")
-        inst = launch(profile, wait_http=False)
-        settle = inst.wait_for(
-            lambda o=out: phase(read_census(o), "settle"), timeout=20.0, what="settle 快照"
-        )
-        show_entries(settle, f"{label} 的 settle 快照")
-        runs[label] = ghost_entries(settle)
-        print(f"\n  {label} 的幽灵条目：{runs[label]}")
-
-    for pkg in ("plugin-timer", "plugin-hmr"):
-        id_a, id_b = runs["ghosta"].get(pkg), runs["ghostb"].get(pkg)
-        assert id_a and id_b, f"两次启动都应该有 {pkg} 的幽灵条目"
-        assert id_a != id_b, f"{pkg} 的幽灵条目 id 应该每次都不一样，两次却都是 {id_a}"
-    print("\n  → id 不稳定，只能认 name（包名后缀）")
-
-
-# ── ④ 未坐实的观察：兜底会不会触发一次整树刷新 ──────────────────────────────
-
-
-def test_ghost_creation_does_not_lose_settle_snapshot(lab_home: LabHome, fixtures_dir: Path, launch):
-    """④ L0 记下但没坐实的一个观察：兜底创建 timer/hmr 会不会触发一次整树刷新，
-    把普查员自己重挂了、导致 settle 快照被覆盖？
-
-    **L0 的假说**：`loader.create()` 会 `tree.write()`，而那正是 include 的
-    `config.path`（`cordis.yml`），于是触发一次整树刷新。
-
-    **本课多读了一层源码**（`cordis-plugin-loader/src/index.ts`），假说的因果链
-    在源头上就不成立：
-
-        export class Loader extends EntryTree {
-          …
-          write() {
-            // Loader's root tree is in-memory; writes are no-ops.
-          }
-        }
-
-        export class Include extends EntryTree {
-          …
-          write() {
-            this.context.emit('loader/config-update')
-            return this.writeFile(this.root.data)   // 只有这里真的落盘
-          }
-        }
-
-    兜底的 `ctx.loader.create()` 落在**根**这棵树（`Loader` 自己）上——timer/hmr
-    跟 include 平级，L0 已经验过——而根树的 `write()` 明确是空操作、注释原文
-    写着 "Loader's root tree is in-memory; writes are no-ops."。只有 `Include`
-    自己的树（对应某个 `cordis:include` 条目的子树）落盘时才会真的 `writeFile`。
-    兜底创建 timer/hmr 压根碰不到磁盘文件，所谓「写回 cordis.yml 触发整树刷新」
-    这条因果链源头上就断了。
-
-    这一跑仍然去实测——源码分析可能漏看了别的路径，而且这条判定的分量
-    值得多一次交叉验证。用 l07-census 的 `applyIndex`/多条 record 数组
-    直接看「普查员在观察窗口内被 apply 了几次」。**测出来是它就是发现，
-    测不出来就如实记录「未复现」，不硬凑。**
-    """
-    census_out = lab_home.root / "census-refresh.json"
-    profile = lab_home.make_minimal_profile(
-        "refresh", patch=census_patch(census_out, delay_ms=800, delay_ms2=6000)
-    )
-    profile.link_plugin("l07-census", fixtures_dir / "l07-census")
-
-    inst = launch(profile, wait_http=False)
-    settle2 = inst.wait_for(
-        lambda: phase(read_census(census_out), "settle2"), timeout=20.0, what="settle2 快照"
-    )
-    census = read_census(census_out)
-    n = applies(census)
-    print(f"\n  普查员在观察窗口内被 apply 了 {n} 次")
-    for i, record in enumerate(census or []):
-        phases_seen = [s["phase"] for s in record.get("snapshots", [])]
-        print(f"    record[{i}]：applyIndex={record.get('applyIndex')}，拍到的快照={phases_seen}")
-
-    if n > 1:
-        print(
-            "\n  → 复现了！被重挂过——这是一个真正的发现，"
-            "跟源码读出来的判断相反，要在 README 里正面记下、同步 DRAFT.md。"
-        )
-    else:
-        print(
-            "\n  → 未复现（跟 L0 两次复跑的结果一致）。结合上面的源码证据，"
-            "现在有理由认为不是『还没抓到』，是『这条因果链本身大概率不存在』——"
-            "L0 那次 settle 丢失更可能是旧版工具自己的缺陷（record 建在 apply 里、"
-            "被覆盖），不是框架触发了整树刷新。"
-        )
-
-    # 不对 n 的具体值做强断言——这一课的任务是如实记录，不是硬凑绿灯。
-    assert census is not None, "普查员至少应该被加载一次"
-    assert n >= 1, "至少应该有一条 apply 记录"
-    assert phase(census, "boot") is not None, "boot 快照应该拿得到"
-    assert settle2 is not None, "settle2 快照应该拿得到"
