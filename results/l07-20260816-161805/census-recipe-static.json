@@ -1,0 +1,203 @@
+[
+  {
+    "marker": "l07-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2000,
+    "delayMs2": null,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T08:17:49.408Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ],
+            "includePatches": {
+              "present": true,
+              "count": 3,
+              "summary": [
+                {
+                  "op": "insert",
+                  "ids": [
+                    "timer",
+                    "hmr"
+                  ]
+                },
+                {
+                  "op": "insert",
+                  "ids": [
+                    "census",
+                    "profile-marker"
+                  ]
+                },
+                {
+                  "op": "insert",
+                  "ids": [
+                    "home-marker"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "timer",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "hmr",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "census",
+            "name": "l07-census",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          },
+          {
+            "id": "profile-marker",
+            "name": "l07-marker-profile",
+            "parent": "include",
+            "disabled": true,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "home-marker",
+            "name": "l07-marker-home",
+            "parent": "include",
+            "disabled": true,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          }
+        ]
+      },
+      {
+        "phase": "settle",
+        "at": "2026-08-16T08:17:51.411Z",
+        "services": {
+          "loader": true,
+          "timer": true,
+          "hmr": true,
+          "logger": false,
+          "webServer": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader"
+            ],
+            "includePatches": {
+              "present": true,
+              "count": 3,
+              "summary": [
+                {
+                  "op": "insert",
+                  "ids": [
+                    "timer",
+                    "hmr"
+                  ]
+                },
+                {
+                  "op": "insert",
+                  "ids": [
+                    "census",
+                    "profile-marker"
+                  ]
+                },
+                {
+                  "op": "insert",
+                  "ids": [
+                    "home-marker"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "id": "timer",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "hmr",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": [
+              "loader",
+              "timer"
+            ]
+          },
+          {
+            "id": "census",
+            "name": "l07-census",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 2,
+            "inject": []
+          },
+          {
+            "id": "profile-marker",
+            "name": "l07-marker-profile",
+            "parent": "include",
+            "disabled": true,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "home-marker",
+            "name": "l07-marker-home",
+            "parent": "include",
+            "disabled": true,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          }
+        ]
+      }
+    ]
+  }
+]

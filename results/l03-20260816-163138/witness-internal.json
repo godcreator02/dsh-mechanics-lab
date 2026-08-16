@@ -1,0 +1,10 @@
+{
+  "marker": "l03-probe-v1",
+  "moduleLoadedAt": "2026-08-16T08:30:35.862Z",
+  "appliedAt": "2026-08-16T08:30:35.875Z",
+  "loaderInternal": true,
+  "baseUrl": "file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/.testhome/l03/profiles/internal/",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/.testhome/l03/witness-internal.json"
+  }
+}
