@@ -1,0 +1,8 @@
+{
+  "god-flow": {
+    "root-id": "",
+    "hooks": {
+      "block-bare-commit": { "enabled": true }
+    }
+  }
+}
