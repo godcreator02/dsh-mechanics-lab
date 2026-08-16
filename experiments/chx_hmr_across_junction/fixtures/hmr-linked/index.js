@@ -18,10 +18,14 @@
 
 export const inject = ["labObserver"];
 
-export function apply(ctx) {
+export function apply(ctx, config) {
   const say = ctx.labObserver.for(ctx);
 
-  say("我跑起来了", { 版本: "第一版" });
+  // 两个版本号来路不同，⑧ 靠它们分家：
+  //   版本     —— 写死在这个文件里，改它就是「改代码」
+  //   配置版本 —— 从条目的 config 来，改它是「改配方」
+  // 活层那几条用例没给 config，那里它就是 null。
+  say("我跑起来了", { 版本: "第一版", 配置版本: config?.版本 ?? null });
 
   // 我自己是从哪个 URL 被加载的。经 junction 装进来的包，这里报出的是
   // 链接路径还是链接那头的真实路径，直接决定 hmr 那三处

@@ -34,7 +34,10 @@
 ⑤⑥只差条目写在哪一层，⑥⑦只差源码放在磁盘的哪个位置 —— 哪一环断的，
 看哪两条的差就知道。
 
-五个判定（详见各用例的 docstring）：
+⑧ 问的是另一件事：⑦ 那个形态下**同时**改代码和改包里那份 patch 的 `config`，
+拿到的是哪一头的新值。答案是**新代码配旧配方**。
+
+六个判定（详见各用例的 docstring）：
 
   * **经 junction 装进来的模块，URL 是链接那一头的真实路径**，不含 `node_modules`。
     所以 hmr 那三处 `url.includes('/node_modules/')` 一处都不命中 —— 挡住热重载的
@@ -51,6 +54,14 @@
     同一棵树上（两种形态报出的 `baseUrl` 都是 profile 目录），重载路径完全一样。
     跟第 10 项摆在一起看：**bundle 层的配方是冷的，但配方指向的代码是热的** ——
     改包里那份 `cordis.patch.yml` 要重启，改它指向的 `index.js` 不用。
+  * **代码热重载不换 config，拿到的是「新代码 + 旧配方」**（⑧）。重载走
+    `registry.plugin(plugin, oldFiber._config, ...)`，明写着沿用旧 fiber 的配置；
+    而 bundle 层的配方本来就冷（`composed.bundlePatches` 是 boot 时读好的常量数组，
+    `dsh/lib/profile-boot-DG5t9aNs.js:170,242`）。两件事叠一起，看起来就像
+    「配置改了没生效」。⑧ 还坐实了「冷」的证据形态：那份 patch 文件落在 watch
+    范围内、watcher **报了**它的变化（事件流里 `hmr-change` 点名 `cordis.patch.yml`），
+    但它不是任何 include 的 filename、也不在 `loadCache` 里，于是掉进「只发个事件」
+    的分支 —— **不是没人看见，是看见了没人管。**
 """
 
 from __future__ import annotations
@@ -86,6 +97,9 @@ PKG_NAME = "hmr-linked"
 
 #: 插件代码里写着的那句话。用例把前者改成后者 —— 这就是「改代码」。
 FIRST, SECOND = "第一版", "第二版"
+
+#: 包里那份 patch 的 config 里写着的那句话。用例把前者改成后者 —— 这是「改配方」。
+CFG_FIRST, CFG_SECOND = "配置第一版", "配置第二版"
 
 #: 「验证什么都不该发生」用的固定等待。热重载是一两秒的事，15 秒远超它 ——
 #: 这类断言不许轮询提前退出：提前退出只能证明「此刻还没发生」。
@@ -210,12 +224,38 @@ def edit_code(index_js: Path) -> None:
     index_js.write_text(text.replace(FIRST, SECOND), encoding="utf-8")
 
 
+def edit_bundle_config(pkg_dir: Path) -> Path:
+    """把**包里那份 patch** 的 config 从「配置第一版」改成「配置第二版」。
+
+    跟 `edit_code` 是两个不同的动作：那个改代码，这个改配方。⑧ 同时做这两件事，
+    看重载之后拿到的是哪一头的新值。
+    """
+    patch = pkg_dir / "cordis.patch.yml"
+    text = patch.read_text(encoding="utf-8")
+    assert CFG_FIRST in text, f"前提：{patch} 里本来写着{CFG_FIRST}"
+    patch.write_text(text.replace(CFG_FIRST, CFG_SECOND), encoding="utf-8")
+    return patch
+
+
 # ── 读事件流 ────────────────────────────────────────────────────────────────
 
 
 def said_versions(events: list[dict]) -> list[str]:
     """插件报过的「版本」，按时间顺序。"""
     return [e["data"]["版本"] for e in reports(events, who="greeter") if (e.get("data") or {}).get("版本")]
+
+
+def said_pairs(events: list[dict]) -> list[tuple[str, str | None]]:
+    """插件每次报出的（代码里那个版本, config 里那个版本），按时间顺序。
+
+    ⑧ 的判据 —— 两个来路分开看，才分得出「新代码 + 旧配方」这种组合。
+    """
+    out = []
+    for e in reports(events, who="greeter"):
+        data = e.get("data") or {}
+        if data.get("版本"):
+            out.append((data["版本"], data.get("配置版本")))
+    return out
 
 
 def said_note(events: list[dict], note: str) -> list[dict]:
@@ -539,3 +579,81 @@ def test_source_nested_under_profile_needs_no_hmr_change(lab_home: LabHome, laun
     assert "greeter" in entry_ids(events), "包自己那份 patch 写的条目应当出现在树上"
     assert got == [FIRST, SECOND], f"源码在 watch base 里面，默认配置就该热重载，实际 {got}"
     assert states_of(events, "greeter").count("ACTIVE") == 2, "该条目应当跑起来两次"
+
+
+def test_code_reload_keeps_the_old_config(lab_home: LabHome, launch):
+    """⑧ 同一时刻改代码 + 改包里那份 patch 的 config —— 拿到的是**新代码配旧配方**。
+
+    ⑦ 的形态（源码嵌在 profile 里，hmr 默认配置），所以两个文件都在 watch 范围内。
+    一次改两处，一次读结果：
+
+      * 代码里那句「第一版」→「第二版」
+      * 包里那份 patch 的 `config.版本`「配置第一版」→「配置第二版」
+
+    插件每次把两个值一起报出来，来路一眼分得开。
+
+    三条判定挤在这一条用例里：
+
+    **一 · 代码路径不换 config。** 重载走的是
+    `registry.plugin(plugin, oldFiber._config, ...)`（`index.ts:502-509`）——
+    明写着沿用旧 fiber 的 config。所以新代码拿到的是**上一程那份**配置。
+
+    **二 · bundle 层的 config 是冷的。** `composeLive()` 里
+    `composed.bundlePatches` 是 boot 时 `loadProfile()` 读好的常量数组
+    （`dsh/lib/profile-boot-DG5t9aNs.js:170,242`），只有 profile 活层和 home 层
+    每次重读盘。改包里那份 patch 不进这条路。
+
+    **三 · watcher 看见了那个 patch 文件，但没有任何后续。** 它落在 `root: ['.']`
+    范围内，所以 root watcher 报了 change；但它不是任何 include 的 filename，
+    也不在 `loadCache` 里（不是 JS 模块），于是掉进最后那个「只发个事件」的分支
+    （`index.ts:270`）—— 事件流里能看到 `hmr-change` 点名它。
+
+    第三条是「配方冷」该有的证据形态：**不是没人看见，是看见了没人管。**
+
+    最后重启一次坐实「冷」而不是「丢了」：新进程重新 `loadProfile()`，
+    两个新值这才一起生效。
+    """
+    profile, events_path, index_js = build(lab_home, "cfgcold", placement="bundle-nested", watch="profile")
+    pkg_dir = index_js.parent
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+    assert said_pairs(read_events(events_path)) == [(FIRST, CFG_FIRST)], "起手该是代码第一版配配方第一版"
+
+    # ── 同一时刻，两处各改一笔 ──────────────────────────────────────────────
+    edit_code(index_js)
+    patch_file = edit_bundle_config(pkg_dir)
+
+    wait_said(inst, events_path, count=2, timeout=25.0)
+    Instance.settle(5.0)  # 再多坐一会儿：万一配方那笔走的是另一条更慢的路
+
+    events = read_events(events_path)
+    pairs = said_pairs(events)
+    seen_patch = [e for e in of_kind(events, "hmr-change") if "cordis.patch.yml" in str(e.get("url"))]
+
+    print("\n══ ⑧ 同时改代码和包里那份 patch 的 config ════════════════")
+    print(f"  代码：{FIRST} → {SECOND}　　　（文件 {index_js.name}）")
+    print(f"  配方：{CFG_FIRST} → {CFG_SECOND}（文件 {patch_file.name}，在 watch 范围内）")
+    print(f"  {hmr_noise(events)}")
+    print(f"  watcher 点名那份 patch 文件的次数：{len(seen_patch)}")
+    print(f"  插件报过的（代码版本, 配方版本）：{pairs}")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert pairs == [(FIRST, CFG_FIRST), (SECOND, CFG_FIRST)], f"该是「新代码 + 旧配方」，实际 {pairs}"
+    assert seen_patch, "那份 patch 文件在 watch 范围内，watcher 该报出它的变化"
+    assert len(of_kind(events, "hmr-reload")) == 1, "只该有一次重载（代码那次），配方那次不产生重载"
+
+    # ── 重启：新进程重新 loadProfile()，配方那笔这才生效 ────────────────────
+    inst.stop()
+    events_path.replace(events_path.with_name(events_path.stem + "-run1.jsonl"))
+    inst = launch(profile, wait_http=False)
+    after = wait_said(inst, events_path, count=1)
+
+    pairs_after = said_pairs(read_events(events_path))
+    print("\n══ 重启之后 ══════════════════════════════════════════════")
+    print(f"  插件报出的（代码版本, 配方版本）：{pairs_after}")
+
+    assert inst.alive(), f"重启后实例应当活着：\n{inst.logs()}"
+    assert after == [SECOND], f"重启后代码当然是新的，实际 {after}"
+    assert pairs_after == [(SECOND, CFG_SECOND)], f"重启后配方那笔才生效，实际 {pairs_after}"

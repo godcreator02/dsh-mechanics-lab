@@ -11,3 +11,5 @@
 - insert:
     - id: greeter
       name: hmr-linked
+      config:
+        版本: 配置第一版
