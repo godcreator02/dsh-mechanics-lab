@@ -137,8 +137,19 @@ def _archive(home: LabHome, label: str, module_name: str) -> Path | None:
 
 
 def _label_of(request: pytest.FixtureRequest) -> str:
-    """从实验目录名推出标签：`l01_minimal_plugin/` → `l01`。"""
-    return Path(str(request.fspath)).parent.name.split("_")[0]
+    """实验目录名就是标签，**整个用上、不截断**。
+
+    曾经只取第一段（`l01_minimal_plugin` → `l01`），看着清爽，但那要求
+    「目录名第一段全局唯一」——这个隐含前提在加了 `ch0_observer` /
+    `ch0_minimal` / `ch2_*` 之后就破了：它们各自算出 `ch0` / `ch2`，
+    于是**共用同一个假 home**，并行跑时一项的 `clean()` 会删掉另一项正在
+    用的 profile。串行跑看不出来（各模块起手清 home、跑完即归档），
+    只有并行才炸——最难查的那种。
+
+    整个目录名当标签，唯一性由文件系统保证，不再依赖命名纪律。
+    代价只是 `out/` 下的目录名长一点。
+    """
+    return Path(str(request.fspath)).parent.name
 
 
 @pytest.fixture(scope="module")
