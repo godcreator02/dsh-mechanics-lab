@@ -1,0 +1,746 @@
+[
+  {
+    "marker": "l00-census-v1",
+    "applyIndex": 0,
+    "delayMs": 2000,
+    "snapshots": [
+      {
+        "phase": "boot",
+        "at": "2026-08-16T06:02:32.911Z",
+        "services": {
+          "loader": true,
+          "timer": false,
+          "hmr": false,
+          "logger": false,
+          "webServer": false
+        },
+        "entries": [
+          {
+            "id": "include",
+            "name": "cordis:include",
+            "parent": null,
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": [
+              "loader"
+            ]
+          },
+          {
+            "id": "timer",
+            "name": "@deepseek-ai/cordis-plugin-timer",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "hmr",
+            "name": "@deepseek-ai/cordis-plugin-hmr",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "llm",
+            "name": "@deepseek-ai/dsh-llm",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session",
+            "name": "@deepseek-ai/dsh-session",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "typert",
+            "name": "@deepseek-ai/dsh-typert-registry",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "typert-loader",
+            "name": "@deepseek-ai/dsh-typert-loader",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "typert-gateway",
+            "name": "@deepseek-ai/dsh-api-gateway",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-title",
+            "name": "@deepseek-ai/dsh-session-title",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-title-llm",
+            "name": "@deepseek-ai/dsh-session-title-first-prompt-llm",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "user-questions",
+            "name": "@deepseek-ai/dsh-user-questions",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "agent",
+            "name": "@deepseek-ai/dsh-agent",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "agent-default-model",
+            "name": "@deepseek-ai/dsh-agent-default-model",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "jobs",
+            "name": "@deepseek-ai/dsh-jobs-local",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "llm-retry",
+            "name": "@deepseek-ai/dsh-llm-retry",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "settings",
+            "name": "@deepseek-ai/dsh-settings-file",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "credentials",
+            "name": "@deepseek-ai/dsh-credentials-local",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "llm-pi-ai",
+            "name": "@deepseek-ai/dsh-llm-pi-ai",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-persistence-jsonl",
+            "name": "@deepseek-ai/dsh-session-persistence-jsonl",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "attachment-local",
+            "name": "@deepseek-ai/dsh-attachment-local",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-query-sqlite",
+            "name": "@deepseek-ai/dsh-session-query-sqlite",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-projection",
+            "name": "@deepseek-ai/dsh-session-projection",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-telemetry-otel",
+            "name": "@deepseek-ai/dsh-session-telemetry-otel",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "subprocess",
+            "name": "@deepseek-ai/dsh-subprocess-local",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "sandbox",
+            "name": "@deepseek-ai/dsh-sandbox-local",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "sandbox-policy",
+            "name": "@deepseek-ai/dsh-sandbox-policy",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "bash-sandbox",
+            "name": "@deepseek-ai/dsh-bash-sandbox",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "pwsh-sandbox",
+            "name": "@deepseek-ai/dsh-pwsh-sandbox",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "approval",
+            "name": "@deepseek-ai/dsh-user-approval",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "permission",
+            "name": "@deepseek-ai/dsh-permission-presets",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "shell-env",
+            "name": "@deepseek-ai/dsh-shell-env",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-bash",
+            "name": "@deepseek-ai/dsh-tool-bash",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-pwsh",
+            "name": "@deepseek-ai/dsh-tool-pwsh",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-jobs",
+            "name": "@deepseek-ai/dsh-tool-jobs",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "fs-observation-policy",
+            "name": "@deepseek-ai/dsh-fs-observation-policy",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-fs",
+            "name": "@deepseek-ai/dsh-tool-fs",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-fs-search",
+            "name": "@deepseek-ai/dsh-tool-fs-search",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "agent-instructions",
+            "name": "@deepseek-ai/dsh-agent-instructions",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "skill",
+            "name": "@deepseek-ai/dsh-skill",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "skill-filesystem",
+            "name": "@deepseek-ai/dsh-skill-filesystem",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "skill-badge",
+            "name": "@deepseek-ai/dsh-skill-badge",
+            "parent": "include",
+            "disabled": true,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-skill",
+            "name": "@deepseek-ai/dsh-tool-skill",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "commands",
+            "name": "@deepseek-ai/dsh-commands",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "command-feedback",
+            "name": "@deepseek-ai/dsh-command-feedback",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "goal",
+            "name": "@deepseek-ai/dsh-goal",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "goal-round-driver",
+            "name": "@deepseek-ai/dsh-goal-round-driver",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "command-goal",
+            "name": "@deepseek-ai/dsh-command-goal",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "plan-mode",
+            "name": "@deepseek-ai/dsh-plan-mode",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "token-meter",
+            "name": "@deepseek-ai/dsh-token-meter",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "compaction-basic",
+            "name": "@deepseek-ai/dsh-compaction-basic",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "command-compact",
+            "name": "@deepseek-ai/dsh-command-compact",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "subagent",
+            "name": "@deepseek-ai/dsh-subagent",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "subagent-spawn-in-process",
+            "name": "@deepseek-ai/dsh-subagent-spawn-in-process",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "subagent-fork-in-process",
+            "name": "@deepseek-ai/dsh-subagent-fork-in-process",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-subagent-control",
+            "name": "@deepseek-ai/dsh-tool-subagent-control",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-subagent-list-agents",
+            "name": "@deepseek-ai/dsh-tool-subagent-control/list-agents",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-subagent",
+            "name": "@deepseek-ai/dsh-tool-subagent",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-subagent-fork",
+            "name": "@deepseek-ai/dsh-tool-subagent",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-subagent-report",
+            "name": "@deepseek-ai/dsh-tool-subagent-report",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "workflow-worker-thread",
+            "name": "@deepseek-ai/dsh-workflow-worker-thread",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-workflow",
+            "name": "@deepseek-ai/dsh-tool-workflow",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "timeout-policy",
+            "name": "@deepseek-ai/dsh-tool-call-timeout-policy",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 0,
+            "inject": [
+              "tools"
+            ]
+          },
+          {
+            "id": "spill-local",
+            "name": "@deepseek-ai/dsh-spill-local",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "spill-policy",
+            "name": "@deepseek-ai/dsh-spill-policy",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "session-checkpoint-policy",
+            "name": "@deepseek-ai/dsh-session-checkpoint-policy",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-result-pruner",
+            "name": "@deepseek-ai/dsh-compaction-tool-result-pruner",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-todo",
+            "name": "@deepseek-ai/dsh-tool-todo",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-goal",
+            "name": "@deepseek-ai/dsh-tool-goal",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-ralph",
+            "name": "@deepseek-ai/dsh-tool-ralph",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-str-replace-editor",
+            "name": "@deepseek-ai/dsh-tool-str-replace-editor",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "repeat-tool-reminder",
+            "name": "@deepseek-ai/dsh-repeat-tool-reminder",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "web",
+            "name": "@deepseek-ai/dsh-web",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "web-search-deepseek",
+            "name": "@deepseek-ai/dsh-web-search-deepseek",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tool-web",
+            "name": "@deepseek-ai/dsh-tool-web",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "tools",
+            "name": "@deepseek-ai/dsh-tools",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "system-prompt",
+            "name": "@deepseek-ai/dsh-system-prompt",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "agent-loop",
+            "name": "@deepseek-ai/dsh-agent-loop",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "fs-sandbox",
+            "name": "@deepseek-ai/dsh-fs-sandbox",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "llm-deepseek",
+            "name": "@deepseek-ai/dsh-llm-deepseek",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": false,
+            "fiberState": null,
+            "inject": null
+          },
+          {
+            "id": "census",
+            "name": "l00-census",
+            "parent": "include",
+            "disabled": false,
+            "hasFiber": true,
+            "fiberState": 1,
+            "inject": []
+          }
+        ]
+      }
+    ]
+  }
+]

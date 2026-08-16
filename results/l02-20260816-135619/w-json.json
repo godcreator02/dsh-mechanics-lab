@@ -1,0 +1,27 @@
+{
+  "marker": "l02-fields-v1",
+  "moduleLoadedAt": "2026-08-16T05:56:17.784Z",
+  "appliedAt": "2026-08-16T05:56:18.121Z",
+  "platform": "win32",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/.testhome/l02/w-json.json",
+    "嵌套": {
+      "层一": {
+        "层二": [
+          1,
+          2,
+          {
+            "深处": "到底了"
+          }
+        ]
+      }
+    },
+    "数组": [
+      "甲",
+      "乙",
+      "丙"
+    ],
+    "空值": null,
+    "浮点": 3.14
+  }
+}

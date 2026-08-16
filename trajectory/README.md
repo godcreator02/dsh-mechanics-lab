@@ -55,7 +55,7 @@
 
 | 篇 | 了断 | 日期 |
 |---|---|---|
-| [0001-实验台从 dshw 视角转向独立研究](0001-turn-to-independent-research.md) | 转向 | 2026-08-15 |
+| [0001-实验台从下游视角转向独立研究](0001-turn-to-independent-research.md) | 转向 | 2026-08-15 |
 | [0002-E3 观测信号选错导致整批数据作废](0002-e3-wrong-observation-signal.md) | 走死 | 2026-08-15 |
 | [0003-PENDING 致命性悬案与用例的假绿](0003-pending-fatality-and-false-green.md) | 推翻 | 2026-08-16 |
 | [0004-裸包名锚点的机制解释推翻](0004-bare-specifier-anchor-refuted.md) | 推翻 | 2026-08-16 |

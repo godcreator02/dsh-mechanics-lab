@@ -161,18 +161,25 @@ def test_profile_minimal_files(lab_home: LabHome, fixtures_dir: Path, launch):
     assert not root_config.exists(), "前提：我们没建它"
 
     inst = launch(profile, wait_http=False)
-    got = watch(inst)
 
-    print(f"启动后 cordis.yml 存在？ {root_config.exists()}")
-    if root_config.exists():
-        print("  内容：")
-        for line in root_config.read_text(encoding="utf-8").splitlines():
-            print(f"    | {line}")
+    # 「验证**应该**发生的事」用轮询，不能用固定窗口——本用例第一版用 watch() 那个
+    # 固定 6 秒，单跑时稳过，但全套跑到这里机器负载高、dsh 启动变慢，
+    # 窗口到期时框架还没写完这个文件，用例就假失败了。
+    # 这正是观测方法论第 4 条说的那种错：验「该发生」用轮询，验「不该发生」才用固定长等待。
+    inst.wait_for(
+        root_config.exists,
+        timeout=45.0,
+        what="框架建出空根 cordis.yml",
+    )
+    got = watch(inst, seconds=1.0)
+
+    print("启动后 cordis.yml 存在？ True")
+    print("  内容：")
+    for line in root_config.read_text(encoding="utf-8").splitlines():
+        print(f"    | {line}")
     print(f"进程还活着？ {got['alive']}（退出码 {got['exit_code']}）")
     if not got["alive"]:
         print(got["logs"])
-
-    assert root_config.exists(), "框架应当自己建出空根 cordis.yml"
     assert root_config.read_text(encoding="utf-8").strip().endswith("[]"), (
         "空根的内容应当是一个空数组"
     )

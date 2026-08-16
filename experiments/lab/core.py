@@ -21,10 +21,10 @@ EXPERIMENTS_DIR = LAB_ROOT / "experiments"
 TESTHOME_ROOT = LAB_ROOT / ".testhome"
 RESULTS_DIR = LAB_ROOT / "results"
 
-#: 生产实例的端口，任何情况下都不许碰
+#: 本机上可能有别的东西在跑的端口，任何情况下都不许碰
 FORBIDDEN_PORTS = (3080, 3239, 3733)
 
-#: 本箱可用端口。上限是硬的：3100 往上是 dshw 的哈希池（3100-3979）
+#: 本箱可用端口。上下界都是硬的——3080 与 3100 以上都可能被别的进程占着
 LAB_PORT_RANGE = range(3090, 3100)
 
 #: 每个 profile 默认叠的 bundle。dsh-base 是所有 profile 的共同底座；
@@ -51,29 +51,21 @@ _dsh_bin_cache: Path | None = None
 
 
 def dsh_bin() -> Path:
-    """定位 dsh 部署的 bin.js。
+    """定位 dsh 部署的 `bin.js`。
 
-    解析顺序与 dshw 一致：$DSHW_DSH_BIN > ~/.dshw/config.json > 扫 npx 缓存取最新。
+    解析顺序：`$LAB_DSH_BIN` > 扫 npx 缓存取最新的一份。
+
+    npx 缓存那条是常规情形——`npx @deepseek-ai/dsh` 跑过之后它就在那儿。
+    环境变量留给「dsh 装在别处」的部署，本实验台不猜别的位置。
     """
     global _dsh_bin_cache
     if _dsh_bin_cache is not None:
         return _dsh_bin_cache
 
-    env = os.environ.get("DSHW_DSH_BIN")
+    env = os.environ.get("LAB_DSH_BIN")
     if env and Path(env).exists():
         _dsh_bin_cache = Path(env)
         return _dsh_bin_cache
-
-    cfg = Path.home() / ".dshw" / "config.json"
-    if cfg.exists():
-        try:
-            data = json.loads(cfg.read_text(encoding="utf-8"))
-            candidate = data.get("dshBin")
-            if candidate and Path(candidate).exists():
-                _dsh_bin_cache = Path(candidate)
-                return _dsh_bin_cache
-        except (json.JSONDecodeError, OSError):
-            pass
 
     npx_root = Path(os.environ.get("LOCALAPPDATA", "")) / "npm-cache" / "_npx"
     if npx_root.is_dir():

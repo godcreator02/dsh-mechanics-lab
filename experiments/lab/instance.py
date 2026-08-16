@@ -234,7 +234,7 @@ def start_instance(
 ) -> Instance:
     """拉起一个实验实例。
 
-    拉法与 dshw 一致：`DSH_HOME=<假home> node <dshBin> --profile <名> [--port <口>]`。
+    拉法：`DSH_HOME=<假home> node <dshBin> --profile <名> [--port <口>]`。
     DSH_HOME 经子进程 env 传入，**不改当前进程环境** —— 这是安全边界。
 
     Args:
