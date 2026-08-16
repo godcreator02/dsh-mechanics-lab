@@ -558,7 +558,9 @@ L17 全部推倒重来。
 **别忘了**：`bundle` 一词二义——**profile bundle**（冷）与 **client bundle**（热）
 恰好是热冷两极。这是整份教材要澄清的头号术语陷阱，在本课收口。
 
-**教具**：`demo/lab-inspector` 就是按 client 插件样板写的，可直接复用。
+**开课前先看** `.god-flow/drafts/l16-client-plugin.md`——那里记着一版做过、但当时没有
+用例覆盖的双面插件（免构建的 client bundle 写法、`inject: ["loader"]` 的自指死锁）。
+那些还是**待验证的观察**，不是判定。
 
 ## ⬜ L17 · hmr 自身的归属
 

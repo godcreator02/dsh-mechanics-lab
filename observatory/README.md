@@ -155,8 +155,9 @@ hmr 的主 watcher 对每个文件变化按顺序判断四条分支：是 includ
 
 1. **零 `inject`**。订阅事件只要 `apply` 的 `ctx`，写文件只要 `node:fs`。
    没有依赖就没有等待，它会在很早的批次里挂上，漏掉的早期事件最少。
-   （反面教材：`lab-inspector` 因为 `inject: ["loader"]` 被 loader 的 await 语义
-   锁死在 PENDING，日志里一个字都没有。见 `demo/README.md`。）
+   （反面案例：有个插件写了 `inject: ["loader"]`，被 loader 的 await 语义锁死在
+   PENDING，路由永远 404 而日志里一个字都没有。这条观察还没有用例覆盖，
+   记在 `.god-flow/drafts/l16-client-plugin.md`。）
 2. **内存缓冲 + 定时 flush**，不是每个事件同步写盘。实验里有几百次状态转换，
    逐个同步写会明显改变时序；我们测的是「什么变了什么没变」这类定性结论，
    宁可丢掉最后 250ms 也不污染时序。
