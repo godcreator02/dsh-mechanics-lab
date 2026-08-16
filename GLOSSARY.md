@@ -454,6 +454,12 @@ junction 是完全无效的（实测：改真实源码文件毫无反应）。
 
 ⚠️ 后两个的 id 每次启动都不一样，**只能认 `name` 不能认 id**。
 
+⚠️ **关不掉。** 那段兜底在 `boot()` 返回后无条件执行，没有开关；
+把 `timer`/`hmr` 写进活层再 `disabled: true` 只会让框架**另造一份**
+（判据是服务不是条目）。所以 **DSH 实例不存在「没有 hmr」的形态**——
+「patch 监听死了」只可能是「hmr 还在但 watcher 被清了」，
+不可能是「hmr 不在」。
+
 ### ⬜ 普查员（census）
 
 L0 的核心观测工具（`l00-census`）：拿 `ctx.get("loader")` 遍历 `loader.entries()`，

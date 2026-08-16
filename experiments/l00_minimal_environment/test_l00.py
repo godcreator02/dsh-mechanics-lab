@@ -75,23 +75,43 @@ def watch(inst: Instance, seconds: float = OBSERVE) -> dict:
     }
 
 
-def read_census(path: Path) -> dict | None:
+def read_census(path: Path) -> list[dict] | None:
+    """读普查文件。返回**历次 apply** 的记录列表。
+
+    是列表而不是单条，因为条目会被重挂——普查员每挂一次往里加一条。
+    列表长度本身就是个观测量：长度 > 1 说明这个条目在观察期内被重挂过。
+    """
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        got = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
+    return got if isinstance(got, list) else None
 
 
-def phase(census: dict | None, name: str) -> dict | None:
-    """取某一张快照。拿不到返回 None，让用例自己决定这算不算失败。"""
-    if census is None:
+def phase(census: list[dict] | None, name: str) -> dict | None:
+    """取某一张快照，**从最后一次 apply 往前找**。
+
+    为什么从后往前：重挂之后前一轮的快照就过时了，稳定态以最新的为准。
+    往前兜底是因为最后一轮可能还没来得及拍 settle（观察窗口结束了），
+    那时前一轮的 settle 仍然比什么都没有强——但它是**过时的**，
+    所以调用方要靠 `apply 次数` 自己判断可信度。
+
+    拿不到返回 None，让用例自己决定这算不算失败。
+    """
+    if not census:
         return None
-    for snap in census.get("snapshots", []):
-        if snap.get("phase") == name:
-            return snap
+    for record in reversed(census):
+        for snap in record.get("snapshots", []):
+            if snap.get("phase") == name:
+                return snap
     return None
+
+
+def applies(census: list[dict] | None) -> int:
+    """普查员被 apply 了几次。> 1 就是被重挂过。"""
+    return 0 if census is None else len(census)
 
 
 def show_entries(snap: dict | None, title: str) -> None:
@@ -234,6 +254,79 @@ def test_ghost_entries(lab_home: LabHome, fixtures_dir: Path, launch):
         "预期框架会补 timer/hmr 两个条目进树。一个都没有的话，"
         "要么兜底没触发（看 settle 快照的服务表），要么普查员拍晚了"
     )
+
+
+@pytest.mark.parametrize(
+    "kind, entries",
+    [
+        ("显式禁用 hmr", """
+    - id: my-hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      disabled: true
+"""),
+        ("连 timer 一起禁用", """
+    - id: my-timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+      disabled: true
+
+    - id: my-hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      disabled: true
+"""),
+    ],
+)
+def test_infra_cannot_be_opted_out(
+    lab_home: LabHome, fixtures_dir: Path, launch, kind: str, entries: str
+):
+    """能不能**真的不要** timer 和 hmr？
+
+    「最小插件集合是空集」这句话容易被读成「树里可以没有插件」。不是那个意思——
+    是**你要声明的集合**为空，树里从来不空。这一跑就是去撞那堵墙。
+
+    最直接的尝试：把它们显式写进活层再 `disabled: true`。按 L0 已经立住的
+    「兜底判服务不判条目」，禁用的条目不提供服务 → `ctx.get("hmr")` 仍是
+    undefined → 框架照样补一个。也就是说**禁用不但没关掉它，还多造了一份**。
+
+    两个变体的差别是「顺带把 timer 也禁掉」——用来确认兜底会不会连 timer
+    一起补（源码里 timer 那句是嵌套在 hmr 判断里的，单独看不出来）。
+
+    这条判定的分量：它意味着 DSH 实例**不存在「没有 hmr」的形态**。
+    L13 要测的「patch 监听什么时候会死」，因此不可能是「hmr 不在」，
+    只可能是「hmr 还在但 watcher 被清了」——两者的排查方向完全不同。
+    """
+    tag = "nohmr" if "timer" not in entries else "noinfra"
+    census_out = lab_home.root / f"census-{tag}.json"
+    profile = lab_home.make_profile(tag, bundles=[])
+    profile.link_plugin("l00-census", fixtures_dir / "l00-census")
+    profile.write_patch(census_patch(census_out, extra=entries))
+
+    inst = launch(profile, wait_http=False)
+    got = watch(inst)
+
+    census = read_census(census_out)
+    settle_snap = phase(census, "settle")
+    show_entries(settle_snap, f"{kind} 之后的 settle 快照")
+    print(f"\n  进程还活着？ {got['alive']}")
+    print(f"  普查员被 apply 了 {applies(census)} 次"
+          f"{'（被重挂过）' if applies(census) > 1 else ''}")
+    if not got["alive"]:
+        print(got["logs"])
+
+    assert settle_snap is not None, f"{kind}：普查员没被加载\n{got['logs']}"
+    rows = settle_snap["entries"]
+
+    for pkg in ("plugin-timer", "plugin-hmr"):
+        mine = [e for e in rows if (e["name"] or "").endswith(pkg)]
+        live = [e for e in mine if not e["disabled"]]
+        print(f"    {pkg}：共 {len(mine)} 条，其中没被禁用的 {len(live)} 条 "
+              f"→ {[e['id'] for e in live]}")
+        assert live, (
+            f"{kind}：禁用之后 {pkg} 就真没了 —— 那说明兜底有本课没发现的前提条件"
+        )
+
+    assert settle_snap["services"]["hmr"], "hmr 服务应当照样在"
+    assert settle_snap["services"]["timer"], "timer 服务应当照样在"
+    print("  → 禁不掉。禁用只是让框架另造一份，服务照样在")
 
 
 def test_hmr_fallback_condition(lab_home: LabHome, fixtures_dir: Path, launch):

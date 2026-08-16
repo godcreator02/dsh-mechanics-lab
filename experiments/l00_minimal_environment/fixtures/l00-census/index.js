@@ -61,6 +61,22 @@ function takeSnapshot(ctx, phase) {
   };
 }
 
+/**
+ * 历次 apply 的记录，**模块级**。
+ *
+ * 为什么必须是模块级 —— 普查员会被重挂。第一版把 record 建在 apply 里，
+ * 于是每次重挂都从零开始、并把文件整个覆盖掉，结果是「settle 快照凭空消失」：
+ * 定时器被 `dispose` 清掉，新的一轮又只写了 boot 快照。**工具把自己被重挂
+ * 这件事藏住了。**
+ *
+ * 挪到模块级之后，重挂会往数组里多加一条，文件里因此看得见「这个条目被挂了
+ * 几次」—— 从缺陷变成了一个有用的观测量。
+ *
+ * 模块级变量只在**模块被重新 import** 时才清空（代码热重载），条目重挂不清。
+ * 这两件事的区别正好是 L11 的主题。
+ */
+const records = [];
+
 export function apply(ctx, config) {
   const out = config?.out;
   if (!out) throw new Error("l00-census: config.out 是必需的");
@@ -68,10 +84,14 @@ export function apply(ctx, config) {
 
   const record = {
     marker: MARKER,
+    applyIndex: records.length,
     delayMs,
     snapshots: [takeSnapshot(ctx, "boot")],
   };
-  const flush = () => writeFileSync(out, JSON.stringify(record, null, 2), "utf8");
+  records.push(record);
+
+  // 写整个数组：读的一方永远看得到全部历史，不用担心被后一次覆盖
+  const flush = () => writeFileSync(out, JSON.stringify(records, null, 2), "utf8");
   flush();
 
   const handle = setTimeout(() => {
