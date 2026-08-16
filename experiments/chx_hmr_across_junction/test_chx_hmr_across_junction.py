@@ -17,22 +17,24 @@
 链接那一头的文件动了，hmr 认不认？**
 
 这不是「hmr 灵不灵」的问题，是**它盯的范围与代码的真实落点对不对得上**的问题。
-六条用例把变量拆开，一次只动一个：
+七条用例把变量拆开，一次只动一个：
 
-| | 代码在哪 | 条目从哪来 | hmr 盯着哪 | `ignored` | 结果 |
+| | 源码在哪 | 条目从哪来 | hmr 盯着哪 | `ignored` | 结果 |
 |---|---|---|---|---|---|
 | ① | profile 目录里 | 活层 | profile 目录 | 默认 | **重载**（对照组：不走 junction 就是好的） |
-| ② | 链接那一头 | 活层 | profile 目录 | 默认 | 没反应 —— watcher 一声没出 |
-| ③ | 链接那一头 | 活层 | **源码真实路径** | 默认 | 没反应 —— watcher **还是**一声没出 |
-| ④ | 链接那一头 | 活层 | **那条 junction** | 默认 | watcher 出声了，但没重载 |
-| ⑤ | 链接那一头 | 活层 | 源码真实路径 | **去掉 `**/.*`** | **重载** |
-| ⑥ | 链接那一头 | **包自注册** | 源码真实路径 | 去掉 `**/.*` | **重载**（跟 ⑤ 一样） |
+| ② | profile 外面 | 活层 | profile 目录 | 默认 | 没反应 —— watcher 一声没出 |
+| ③ | profile 外面 | 活层 | **源码真实路径** | 默认 | 没反应 —— watcher **还是**一声没出 |
+| ④ | profile 外面 | 活层 | **那条 junction** | 默认 | watcher 出声了，但没重载 |
+| ⑤ | profile 外面 | 活层 | 源码真实路径 | **去掉 `**/.*`** | **重载** |
+| ⑥ | profile 外面 | **包自注册** | 源码真实路径 | 去掉 `**/.*` | **重载**（跟 ⑤ 一样） |
+| ⑦ | **profile 里面** | 包自注册 | profile 目录 | 默认 | **重载**（hmr 一个字没改） |
 
-①②只差一个 junction，②③只差 hmr 的 `root`，③④只差同一份代码的两条路径，
-③⑤只差 `ignored` 里的一条，⑤⑥只差条目写在哪一层 —— 哪一环断的，看哪两条的差
-就知道。
+②③⑤⑥⑦ 都是 junction 装进来、用包名引用的形态。①②只差一个 junction，
+②③只差 hmr 的 `root`，③④只差同一份代码的两条路径，③⑤只差 `ignored` 里的一条，
+⑤⑥只差条目写在哪一层，⑥⑦只差源码放在磁盘的哪个位置 —— 哪一环断的，
+看哪两条的差就知道。
 
-四个判定（详见各用例的 docstring）：
+五个判定（详见各用例的 docstring）：
 
   * **经 junction 装进来的模块，URL 是链接那一头的真实路径**，不含 `node_modules`。
     所以 hmr 那三处 `url.includes('/node_modules/')` 一处都不命中 —— 挡住热重载的
@@ -40,6 +42,9 @@
   * **挡住它的是 watcher 的 `ignored`，而且是被 `**/.*` 误伤的**：筛的是
     `relative(watchBaseDir, path)`，watch base 之外的路径以 `..` 开头，Windows 上
     这串反斜杠路径被 picomatch 当成一整段，一段以点开头就成了「隐藏文件」。
+  * **误伤只在源码位于 watch base 外面时发作**。源码在里面，算出来的相对路径
+    不以 `..` 开头，默认 `ignored` 原样就能用（⑦）—— 所以这不是「junction 形态
+    与 hmr 不兼容」，是「向上走的相对路径与那条隐藏文件规则不兼容」。
   * **`root` 里的路径不做 realpath**，所以盯 junction 和盯它那一头不是一回事：
     watcher 报 junction 路径，`loadCache` 存真实路径，`Map.has` 认字符串。
   * **条目从哪一层来不影响它能不能被热重载**：bundle 层生的条目跟活层写的条目在
@@ -167,6 +172,11 @@ def build(
     elif placement == "bundle":
         pkg_dir = copy_package(lab_home.root / f"src-{name}" / PKG_NAME)
         entry = ""  # 条目归包自己那份 patch 生，活层不写
+    elif placement == "bundle-nested":
+        # 同 bundle，只把源码目录挪进 profile 目录**里面** —— 于是它落在
+        # `root: ['.']` 的范围内，算出来的相对路径也不再以 `..` 开头
+        pkg_dir = copy_package(profile_dir / "src" / PKG_NAME)
+        entry = ""
     else:
         raise ValueError(f"未知 placement：{placement}")
 
@@ -181,9 +191,10 @@ def build(
         out=json.dumps(events.as_posix()),
         entry=entry,
     )
-    profile = lab_home.make_profile(name, bundles=[PKG_NAME] if placement == "bundle" else [], patch=patch)
+    in_bundles = placement in ("bundle", "bundle-nested")
+    profile = lab_home.make_profile(name, bundles=[PKG_NAME] if in_bundles else [], patch=patch)
     profile.link_plugin("lab-recorder", OBSERVER)
-    if placement in ("linked", "bundle"):
+    if placement in ("linked", "bundle", "bundle-nested"):
         # 装进来这件事要做两半：依赖声明一行、node_modules 里一条链接。
         # 缺哪半 Node 都找不到 `name: hmr-linked`（第 9 项讲过的那套）。
         # 进不进 bundles 名单是**另一件事**，由 placement 单独决定。
@@ -482,4 +493,49 @@ def test_bundle_self_registered_entry(lab_home: LabHome, launch):
     assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
     assert "greeter" in entry_ids(events), "包自己那份 patch 写的条目应当出现在树上"
     assert got == [FIRST, SECOND], f"条目从哪一层来不该影响热重载，实际 {got}"
+    assert states_of(events, "greeter").count("ACTIVE") == 2, "该条目应当跑起来两次"
+
+
+def test_source_nested_under_profile_needs_no_hmr_change(lab_home: LabHome, launch):
+    """⑦ 同 ⑥ 的分发形态，只把源码目录挪进 profile 目录里面 —— **hmr 一个字不用改**。
+
+    ⑤⑥ 都得动 hmr 两个键（`root` 加一条、`ignored` 去一条）才通。那两处改动
+    都是为了对付同一件事：源码在 watch base **外面**。
+
+    把源码挪进 profile 目录，这件事本身就没了：
+
+      * 它落在 `root: ['.']` 的范围内，不用扩 `root`
+      * `relative(watchBaseDir, path)` 算出的是 `src\\hmr-linked\\index.js` ——
+        不以 `..` 开头，撞不上 `**/.*`；也不含 `node_modules` 那一段，
+        撞不上 `**/node_modules`。默认 `ignored` 原样留着就行
+
+    junction 照旧（`node_modules/hmr-linked` 指向 `<profile>/src/hmr-linked`），
+    包名引用照旧，`dsh.profile.bundles` 照旧，包里那份 patch 照旧。变的只有
+    源码放在磁盘的哪个位置。
+
+    这一条跟 ① 不是一回事：① 没有 junction、条目用相对路径直接指文件。这里
+    junction、包名解析、bundle 自注册全在，只是 watch 范围恰好罩住了源码。
+    """
+    profile, events_path, index_js = build(lab_home, "nested", placement="bundle-nested", watch="profile")
+
+    inst = launch(profile, wait_http=False)
+    boot(inst, events_path)
+
+    edit_code(index_js)
+    got = wait_said(inst, events_path, count=2, timeout=25.0)
+
+    events = read_events(events_path)
+    print("\n══ ⑦ 源码挪进 profile 目录，hmr 用默认配置 ═══════════════")
+    print(f"  bundles 名单：{[PKG_NAME]}　活层写的条目：无")
+    print(f"  代码落点：{index_js}")
+    print(f"  junction：{(profile.dir / 'node_modules' / PKG_NAME).as_posix()}")
+    print("  hmr 盯着：['.']　ignored：默认（一个字没改）")
+    print(f"  {hmr_noise(events)}")
+    print(show_identity(events))
+    print(f"  插件报过的版本：{got}")
+    print(show(events))
+
+    assert inst.alive(), f"实例应当活着：\n{inst.logs()}"
+    assert "greeter" in entry_ids(events), "包自己那份 patch 写的条目应当出现在树上"
+    assert got == [FIRST, SECOND], f"源码在 watch base 里面，默认配置就该热重载，实际 {got}"
     assert states_of(events, "greeter").count("ACTIVE") == 2, "该条目应当跑起来两次"
