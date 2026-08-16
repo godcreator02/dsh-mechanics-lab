@@ -203,7 +203,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
   代码走一条，配置走另一条，两条从入口到落地互不相干——只是恰好住在同一个插件里。
 </p>
 <div class="meta">
-  uv run pytest experiments/chx_hmr_across_junction/ -n 0 -s · 9 个用例 · 约 115 秒
+  uv run pytest experiments/chx_hmr_across_junction/ -n 0 -s · 11 个用例 · 约 140 秒
 </div>
 
 <section>
@@ -272,7 +272,7 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
         <dt>初始扫描</dt><dd><b>算数</b> —— 注册时已存在的层必须 apply 一次</dd>
         <dt>认哪些事件</dt><dd><code>add</code> / <code>change</code> / <code>unlink</code> <b>都认</b></dd>
         <dt>合并连改</dt><dd><b>不去抖</b>，靠 dirty 标记串行：跑完发现又脏了就再跑一遍</dd>
-        <dt>失败</dt><dd>记 warn + 发事件，<b>不回滚</b></dd>
+        <dt>失败</dt><dd>hmr 不做补偿——<b>不需要</b>：<code>entry.update()</code> 本身是事务性的，apply 失败整棵树一点不动。它只记 warn + 发 <code>hmr/config-update-failed</code></dd>
       </dl>
     </div>
   </div>
@@ -517,8 +517,100 @@ pre{margin:0; font-family:var(--mono); font-size:12.2px; line-height:1.62; white
   </p>
 </section>
 
+<section>
+  <h2>抄这段</h2>
+  <h3>hmr 到底怎么改</h3>
+  <p>
+    写在 <b>profile 的 <code>cordis.patch.yml</code></b> 里。裸 <code>- id:</code> 是「按 id 覆盖已有条目」——
+    <code>dsh-base</code> 已经插了这一行，你在后面的层把它的 <code>config</code> 换掉。
+  </p>
+
+  <div class="card scroll">
+    <div class="filename"><b>$DSH_HOME\profiles\demo\cordis.patch.yml</b></div>
+<pre>- id: hmr
+  name: '@deepseek-ai/cordis-plugin-hmr'
+  config:
+    root:
+      - .
+      - <span class="you">D:/work/hello-plugin</span>        <span class="cm"># 源码目录的真实路径，正斜杠</span>
+    ignored:
+      - '**/node_modules'          <span class="cm"># 默认名单里的三条，一条都不能漏</span>
+      - cache
+      - data
+      <span class="cm"># '**/.*' —— 故意不写。就是它误伤了 ../ 开头的路径</span>
+    debounce: 100</pre>
+  </div>
+
+  <div class="two" style="margin-top:18px">
+    <div class="w code">
+      <div class="tag">三个必须</div>
+      <h4>写错了不报错，只是静默失灵</h4>
+      <dl>
+        <dt>真实路径</dt><dd>填源码目录本身，<b>不是</b> <code>node_modules/你的包</code> 那条链接。填链接 watcher 会出声但不重载</dd>
+        <dt>重述三条</dt><dd>patch 替换整个 <code>config</code>、<b>不深度合并</b>。只写 <code>ignored: []</code> 会把 <code>node_modules</code> 也放进 watch 范围</dd>
+        <dt>两个键一起</dt><dd>只加 <code>root</code> 不动 <code>ignored</code>，watcher <b>一声不出</b>；只动 <code>ignored</code> 不加 <code>root</code>，范围压根没扩过去</dd>
+      </dl>
+    </div>
+    <div class="w conf">
+      <div class="tag">验一下通没通</div>
+      <h4>三个信号，分得出断在哪</h4>
+      <dl>
+        <dt>没有日志</dt><dd>watcher 没看见——<code>root</code> 或 <code>ignored</code> 还不对</dd>
+        <dt><code>hmr/change</code></dt><dd>watcher 看见了但没人认领——多半是 <code>root</code> 填成了链接路径</dd>
+        <dt><code>hmr reload plugin at …</code></dt><dd>通了。这行是 hmr 自己打的，插件的行为也该跟着变</dd>
+      </dl>
+    </div>
+  </div>
+
+  <p class="punch warn">
+    <b>顺带一个撞车：进了 <code>bundles</code> 名单，活层又 insert 了同一个 <code>id</code>。</b>
+    两层拼起来那是两个条目、<code>id</code> 撞了。
+    <code>dsh plugin add</code> 会自动把声明了 <code>dsh.bundle</code> 的包加进名单，所以这事很容易在你没察觉时发生。
+    <b>换个 <code>id</code> 就合法</b>：同一个包挂两次、各有各的 <code>config</code>；
+    这时改一次代码发<b>一次</b> <code>hmr/reload</code>，但两个条目<b>都会重来</b>——重挂遍历的是一个 Plugin 的所有 fiber，
+    每个 fiber 各自沿用自己那份 <code>config</code>。
+  </p>
+</section>
+
+<section>
+  <h2>撞车的两种时机</h2>
+  <h3>启动时撞进程就没了，运行中撞会被兜住</h3>
+  <p>
+    同一个错误，发生在两个时刻，下场完全不同。差别不在错误本身，
+    在于<b>有没有「上一个好状态」可以退回去</b>。
+  </p>
+
+  <div class="two">
+    <div class="w code" style="border-top-color:var(--dead)">
+      <div class="tag" style="color:var(--dead)">启动时</div>
+      <h4>进程当场退出</h4>
+      <dl>
+        <dt>怎么发生</dt><dd>两层在 boot 时就拼出了重复的 <code>id</code></dd>
+        <dt>结果</dt><dd>挂载期抛 <code>duplicate loader entry id</code>，<b>进程退出</b>，日志里点名是哪个 id</dd>
+        <dt>为什么这么狠</dt><dd>树还没立起来过，没有可回退的状态。一份装不上的配置只能失败得响亮</dd>
+      </dl>
+    </div>
+    <div class="w conf">
+      <div class="tag">运行中</div>
+      <h4>整次更新回滚，实例毫发无损</h4>
+      <dl>
+        <dt>怎么发生</dt><dd>实例跑着，你往活层追加一条同 <code>id</code> 的 insert</dd>
+        <dt>判词</dt><dd><code>failed to apply loader entry include (cordis:include): duplicate loader entry id: greeter</code></dd>
+        <dt>树怎么样</dt><dd><b>一点没动。</b> 原条目的状态序列停在 <code>['LOADING','ACTIVE']</code>——连 <code>DISPOSED</code> 都没有</dd>
+        <dt>之后呢</dt><dd>进程照跑，再改一次代码<b>照样热重载</b>。一次失败的配置更新弄不坏这个实例</dd>
+      </dl>
+    </div>
+  </div>
+
+  <p class="punch">
+    <b>所以活层可以放心改。</b>
+    改错了不会搞死跑着的实例——它退回上一个好状态，在事件流里留下一条
+    <code>hmr/config-update-failed</code> 和两条 warn，然后继续等你把它改对。
+  </p>
+</section>
+
 <div class="foot">
-  判定全部来自 experiments/chx_hmr_across_junction/ 的九条用例，源码位置指向 cordis-plugin-hmr 与 dsh-app-boot。<br>
+  判定全部来自 experiments/chx_hmr_across_junction/ 的十一条用例，源码位置指向 cordis-plugin-hmr 与 dsh-app-boot。<br>
   官方文档版本钉在 commit 47f9438。
 </div>
 </div>
