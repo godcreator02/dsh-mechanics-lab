@@ -1,0 +1,8 @@
+# 这份 patch 文件跟着**包**走 —— 它住在包里，不在 profile 目录里。
+# package.json 的 dsh.bundle.patch 指着它，包一旦进了某个 profile 的 bundle
+# 名单，这里写的条目就自动上树，profile 那边一个字都不用写。
+- insert:
+    - id: greeter
+      name: ch2-greeter
+      config:
+        版本: 第一版
