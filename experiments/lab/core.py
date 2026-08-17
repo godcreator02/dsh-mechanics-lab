@@ -19,20 +19,20 @@ from pathlib import Path
 LAB_ROOT = Path(__file__).resolve().parent.parent.parent
 EXPERIMENTS_DIR = LAB_ROOT / "experiments"
 
-#: 一切运行产物的收口。整个目录 gitignore —— 里面的东西**全部可以重跑再生**，
-#: 所以进 git 的只有源（实验代码、教学插件、文档），不含任何一次运行的结果。
-#: 根目录因此一眼分得清「哪些是源、哪些是产物」。
+#: 运行现场的收口。整个目录 gitignore —— 里面的东西**全部可以重跑再生**。
 OUT_DIR = LAB_ROOT / "out"
 
-#: 假 DSH home 的根，每个实验在下面占一个子目录。跑某一课时先整个清掉再重建，
+#: 假 DSH home 的根，每个实验在下面占一个子目录。跑某一项时先整个清掉再重建，
 #: 跑完留着供排查。**这是实验台的安全边界**：`DSH_HOME` 只会指向这下面，
 #: 绝不指向 `~/.dsh`。
+#:
+#: ⚠️ 假 home **不能搬进 `experiments/` 里**，尽管那样「点开一项就看到全部」。
+#: 它的 `profiles/*/node_modules/` 是 dsh 整份运行时依赖树的 junction 镜像，
+#: 每个包一条、指向 npx 缓存与本仓源码。junction 一旦进了源码树，任何递归遍历
+#: 都会跟着走出去：ripgrep 扫进 npx 缓存、pytest collection 收到链接那头的
+#: `test_*.py`、IDE 索引持续吃 CPU。现在只需挡住 `out/` 一处，搬进去要挡四处，
+#: 漏一处就是踩坑。归档产物不同——那是纯文件，所以它住各实验目录下的 `results/`。
 TESTHOME_ROOT = OUT_DIR / "testhome"
-
-#: 每次运行的观测产物归档。留档是为了跑完能翻（并行之后终端输出交错，
-#: 看这里比看 scrollback 靠谱），不是为了长期保存证据 —— 证据的归宿是
-#: 各课 README 里的结论，不是原始 json 躺在仓库里。
-RESULTS_DIR = OUT_DIR / "results"
 
 #: 本机上可能有别的东西在跑的端口，任何情况下都不许碰
 FORBIDDEN_PORTS = (3080, 3239, 3733)

@@ -23,8 +23,8 @@ import shutil
 import sys
 import time
 from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -32,7 +32,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lab import (  # noqa: E402
     LAB_PORT_RANGE,
-    RESULTS_DIR,
     Instance,
     LabHome,
     LabProfile,
@@ -45,14 +44,23 @@ from lab import (  # noqa: E402
 #: 每个实验模块的用例结果，由下面的 hook 填充，归档时写进 summary.md
 _reports: dict[str, list[dict]] = defaultdict(list)
 
-#: 要归档的产物。假 home 每次跑那一课之前会被整个清空，不归档的话这次的观测
-#: 就没了——而归档一份在 `out/results/` 下，跑完随时能翻（并行之后终端输出
-#: 是交错的，翻归档比翻 scrollback 靠谱）。
+#: 要归档的观测产物。假 home 每次跑那一项之前会被整个清空，不归档的话这次的
+#: 观测就没了——而归档跟着实验走（`<实验目录>/results/`），跑完随时能翻
+#: （并行之后终端输出是交错的，翻归档比翻 scrollback 靠谱）。
 #:
-#: 用宽松的 `*.json` / `*.jsonl` 而不是逐个列文件名：各课的见证文件命名不统一
-#: （L1 是 `witness-*.json`、L3 是 `w-*.json` 和 `ledger*.json`），
+#: 用宽松的 `*.json` / `*.jsonl` 而不是逐个列文件名：各项的见证文件命名不统一
+#: （有的叫 `witness-*.json`、有的叫 `w-*.json` 和 `ledger*.json`），
 #: 列举法漏过一次。home 根目录下只有实验产物，子目录 profiles/ 和 logs/ 不受影响。
 _ARCHIVE_GLOBS = ("*.jsonl", "*.json")
+
+#: 除了观测产物，再拷一份**当时的配置现场**。少了它，翻归档只看得见「观测到了
+#: 什么」，看不见「当时的配方长什么样」——而判定对不上时最先要问的恰恰是后者。
+#: 假 home 下一次跑就被 clean() 掉了，不拷就没了。
+_SCENE_FILES = ("cordis.patch.yml", "cordis.yml", "package.json")
+
+#: 每项保留最近几次归档。归档的用途是「跑完能翻」，不是长期存证——证据的归宿是
+#: 各项 README 里的结论。不设上限的话实验目录会被历次运行撑肿。
+_KEEP_RUNS = 3
 
 
 def _is_worker(config: pytest.Config) -> bool:
@@ -97,28 +105,59 @@ def pytest_runtest_makereport(item, call):
     return report
 
 
-def _archive(home: LabHome, label: str, module_name: str) -> Path | None:
-    """把这次运行的观测产物归档进 out/results/<标签>-<时间戳>/。
+def _prune(results_dir: Path) -> None:
+    """只留最近 `_KEEP_RUNS` 次。目录名是时间戳，字典序即时间序。
 
-    归档的是**原始观测**，不是结论：事件日志、关系表、见证文件、账本，
-    外加一份 summary.md（用例结果 + 它们打印的说明）。整个 `out/` 不进 git ——
-    结论要写进各课 README 才算数，指望原始 json 替自己记住是靠不住的。
+    这里可以用 `shutil.rmtree`：归档里全是拷贝出来的纯文件，没有 junction。
+    假 home 那边不行，理由见 `lab/core.py` 的 `TESTHOME_ROOT`。
+    """
+    runs = sorted((p for p in results_dir.iterdir() if p.is_dir()), reverse=True)
+    for old in runs[_KEEP_RUNS:]:
+        shutil.rmtree(old, ignore_errors=True)
+
+
+def _archive(home: LabHome, item_dir: Path, module_name: str) -> Path | None:
+    """把这次运行的观测产物与配置现场归档进 `<实验目录>/results/<时间戳>/`。
+
+    **归档跟着实验走，不集中放**——点开一项就能看到它跑出来什么，不用在两棵树
+    之间来回跳。归档的是**原始观测**，不是结论：事件日志、关系表、见证文件、账本，
+    加上当时的 patch 与 profile 配置，外加一份 summary.md（用例结果 + 它们打印的
+    说明）。整个 `results/` 不进 git —— 结论要写进各项 README 才算数，指望原始
+    json 替自己记住是靠不住的。
     """
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    dest = RESULTS_DIR / f"{label}-{stamp}"
+    dest = item_dir / "results" / stamp
+    copied: list[tuple[str, int]] = []
 
-    copied = []
+    def take(src: Path, rel: str) -> None:
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target)
+        copied.append((rel, src.stat().st_size))
+
     for pattern in _ARCHIVE_GLOBS:
         for src in sorted(home.root.glob(pattern)):
-            dest.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest / src.name)
-            copied.append((src.name, src.stat().st_size))
+            take(src, src.name)
+
+    if home.patch_path.exists():
+        take(home.patch_path, "home/cordis.patch.yml")
+
+    profiles = home.root / "profiles"
+    if profiles.is_dir():
+        for pdir in sorted(profiles.iterdir()):
+            # node_modules 是 junction 农场，跟进去就是整棵 npx 缓存
+            if pdir.name == "node_modules" or pdir.is_junction() or not pdir.is_dir():
+                continue
+            for name in _SCENE_FILES:
+                if (src := pdir / name).exists():
+                    take(src, f"profiles/{pdir.name}/{name}")
 
     rows = _reports.pop(module_name, [])
     if not copied and not rows:
         return None
 
     dest.mkdir(parents=True, exist_ok=True)
+    label = item_dir.name
     lines = [f"# {label} · {stamp}", "", f"跑于 {time.strftime('%Y-%m-%d %H:%M:%S')}（本地时间）", "", "## 用例", ""]
     for r in rows:
         mark = {"passed": "✅", "failed": "❌", "skipped": "⏭️"}.get(r["outcome"], r["outcome"])
@@ -133,23 +172,20 @@ def _archive(home: LabHome, label: str, module_name: str) -> Path | None:
         lines.append("")
 
     (dest / "summary.md").write_text("\n".join(lines), encoding="utf-8")
+    _prune(dest.parent)
     return dest
 
 
 def _label_of(request: pytest.FixtureRequest) -> str:
     """实验目录名就是标签，**整个用上、不截断**。
 
-    曾经只取第一段（`l01_minimal_plugin` → `l01`），看着清爽，但那要求
-    「目录名第一段全局唯一」——这个隐含前提在加了 `ch0_observer` /
-    `ch0_minimal` / `ch2_*` 之后就破了：它们各自算出 `ch0` / `ch2`，
-    于是**共用同一个假 home**，并行跑时一项的 `clean()` 会删掉另一项正在
-    用的 profile。串行跑看不出来（各模块起手清 home、跑完即归档），
-    只有并行才炸——最难查的那种。
+    ⚠️ 由此得出一条硬约束：**叶子目录名必须全局唯一**。两项算出同一个标签就
+    共用同一个假 home，并行跑时一项的 `clean()` 会删掉另一项正在用的 profile。
+    串行跑看不出来（各模块起手清 home、跑完即归档），只有并行才炸。
 
-    整个目录名当标签，唯一性由文件系统保证，不再依赖命名纪律。
-    代价只是 `out/` 下的目录名长一点。
+    所以不截断、不取第一段——唯一性交给文件系统保证，不依赖命名纪律。
     """
-    return Path(str(request.fspath)).parent.name
+    return request.path.parent.name
 
 
 @pytest.fixture(scope="module")
@@ -160,6 +196,7 @@ def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
     失败那次的现场反而更要紧。
     """
     label = _label_of(request)
+    item_dir = request.path.parent
     home = LabHome(label)
     try:
         home.clean()  # 起手清干净，保证可重复跑
@@ -167,7 +204,7 @@ def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
         yield home
     finally:
         try:
-            dest = _archive(home, label, request.module.__name__)
+            dest = _archive(home, item_dir, request.module.__name__)
             if dest is not None:
                 print(f"\n观测产物已归档 → {dest}")
         except Exception as exc:  # 归档失败绝不能盖掉实验本身的结果
@@ -176,8 +213,8 @@ def lab_home(request: pytest.FixtureRequest) -> Iterator[LabHome]:
 
 @pytest.fixture(scope="module")
 def fixtures_dir(request: pytest.FixtureRequest) -> Path:
-    """本实验目录下的 fixtures/ —— 这一课的教学插件住这儿。"""
-    return Path(str(request.fspath)).parent / "fixtures"
+    """本实验目录下的 fixtures/ —— 这一项的教学插件住这儿。"""
+    return request.path.parent / "fixtures"
 
 
 def _my_ports(config: pytest.Config) -> list[int]:

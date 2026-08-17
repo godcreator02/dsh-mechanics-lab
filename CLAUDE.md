@@ -68,6 +68,7 @@ L0 是「先总后分」的总：一次看清整棵树的形状，后面六部�
 | **home** | 只用假 home `out/testhome/`（`DSH_HOME` 经子进程 `env` 传入，不改当前进程环境）。**绝不碰 `~/.dsh`** |
 | **端口** | 只用 3090–3099。**绝不碰 3080（主实例）/ 3239 / 3733** |
 | **删目录** | 逐层拆 junction，**绝不跟着链接走**（profile 的 node_modules 里全是指向源码和 npx 缓存的 junction） |
+| **`dsh plugin`** | 只许对假 home 里的 profile 跑、只许装本地目录。**绝不对生产 home 跑、绝不装会联网拉取的包**——危险的是这两件事，不是这条命令本身 |
 | **并发** | 各课并行跑，隔离靠 home 分课 + 端口按 worker 静态分段（`conftest._my_ports`）。锁只防两个**会话**同时开跑，会排队，不必手工协调 |
 | **Python 环境** | **只用 uv + venv，禁止全局 Python。** 解释器钉死 3.12.10（`.python-version`），依赖锁在 `uv.lock`，一切经 `uv run` 执行 |
 | **语言** | Python。进程编排、YAML 解析、断言都在 `experiments/lab/` 包里 |

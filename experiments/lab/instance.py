@@ -8,9 +8,10 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .core import FORBIDDEN_PORTS, LAB_PORT_RANGE, TESTHOME_ROOT, LabError, LabHome, LabProfile, dsh_bin
 

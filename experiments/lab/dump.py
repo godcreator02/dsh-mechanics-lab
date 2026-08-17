@@ -10,7 +10,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -51,7 +51,16 @@ class _LabLoader(yaml.SafeLoader):
     """SafeLoader 加上 DSH 的 `!!js` 方言。"""
 
 
-_LabLoader.add_constructor("tag:yaml.org,2002:js", lambda loader, node: JsExpr(loader.construct_scalar(node)))
+def _construct_js(loader: yaml.SafeLoader, node: yaml.Node) -> JsExpr:
+    """`!!js` 标签的构造器。
+
+    `add_constructor` 把回调的 node 标成宽泛的 `Node`，而 `construct_scalar`
+    只收 `ScalarNode`——DSH 的 `!!js` 永远是标量，所以这里 cast 是安全的。
+    """
+    return JsExpr(loader.construct_scalar(cast(yaml.ScalarNode, node)))
+
+
+_LabLoader.add_constructor("tag:yaml.org,2002:js", _construct_js)
 
 
 #: dump 输出里的来源注释，形如：
@@ -163,7 +172,7 @@ def dump_config(
     try:
         parsed = yaml.load(raw, Loader=_LabLoader)
     except yaml.YAMLError as exc:
-        raise LabError(f"dump 输出解析失败：{exc}\n--- 原文前 40 行 ---\n" + "\n".join(raw.splitlines()[:40]))
+        raise LabError(f"dump 输出解析失败：{exc}\n--- 原文前 40 行 ---\n" + "\n".join(raw.splitlines()[:40])) from exc
 
     if parsed is None:
         parsed = []

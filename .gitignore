@@ -1,8 +1,12 @@
-# 全部运行产物的收口：假 home（out/testhome/）与观测归档（out/results/）。
-# 一条规则管住，因为它们是同一种东西——**跑一次就能再生**。
-# 进 git 的只有源：实验代码、教学插件、文档。观测的价值在于被消化进
-# 各课 README 的结论，不在于原始 json 躺在仓库里。
+# 运行现场：假 home。它住 out/ 而不是各实验目录下，因为 profiles/*/node_modules/
+# 是指向 npx 缓存与本仓源码的 junction 农场——进了源码树，任何递归遍历都会跟着
+# 走出去（理由写在 lab/core.py 的 TESTHOME_ROOT）。
 /out/
+
+# 观测归档：跟着实验走，点开一项就看得到它跑出来什么。是纯文件、没有 junction，
+# 所以可以住源码树里。跑一次就能再生，所以不进 git——观测的价值在于被消化进
+# 各项 README 的结论，不在于原始 json 躺在仓库里。
+experiments/**/results/
 
 # fixtures 里假插件被 pnpm 装出来的东西
 **/node_modules/
