@@ -22,34 +22,54 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-/* ── 布局：正文 + 常驻侧边文件树 ── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
-  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
-.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
-.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
-  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
-.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
-  font-size:11.5px;line-height:1.5}
-.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
-.ft li.br{color:var(--dim);margin-top:7px}
-.ft li.f{cursor:pointer}
-.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft li.f::after{content:" ·";color:var(--dim)}
-.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+/* ── 版心：正文 + 右栏两窗 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:32px;
+  max-width:1532px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+main{min-width:0;max-width:820px}
+
+.side{position:sticky;top:18px;height:calc(100vh - 36px);
+  display:flex;flex-direction:column;gap:10px}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pane > h3{margin:0;padding:10px 12px 8px;font-family:var(--mono);font-size:11px;
+  font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);flex:none}
+
+/* 树窗 */
+.tree-pane{flex:1 1 auto}
+.ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
+  font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.ft ul{list-style:none;margin:0;padding-left:13px;border-left:1px solid var(--line)}
+.ft button{display:block;width:100%;text-align:left;border:0;background:none;
+  color:inherit;font:inherit;padding:1px 5px;border-radius:4px;cursor:pointer}
+.ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft .tw::before{content:"▾ ";color:var(--dim)}
+.ft li.shut > .tw::before{content:"▸ "}
+.ft li.shut > ul{display:none}
+.ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
   color:var(--bmhit);font-weight:600}
-.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
-  border-left:2px solid var(--bmhit);white-space:normal}
-.fc.on{display:block}
-.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
-  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
-.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
-.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
-  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
-  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
-@media (max-width:1040px){
-  .layout{grid-template-columns:1fr;max-width:860px}
-  .side{position:static;max-height:none;order:-1}
+.ft .flabel{display:block;padding:1px 5px;color:inherit}
+.ft .same{color:var(--dim)}
+
+/* 文件窗 */
+.view-pane{flex:none}
+.side.has-file .view-pane{flex:0 0 56%}
+.vmeta{padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
+.vname{font-family:var(--mono);font-size:12px;font-weight:600}
+.vsrc{font-size:9.5px;color:var(--dim);word-break:break-all;margin-top:2px}
+.vwhy{font-size:11.5px;color:var(--dim);line-height:1.55;margin-top:5px}
+.vcode{overflow:auto;flex:1 1 auto;min-height:0}
+/* 软换行：96.6% 的行在 80 字符内，剩下几条绝对路径折一次，不要横向滚动 */
+.vcode pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11px;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.vhint{padding:11px 12px;font-size:11.5px;color:var(--dim);line-height:1.6}
+
+@media (max-width:1180px){
+  .layout{grid-template-columns:1fr;max-width:880px}
+  main{max-width:none}
+  .side{position:static;height:auto;order:-1}
+  .tree-pane .ft{max-height:320px}
+  .side.has-file .view-pane{flex:none}
+  .vcode{max-height:420px}
 }
 
 /* ── 头 ── */
@@ -72,7 +92,7 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .chain{display:flex;align-items:center;justify-content:center;gap:6px;
   flex-wrap:wrap;padding:4px 0 2px}
 .cnode{width:104px;text-align:center;padding:10px 6px;border-radius:10px;
-  border:2px solid var(--line);background:var(--bg);
+  border:2px solid var(--line);background:var(--bg);cursor:pointer;
   transition:border-color .25s,background .25s,opacity .25s}
 .cnode .k{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
 .cnode .nm{font-weight:700;margin-top:3px;font-size:12px}
@@ -195,8 +215,8 @@ footer a{color:inherit}
 </p>
 
 <h2>零件怎么拼起来</h2>
-<p class="note">跟着 1 → 5 走一遍，每一步点亮底座里对应的位置；下面的按钮 / ← → 键把
-「当前讲到哪」钉在某一环上。</p>
+<p class="note">跟着 1 → 5 走一遍，每一步点亮底座里对应的位置；点下面链条上的节点，
+把「当前讲到哪」钉在某一环上。</p>
 
 <div class="stage" id="stage0">
   <div class="chain" id="chain0">
@@ -211,26 +231,15 @@ footer a{color:inherit}
     <div class="cnode"><div class="k">5</div><div class="nm">进程存活</div></div>
   </div>
   <div class="cap"><span class="t" id="cap0-t"></span><span class="d" id="cap0-d"></span></div>
-  <div class="ctl">
-    <button id="prev0">← 上一步</button>
-    <span class="pos" id="pos0"></span>
-    <button id="next0">下一步 →</button>
-    <span class="hint">← → 键也行</span>
-  </div>
 </div>
 
 <h2>五个 profile，同一个问题</h2>
 <p class="note">bundles 都写到几乎空，差别全在 <code>cordis.patch.yml</code> 里插了什么。
-把鼠标放到卡片上看细节；下面的按钮 / ← → 键把「当前选中」钉在某一张上。</p>
+把鼠标放到卡片上看细节，那是临时预览；点卡片把「当前选中」钉在某一张上，
+移开鼠标会落回选中的那张。</p>
 
 <div class="cards" id="cards"></div>
 <div class="detail" id="detail"></div>
-<div class="ctl">
-  <button id="prev1">← 上一个</button>
-  <span class="pos" id="pos1"></span>
-  <button id="next1">下一个 →</button>
-  <span class="hint">← → 键也行，hover 是临时预览</span>
-</div>
 
 <h2>两条硬性捆绑，怎么体现在时序上</h2>
 <p class="note">hmr 包级声明 <code>services.required:["timer"]</code>——这条依赖在最小环境
@@ -282,17 +291,82 @@ footer a{color:inherit}
 
 </main>
 <aside class="side">
-  <h3>实验现场的文件</h3>
-<ul class="ft">
-  <li class="br">$DSH_HOME/</li>
-  <li>├─ logs/</li>
-  <li>└─ profiles/</li>
-  <li>   ├─ minimal/</li>
-  <li class="f" data-k="minimal-pkg">   │  ├─ package.json</li>
-  <li class="fc" id="fc-minimal-pkg">
-    <div class="why">bundles 只挂 dsh-base，dependencies 把 base-census link 进来</div>
-    <div class="src">results/20260817-151026/profiles/minimal/package.json</div>
-    <pre>{
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><span class="flabel">logs/</span></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">minimal/</button>
+            <ul>
+            <li><button class="fl" data-k="minimal-pkg">package.json</button></li>
+            <li><button class="fl" data-k="minimal-yml">cordis.yml</button></li>
+            <li><button class="fl" data-k="minimal-patch">cordis.patch.yml</button></li>
+            <li class="shut"><button class="tw">node_modules/</button>
+            <ul><li><span class="flabel">base-census →</span></li></ul></li>
+            </ul></li>
+              <li class="shut"><button class="tw">empty/</button>
+            <ul>
+            <li><button class="fl" data-k="empty-pkg">package.json</button></li>
+            <li><span class="flabel">cordis.yml <span class="same">（与 minimal 同）</span></span></li>
+            <li><button class="fl" data-k="empty-patch">cordis.patch.yml</button></li>
+            <li class="shut"><button class="tw">node_modules/</button>
+            <ul><li><span class="flabel">base-census →</span></li></ul></li>
+            </ul></li>
+              <li class="shut"><button class="tw">only-hmr/</button>
+            <ul>
+            <li><button class="fl" data-k="only-hmr-pkg">package.json</button></li>
+            <li><span class="flabel">cordis.yml <span class="same">（与 minimal 同）</span></span></li>
+            <li><button class="fl" data-k="only-hmr-patch">cordis.patch.yml</button></li>
+            </ul></li>
+              <li class="shut"><button class="tw">timing/</button>
+            <ul>
+            <li><button class="fl" data-k="timing-pkg">package.json</button></li>
+            <li><span class="flabel">cordis.yml <span class="same">（与 minimal 同）</span></span></li>
+            <li><button class="fl" data-k="timing-patch">cordis.patch.yml</button></li>
+            <li class="shut"><button class="tw">node_modules/</button>
+            <ul><li><span class="flabel">lab-recorder →</span></li></ul></li>
+            </ul></li>
+              <li class="shut"><button class="tw">alive/</button>
+            <ul>
+            <li><button class="fl" data-k="alive-pkg">package.json</button></li>
+            <li><span class="flabel">cordis.yml <span class="same">（与 minimal 同）</span></span></li>
+            <li><button class="fl" data-k="alive-patch">cordis.patch.yml</button></li>
+            <li class="shut"><button class="tw">node_modules/</button>
+            <ul><li><span class="flabel">base-census →</span></li></ul></li>
+            </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/base-census/</button>
+            <ul>
+              <li><button class="fl" data-k="bc-pkg">package.json</button></li>
+              <li><button class="fl" data-k="bc-idx">index.js</button></li>
+            </ul></li>
+          <li><button class="tw">observatory/lab-recorder/</button>
+            <ul>
+              <li><button class="fl" data-k="lr-pkg">package.json</button></li>
+              <li><button class="fl" data-k="lr-idx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+  <div id="fc-minimal-pkg" data-name="package.json" data-src="results/20260817-151026/profiles/minimal/package.json" data-why="bundles 只挂 dsh-base，dependencies 把 base-census link 进来"><pre>{
   "name": "dsh-profile-minimal",
   "private": true,
   "dsh": {
@@ -306,39 +380,21 @@ footer a{color:inherit}
     "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/minimal-profile/fixtures/base-census"
   }
 }
-</pre>
-  </li>
-  <li class="f" data-k="minimal-yml">   │  ├─ cordis.yml</li>
-  <li class="fc" id="fc-minimal-yml">
-    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
-    <div class="src">results/20260817-151026/profiles/minimal/cordis.yml</div>
-    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+</pre></div>
+  <div id="fc-minimal-yml" data-name="cordis.yml" data-src="results/20260817-151026/profiles/minimal/cordis.yml" data-why="启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
 # each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
 # --patch overlays. Edit cordis.patch.yml, not this file.
 []
-</pre>
-  </li>
-  <li class="f" data-k="minimal-patch">   │  ├─ cordis.patch.yml</li>
-  <li class="fc" id="fc-minimal-patch">
-    <div class="why">活层：只插入普查员一条，靠 dsh-base 这个 bundle 供给 timer/hmr</div>
-    <div class="src">results/20260817-151026/profiles/minimal/cordis.patch.yml</div>
-    <pre># 只挂普查员
+</pre></div>
+  <div id="fc-minimal-patch" data-name="cordis.patch.yml" data-src="results/20260817-151026/profiles/minimal/cordis.patch.yml" data-why="活层：只插入普查员一条，靠 dsh-base 这个 bundle 供给 timer/hmr"><pre># 只挂普查员
 - insert:
     - id: census
       name: base-census
       config:
         out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/census-minimal.json"
         delayMs: 2000
-</pre>
-  </li>
-  <li>   │  └─ node_modules/</li>
-  <li>   │     └─ base-census →</li>
-  <li>   ├─ empty/</li>
-  <li class="f" data-k="empty-pkg">   │  ├─ package.json</li>
-  <li class="fc" id="fc-empty-pkg">
-    <div class="why">bundles 是空数组，靠 patch 自己把 timer/hmr/census 全插起来</div>
-    <div class="src">results/20260817-151026/profiles/empty/package.json</div>
-    <pre>{
+</pre></div>
+  <div id="fc-empty-pkg" data-name="package.json" data-src="results/20260817-151026/profiles/empty/package.json" data-why="bundles 是空数组，靠 patch 自己把 timer/hmr/census 全插起来"><pre>{
   "name": "dsh-profile-empty",
   "private": true,
   "dsh": {
@@ -350,23 +406,8 @@ footer a{color:inherit}
     "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/minimal-profile/fixtures/base-census"
   }
 }
-</pre>
-  </li>
-  <li class="f" data-k="empty-yml">   │  ├─ cordis.yml</li>
-  <li class="fc" id="fc-empty-yml">
-    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
-    <div class="src">results/20260817-151026/profiles/empty/cordis.yml</div>
-    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
-# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
-# --patch overlays. Edit cordis.patch.yml, not this file.
-[]
-</pre>
-  </li>
-  <li class="f" data-k="empty-patch">   │  ├─ cordis.patch.yml</li>
-  <li class="fc" id="fc-empty-patch">
-    <div class="why">两段 insert：先插基础设施 timer+hmr，再插普查员</div>
-    <div class="src">results/20260817-151026/profiles/empty/cordis.patch.yml</div>
-    <pre># 基础设施：显式带上，不依赖框架的 fallback
+</pre></div>
+  <div id="fc-empty-patch" data-name="cordis.patch.yml" data-src="results/20260817-151026/profiles/empty/cordis.patch.yml" data-why="两段 insert：先插基础设施 timer+hmr，再插普查员"><pre># 基础设施：显式带上，不依赖框架的 fallback
 - insert:
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -384,16 +425,8 @@ footer a{color:inherit}
       config:
         out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/census-empty.json"
         delayMs: 2000
-</pre>
-  </li>
-  <li>   │  └─ node_modules/</li>
-  <li>   │     └─ base-census →</li>
-  <li>   ├─ only-hmr/</li>
-  <li class="f" data-k="only-hmr-pkg">   │  ├─ package.json</li>
-  <li class="fc" id="fc-only-hmr-pkg">
-    <div class="why">bundles 是空数组，没有 dependencies —— 这一个没用到 census</div>
-    <div class="src">results/20260817-151026/profiles/only-hmr/package.json</div>
-    <pre>{
+</pre></div>
+  <div id="fc-only-hmr-pkg" data-name="package.json" data-src="results/20260817-151026/profiles/only-hmr/package.json" data-why="bundles 是空数组，没有 dependencies —— 这一个没用到 census"><pre>{
   "name": "dsh-profile-only-hmr",
   "private": true,
   "dsh": {
@@ -402,34 +435,13 @@ footer a{color:inherit}
     }
   }
 }
-</pre>
-  </li>
-  <li class="f" data-k="only-hmr-yml">   │  ├─ cordis.yml</li>
-  <li class="fc" id="fc-only-hmr-yml">
-    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
-    <div class="src">results/20260817-151026/profiles/only-hmr/cordis.yml</div>
-    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
-# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
-# --patch overlays. Edit cordis.patch.yml, not this file.
-[]
-</pre>
-  </li>
-  <li class="f" data-k="only-hmr-patch">   │  └─ cordis.patch.yml</li>
-  <li class="fc" id="fc-only-hmr-patch">
-    <div class="why">只插入 hmr，没插 timer —— 缺的正是这一条</div>
-    <div class="src">results/20260817-151026/profiles/only-hmr/cordis.patch.yml</div>
-    <pre># 只声明 hmr，不声明 timer
+</pre></div>
+  <div id="fc-only-hmr-patch" data-name="cordis.patch.yml" data-src="results/20260817-151026/profiles/only-hmr/cordis.patch.yml" data-why="只插入 hmr，没插 timer —— 缺的正是这一条"><pre># 只声明 hmr，不声明 timer
 - insert:
     - id: hmr
       name: '@deepseek-ai/cordis-plugin-hmr'
-</pre>
-  </li>
-  <li>   ├─ timing/</li>
-  <li class="f" data-k="timing-pkg">   │  ├─ package.json</li>
-  <li class="fc" id="fc-timing-pkg">
-    <div class="why">dependencies 是 lab-recorder，不是 census —— 这一节换了台采集器</div>
-    <div class="src">results/20260817-151026/profiles/timing/package.json</div>
-    <pre>{
+</pre></div>
+  <div id="fc-timing-pkg" data-name="package.json" data-src="results/20260817-151026/profiles/timing/package.json" data-why="dependencies 是 lab-recorder，不是 census —— 这一节换了台采集器"><pre>{
   "name": "dsh-profile-timing",
   "private": true,
   "dsh": {
@@ -441,23 +453,8 @@ footer a{color:inherit}
     "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
   }
 }
-</pre>
-  </li>
-  <li class="f" data-k="timing-yml">   │  ├─ cordis.yml</li>
-  <li class="fc" id="fc-timing-yml">
-    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
-    <div class="src">results/20260817-151026/profiles/timing/cordis.yml</div>
-    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
-# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
-# --patch overlays. Edit cordis.patch.yml, not this file.
-[]
-</pre>
-  </li>
-  <li class="f" data-k="timing-patch">   │  ├─ cordis.patch.yml</li>
-  <li class="fc" id="fc-timing-patch">
-    <div class="why">timer + hmr + lab-recorder 三条 insert，看的是谁先谁后</div>
-    <div class="src">results/20260817-151026/profiles/timing/cordis.patch.yml</div>
-    <pre># 基础设施：显式带上，不依赖框架的 fallback
+</pre></div>
+  <div id="fc-timing-patch" data-name="cordis.patch.yml" data-src="results/20260817-151026/profiles/timing/cordis.patch.yml" data-why="timer + hmr + lab-recorder 三条 insert，看的是谁先谁后"><pre># 基础设施：显式带上，不依赖框架的 fallback
 - insert:
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -475,16 +472,8 @@ footer a{color:inherit}
       config:
         out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/events-timing.jsonl"
         flushMs: 100
-</pre>
-  </li>
-  <li>   │  └─ node_modules/</li>
-  <li>   │     └─ lab-recorder →</li>
-  <li>   └─ alive/</li>
-  <li class="f" data-k="alive-pkg">      ├─ package.json</li>
-  <li class="fc" id="fc-alive-pkg">
-    <div class="why">跟 minimal/empty 一样用 census，只是 delayMs 不同</div>
-    <div class="src">results/20260817-151026/profiles/alive/package.json</div>
-    <pre>{
+</pre></div>
+  <div id="fc-alive-pkg" data-name="package.json" data-src="results/20260817-151026/profiles/alive/package.json" data-why="跟 minimal/empty 一样用 census，只是 delayMs 不同"><pre>{
   "name": "dsh-profile-alive",
   "private": true,
   "dsh": {
@@ -496,23 +485,8 @@ footer a{color:inherit}
     "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/minimal-profile/fixtures/base-census"
   }
 }
-</pre>
-  </li>
-  <li class="f" data-k="alive-yml">      ├─ cordis.yml</li>
-  <li class="fc" id="fc-alive-yml">
-    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
-    <div class="src">results/20260817-151026/profiles/alive/cordis.yml</div>
-    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
-# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
-# --patch overlays. Edit cordis.patch.yml, not this file.
-[]
-</pre>
-  </li>
-  <li class="f" data-k="alive-patch">      ├─ cordis.patch.yml</li>
-  <li class="fc" id="fc-alive-patch">
-    <div class="why">timer + hmr + census（delayMs:1000），这是保活基线</div>
-    <div class="src">results/20260817-151026/profiles/alive/cordis.patch.yml</div>
-    <pre># 基础设施：显式带上，不依赖框架的 fallback
+</pre></div>
+  <div id="fc-alive-patch" data-name="cordis.patch.yml" data-src="results/20260817-151026/profiles/alive/cordis.patch.yml" data-why="timer + hmr + census（delayMs:1000），这是保活基线"><pre># 基础设施：显式带上，不依赖框架的 fallback
 - insert:
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -530,17 +504,8 @@ footer a{color:inherit}
       config:
         out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/census-alive.json"
         delayMs: 1000
-</pre>
-  </li>
-  <li>      └─ node_modules/</li>
-  <li>         └─ base-census →</li>
-  <li class="br">插件源码</li>
-  <li>├─ fixtures/base-census/</li>
-  <li class="f" data-k="bc-pkg">│  ├─ package.json</li>
-  <li class="fc" id="fc-bc-pkg">
-    <div class="why">包型插件：有名字有 exports，靠包名被 link 进 profile 的 node_modules</div>
-    <div class="src">experiments/00-base/minimal-profile/fixtures/base-census/package.json</div>
-    <pre>{
+</pre></div>
+  <div id="fc-bc-pkg" data-name="package.json" data-src="experiments/00-base/minimal-profile/fixtures/base-census/package.json" data-why="包型插件：有名字有 exports，靠包名被 link 进 profile 的 node_modules"><pre>{
   "name": "base-census",
   "version": "1.0.0",
   "private": true,
@@ -549,13 +514,8 @@ footer a{color:inherit}
     ".": "./index.js"
   }
 }
-</pre>
-  </li>
-  <li class="f" data-k="bc-idx">│  └─ index.js</li>
-  <li class="fc" id="fc-bc-idx">
-    <div class="why">普查员本体：apply 里拍两张快照，boot 一张、settle 延后一张</div>
-    <div class="src">experiments/00-base/minimal-profile/fixtures/base-census/index.js</div>
-    <pre>/**
+</pre></div>
+  <div id="fc-bc-idx" data-name="index.js" data-src="experiments/00-base/minimal-profile/fixtures/base-census/index.js" data-why="普查员本体：apply 里拍两张快照，boot 一张、settle 延后一张"><pre>/**
  * 树的普查员：从进程内部给 loader 上的整棵条目树拍快照。
  *
  * 存在的理由：`--dump-config` 只能告诉你「配方算出来是什么」，看不到框架在
@@ -664,14 +624,8 @@ export function apply(ctx, config) {
   // 之后进程还活不活着，就完全是别人的事了。
   ctx.on("dispose", () =&gt; clearTimeout(handle));
 }
-</pre>
-  </li>
-  <li>└─ observatory/lab-recorder/</li>
-  <li class="f" data-k="lr-pkg">   ├─ package.json</li>
-  <li class="fc" id="fc-lr-pkg">
-    <div class="why">观测台采集器：订阅 Cordis 生命周期事件，写 jsonl</div>
-    <div class="src">observatory/lab-recorder/package.json</div>
-    <pre>{
+</pre></div>
+  <div id="fc-lr-pkg" data-name="package.json" data-src="observatory/lab-recorder/package.json" data-why="观测台采集器：订阅 Cordis 生命周期事件，写 jsonl"><pre>{
   "name": "lab-recorder",
   "version": "0.1.0",
   "private": true,
@@ -679,13 +633,8 @@ export function apply(ctx, config) {
   "type": "module",
   "exports": { ".": "./index.js" }
 }
-</pre>
-  </li>
-  <li class="f" data-k="lr-idx">   └─ index.js</li>
-  <li class="fc" id="fc-lr-idx">
-    <div class="why">采集器本体：零 inject，事件按流水/关系/链路三类分流记录</div>
-    <div class="src">observatory/lab-recorder/index.js</div>
-    <pre>/**
+</pre></div>
+  <div id="fc-lr-idx" data-name="index.js" data-src="observatory/lab-recorder/index.js" data-why="采集器本体：零 inject，事件按流水/关系/链路三类分流记录"><pre>/**
  * lab-recorder — 观测台的采集器。
  *
  * 唯一必须住在被观测进程里的东西：订阅 Cordis 与 loader 的生命周期事件，
@@ -1026,9 +975,8 @@ export function apply(ctx, config) {
     flush();
   }, "lab-recorder: flush timer");
 }
-</pre>
-  </li>
-</ul>
+</pre></div>
+  </div>
 </aside>
 </div>
 
@@ -1136,8 +1084,6 @@ const BEATS0 = [
 const chain0 = document.getElementById('chain0');
 const chainNodes = [...chain0.querySelectorAll('.cnode')];
 const cap0t = document.getElementById('cap0-t'), cap0d = document.getElementById('cap0-d');
-const pos0 = document.getElementById('pos0');
-const prev0 = document.getElementById('prev0'), next0 = document.getElementById('next0');
 let cur0 = 0;
 function goto0(i){
   cur0 = Math.max(0, Math.min(BEATS0.length - 1, i));
@@ -1148,12 +1094,9 @@ function goto0(i){
   });
   cap0t.textContent = BEATS0[cur0].t;
   cap0d.innerHTML = BEATS0[cur0].d;
-  pos0.textContent = `${cur0 + 1} / ${BEATS0.length}`;
-  prev0.disabled = cur0 === 0;
-  next0.disabled = cur0 === BEATS0.length - 1;
 }
-prev0.addEventListener('click', () => { activeStage = 0; goto0(cur0 - 1); });
-next0.addEventListener('click', () => { activeStage = 0; goto0(cur0 + 1); });
+// 五个链节点本来就画在屏幕上，直接点节点切换，不另加控件
+chainNodes.forEach((n, i) => n.addEventListener('click', () => goto0(i)));
 
 const cardsEl = document.getElementById('cards');
 PROFILES.forEach((p, i) => {
@@ -1169,8 +1112,6 @@ PROFILES.forEach((p, i) => {
 });
 const cardNodes = [...cardsEl.children];
 const detailEl = document.getElementById('detail');
-const pos1 = document.getElementById('pos1');
-const prev1 = document.getElementById('prev1'), next1 = document.getElementById('next1');
 
 function renderDetail(i){
   const p = PROFILES[i];
@@ -1184,18 +1125,14 @@ function goto1(i){
   cur1 = Math.max(0, Math.min(PROFILES.length - 1, i));
   markSel(cur1);
   renderDetail(cur1);
-  pos1.textContent = `${cur1 + 1} / ${PROFILES.length}`;
-  prev1.disabled = cur1 === 0;
-  next1.disabled = cur1 === PROFILES.length - 1;
 }
+// 五张卡片本来就在、已经可点，直接点卡片切换，不另加控件
 cardNodes.forEach((n, i) => {
-  n.addEventListener('click', () => { activeStage = 1; goto1(i); });
+  n.addEventListener('click', () => goto1(i));
   // hover 只是临时预览，不移动分步指针；移开鼠标回到指针那一张
   n.addEventListener('mouseenter', () => renderDetail(i));
   n.addEventListener('mouseleave', () => renderDetail(cur1));
 });
-prev1.addEventListener('click', () => { activeStage = 1; goto1(cur1 - 1); });
-next1.addEventListener('click', () => { activeStage = 1; goto1(cur1 + 1); });
 
 // ── 时序舞台（过程型：分步，真实事件取自 events-timing.jsonl） ──────────────
 const te = document.getElementById('te'), he = document.getElementById('he');
@@ -1234,46 +1171,45 @@ function goto2(i){
   prev2.disabled = cur2 === 0;
   next2.disabled = cur2 === BEATS2.length - 1;
 }
-prev2.addEventListener('click', () => { activeStage = 2; goto2(cur2 - 1); });
-next2.addEventListener('click', () => { activeStage = 2; goto2(cur2 + 1); });
+prev2.addEventListener('click', () => goto2(cur2 - 1));
+next2.addEventListener('click', () => goto2(cur2 + 1));
 
-// 三组分步各自独立，方向键作用于最近交互（或悬停）的那一组
-let activeStage = 0;
-document.getElementById('stage0').addEventListener('mouseenter', () => activeStage = 0);
-document.getElementById('cards').addEventListener('mouseenter', () => activeStage = 1);
-document.getElementById('stage2').addEventListener('mouseenter', () => activeStage = 2);
+// 真时序，唯一还留分步控件的舞台：方向键只服务它，且只在读者碰过这个舞台之后生效
+// （原「按鼠标所在舞台分派」的简化版——选择器仍须是 id，.stage 类还挂在 stage0 上）
+let stage2Engaged = false;
+document.getElementById('stage2').addEventListener('mouseenter', () => stage2Engaged = true);
 addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft'){
-    if (activeStage === 0) goto0(cur0 - 1);
-    else if (activeStage === 1) goto1(cur1 - 1);
-    else goto2(cur2 - 1);
-    e.preventDefault();
-  }
-  if (e.key === 'ArrowRight'){
-    if (activeStage === 0) goto0(cur0 + 1);
-    else if (activeStage === 1) goto1(cur1 + 1);
-    else goto2(cur2 + 1);
-    e.preventDefault();
-  }
+  if (!stage2Engaged) return;
+  if (e.key === 'ArrowLeft'){ goto2(cur2 - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto2(cur2 + 1); e.preventDefault(); }
 });
 
 goto0(0);
 goto1(0);
 goto2(0);
 
-// ── 侧边文件树：点文件展开真实内容，同时最多展开一个 ──────────────────────
-document.querySelectorAll('.ft li.f').forEach(li => {
-  li.tabIndex = 0;
-  const toggle = () => {
-    const box = document.getElementById('fc-' + li.dataset.k);
-    const was = box.classList.contains('on');
-    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
-    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
-    if (!was) { box.classList.add('on'); li.classList.add('on'); }
-  };
-  li.addEventListener('click', toggle);
-  li.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+// ── 侧边栏：树窗折叠 + 文件窗渲染 ──────────────────────────────────────
+const side = document.querySelector('.side');
+const vhint = document.getElementById('vhint'), vmeta = document.getElementById('vmeta');
+const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');
+const vwhy = document.getElementById('vwhy'), vcode = document.getElementById('vcode');
+
+document.querySelectorAll('.ft .tw').forEach(b => {
+  b.addEventListener('click', () => b.parentElement.classList.toggle('shut'));
+});
+
+document.querySelectorAll('.ft .fl').forEach(b => {
+  b.addEventListener('click', () => {
+    const box = document.getElementById('fc-' + b.dataset.k);
+    document.querySelectorAll('.ft .fl.on').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    vname.textContent = box.dataset.name;
+    vsrc.textContent = box.dataset.src;
+    vwhy.textContent = box.dataset.why;
+    // 克隆，别搬走 stash 里的原件——它是校验脚本比对的对象
+    vcode.replaceChildren(box.querySelector('pre').cloneNode(true));
+    vhint.hidden = true; vmeta.hidden = false;
+    side.classList.add('has-file');
   });
 });
 </script>

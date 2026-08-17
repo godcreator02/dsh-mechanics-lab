@@ -25,34 +25,52 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-/* ── 侧边文件树 ── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
-  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
-.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
-.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
-  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
-.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
-  font-size:11.5px;line-height:1.5}
-.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
-.ft li.br{color:var(--dim);margin-top:7px}
-.ft li.f{cursor:pointer}
-.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft li.f::after{content:" ·";color:var(--dim)}
-.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+/* ── 版心：正文 + 右栏两窗 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:32px;
+  max-width:1532px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+main{min-width:0;max-width:820px}
+
+.side{position:sticky;top:18px;height:calc(100vh - 36px);
+  display:flex;flex-direction:column;gap:10px}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pane > h3{margin:0;padding:10px 12px 8px;font-family:var(--mono);font-size:11px;
+  font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);flex:none}
+
+/* 树窗 */
+.tree-pane{flex:1 1 auto}
+.ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
+  font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.ft ul{list-style:none;margin:0;padding-left:13px;border-left:1px solid var(--line)}
+.ft button{display:block;width:100%;text-align:left;border:0;background:none;
+  color:inherit;font:inherit;padding:1px 5px;border-radius:4px;cursor:pointer}
+.ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft .tw::before{content:"▾ ";color:var(--dim)}
+.ft li.shut > .tw::before{content:"▸ "}
+.ft li.shut > ul{display:none}
+.ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
   color:var(--bmhit);font-weight:600}
-.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
-  border-left:2px solid var(--bmhit);white-space:normal}
-.fc.on{display:block}
-.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
-  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
-.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
-.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
-  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
-  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
-@media (max-width:1040px){
-  .layout{grid-template-columns:1fr;max-width:860px}
-  .side{position:static;max-height:none;order:-1}
+
+/* 文件窗 */
+.view-pane{flex:none}
+.side.has-file .view-pane{flex:0 0 56%}
+.vmeta{padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
+.vname{font-family:var(--mono);font-size:12px;font-weight:600}
+.vsrc{font-size:9.5px;color:var(--dim);word-break:break-all;margin-top:2px}
+.vwhy{font-size:11.5px;color:var(--dim);line-height:1.55;margin-top:5px}
+.vcode{overflow:auto;flex:1 1 auto;min-height:0}
+/* 软换行：96.6% 的行在 80 字符内，剩下几条绝对路径折一次，不要横向滚动 */
+.vcode pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11px;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.vhint{padding:11px 12px;font-size:11.5px;color:var(--dim);line-height:1.6}
+
+@media (max-width:1180px){
+  .layout{grid-template-columns:1fr;max-width:880px}
+  main{max-width:none}
+  .side{position:static;height:auto;order:-1}
+  .tree-pane .ft{max-height:320px}
+  .side.has-file .view-pane{flex:none}
+  .vcode{max-height:420px}
 }
 
 /* ── 头 ── */
@@ -111,22 +129,13 @@ h2{font-size:15px;margin:38px 0 4px}
 .children{border-left:2px solid var(--line);margin-left:12px;padding-left:12px;
   display:flex;flex-direction:column;gap:7px;margin-top:2px}
 
-/* ── 分步控件：节奏归读者，不自动播 ── */
+/* ── 分步舞台的说明条：显示当前选中/预览项的文字 ── */
 .cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
   padding:8px 12px;margin-top:12px;border-radius:8px;
   background:color-mix(in srgb,var(--fg) 4%,transparent)}
 .cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
 .cap .d{font-size:12.5px;line-height:1.55}
 .cap .d b{color:var(--caller)}
-.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
-  padding-top:12px;border-top:1px solid var(--line)}
-button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
-  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover:not(:disabled){border-color:var(--dim)}
-button:disabled{opacity:.35;cursor:default}
-.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
-  min-width:52px;text-align:center}
-.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 .legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
   font-size:11px;color:var(--dim);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;
@@ -189,8 +198,7 @@ footer a{color:inherit}
 先把形状焊死。</p>
 
 <h2>机制怎么工作</h2>
-<p class="note">跟着<b>下一步</b>走一遍——从 profile 目录里的三个文件，到一棵真正在跑的树。
-这是一条有先后顺序的链条，不是并列关系，所以这里用分步，不用 hover。</p>
+<p class="note">从 profile 目录里的三个文件，到一棵真正在跑的树——点任一环看它讲什么。</p>
 
 <div class="mdiag" id="msteps">
   <div class="mstep" data-i="0" style="--c:var(--pkg)">
@@ -231,12 +239,6 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
 </div>
 
 <div class="cap"><span class="t" id="mcap-t"></span><span class="d" id="mcap-d"></span></div>
-<div class="ctl">
-  <button id="mprev">← 上一步</button>
-  <span class="pos" id="mpos"></span>
-  <button id="mnext">下一步 →</button>
-  <span class="hint">← → 键也行，或先把鼠标停在这个舞台上</span>
-</div>
 
 <h2>三件套怎么长成这棵树</h2>
 <p class="note"><b>鼠标停在任意一个文件卡片上</b>，右边高亮它实际造出了树上的哪个条目。
@@ -298,12 +300,6 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
 </div>
 
 <div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
-<div class="ctl">
-  <button id="prev">← 上一步</button>
-  <span class="pos" id="pos"></span>
-  <button id="next">下一步 →</button>
-  <span class="hint">← → 键也行，或直接把鼠标停在某张卡片上</span>
-</div>
 
 <h2>两个变体，唯一的差别在哪一行</h2>
 <p class="note">基线带 <code>hmr_root</code> 参数，默认 <code>[]</code>，也可以显式传
@@ -324,12 +320,6 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
     </div>
   </div>
   <div class="cap"><span class="t" id="vcap-t"></span><span class="d" id="vcap-d"></span></div>
-  <div class="ctl">
-    <button id="vprev">← 上一步</button>
-    <span class="pos" id="vpos"></span>
-    <button id="vnext">下一步 →</button>
-    <span class="hint">← → 键也行</span>
-  </div>
 </div>
 
 <div class="reads">
@@ -364,18 +354,56 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
 
 </main>
 <aside class="side">
-  <h3>实验现场的文件</h3>
-  <ul class="ft">
-    <li class="br">$DSH_HOME/</li>
-    <li>├─ logs/</li>
-    <li>└─ profiles/</li>
-    <li>   ├─ node_modules/</li>
-    <li>   ├─ dflt/</li>
-    <li class="f" data-k="dflt-pkg">   │  ├─ package.json</li>
-    <li class="fc" id="fc-dflt-pkg">
-      <div class="why">dflt 变体的包清单，bundles 留空，base-census 走 link: 协议引入</div>
-      <div class="src">results/20260817-151120/profiles/dflt/package.json</div>
-      <pre>{
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li>node_modules/</li>
+              <li><button class="tw">dflt/</button>
+                <ul>
+                  <li><button class="fl" data-k="dflt-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="dflt-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="dflt-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>base-census &rarr;</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">rooted/</button>
+                <ul>
+                  <li><button class="fl" data-k="rooted-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="rooted-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="rooted-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>base-census &rarr;</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/base-census/</button>
+            <ul>
+              <li><button class="fl" data-k="fx-pkg">package.json</button></li>
+              <li><button class="fl" data-k="fx-idx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-dflt-pkg" data-name="package.json" data-src="results/20260817-151120/profiles/dflt/package.json" data-why="dflt 变体的包清单，bundles 留空，base-census 走 link: 协议引入"><pre>{
   &quot;name&quot;: &quot;dsh-profile-dflt&quot;,
   &quot;private&quot;: true,
   &quot;dsh&quot;: {
@@ -386,22 +414,12 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
   &quot;dependencies&quot;: {
     &quot;base-census&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/baseline-profile/fixtures/base-census&quot;
   }
-}</pre>
-    </li>
-    <li class="f" data-k="dflt-yml">   │  ├─ cordis.yml</li>
-    <li class="fc" id="fc-dflt-yml">
-      <div class="why">profile 的根，内容恒为空数组，每次启动被重写</div>
-      <div class="src">results/20260817-151120/profiles/dflt/cordis.yml</div>
-      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+}</pre></div>
+    <div id="fc-dflt-yml" data-name="cordis.yml" data-src="results/20260817-151120/profiles/dflt/cordis.yml" data-why="profile 的根，内容恒为空数组，每次启动被重写"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
 # each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
 # --patch overlays. Edit cordis.patch.yml, not this file.
-[]</pre>
-    </li>
-    <li class="f" data-k="dflt-patch">   │  ├─ cordis.patch.yml</li>
-    <li class="fc" id="fc-dflt-patch">
-      <div class="why">活层——两个变体唯一的差别落在 hmr 那一行的 config.root</div>
-      <div class="src">results/20260817-151120/profiles/dflt/cordis.patch.yml</div>
-      <pre># 基础设施：显式带上，不依赖框架的 fallback
+[]</pre></div>
+    <div id="fc-dflt-patch" data-name="cordis.patch.yml" data-src="results/20260817-151120/profiles/dflt/cordis.patch.yml" data-why="活层——两个变体唯一的差别落在 hmr 那一行的 config.root"><pre># 基础设施：显式带上，不依赖框架的 fallback
 - insert:
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -418,16 +436,8 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
       name: base-census
       config:
         out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/baseline-profile/census-baseline-dflt.json&quot;
-        delayMs: 2000</pre>
-    </li>
-    <li>   │  └─ node_modules/</li>
-    <li>   │     └─ base-census →</li>
-    <li>   └─ rooted/</li>
-    <li class="f" data-k="rooted-pkg">      ├─ package.json</li>
-    <li class="fc" id="fc-rooted-pkg">
-      <div class="why">rooted 变体的包清单，形状与 dflt 一致，只有 name 字段跟着目录名走</div>
-      <div class="src">results/20260817-151120/profiles/rooted/package.json</div>
-      <pre>{
+        delayMs: 2000</pre></div>
+    <div id="fc-rooted-pkg" data-name="package.json" data-src="results/20260817-151120/profiles/rooted/package.json" data-why="rooted 变体的包清单，形状与 dflt 一致，只有 name 字段跟着目录名走"><pre>{
   &quot;name&quot;: &quot;dsh-profile-rooted&quot;,
   &quot;private&quot;: true,
   &quot;dsh&quot;: {
@@ -438,22 +448,12 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
   &quot;dependencies&quot;: {
     &quot;base-census&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/baseline-profile/fixtures/base-census&quot;
   }
-}</pre>
-    </li>
-    <li class="f" data-k="rooted-yml">      ├─ cordis.yml</li>
-    <li class="fc" id="fc-rooted-yml">
-      <div class="why">profile 的根，内容恒为空数组，每次启动被重写</div>
-      <div class="src">results/20260817-151120/profiles/rooted/cordis.yml</div>
-      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+}</pre></div>
+    <div id="fc-rooted-yml" data-name="cordis.yml" data-src="results/20260817-151120/profiles/rooted/cordis.yml" data-why="profile 的根，内容恒为空数组，每次启动被重写"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
 # each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
 # --patch overlays. Edit cordis.patch.yml, not this file.
-[]</pre>
-    </li>
-    <li class="f" data-k="rooted-patch">      ├─ cordis.patch.yml</li>
-    <li class="fc" id="fc-rooted-patch">
-      <div class="why">活层——跟 dflt 对着看，hmr 那一行 config.root 是唯一差别</div>
-      <div class="src">results/20260817-151120/profiles/rooted/cordis.patch.yml</div>
-      <pre># 基础设施：显式带上，不依赖框架的 fallback
+[]</pre></div>
+    <div id="fc-rooted-patch" data-name="cordis.patch.yml" data-src="results/20260817-151120/profiles/rooted/cordis.patch.yml" data-why="活层——跟 dflt 对着看，hmr 那一行 config.root 是唯一差别"><pre># 基础设施：显式带上，不依赖框架的 fallback
 - insert:
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -470,17 +470,8 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
       name: base-census
       config:
         out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/baseline-profile/census-baseline-rooted.json&quot;
-        delayMs: 2000</pre>
-    </li>
-    <li>      └─ node_modules/</li>
-    <li>         └─ base-census →</li>
-    <li class="br">插件源码</li>
-    <li>└─ fixtures/base-census/</li>
-    <li class="f" data-k="fx-pkg">   ├─ package.json</li>
-    <li class="fc" id="fc-fx-pkg">
-      <div class="why">包型插件的清单：name / type:module / exports，靠包名被引用</div>
-      <div class="src">experiments/00-base/baseline-profile/fixtures/base-census/package.json</div>
-      <pre>{
+        delayMs: 2000</pre></div>
+    <div id="fc-fx-pkg" data-name="package.json" data-src="experiments/00-base/baseline-profile/fixtures/base-census/package.json" data-why="包型插件的清单：name / type:module / exports，靠包名被引用"><pre>{
   &quot;name&quot;: &quot;base-census&quot;,
   &quot;version&quot;: &quot;1.0.0&quot;,
   &quot;private&quot;: true,
@@ -488,13 +479,8 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
   &quot;exports&quot;: {
     &quot;.&quot;: &quot;./index.js&quot;
   }
-}</pre>
-    </li>
-    <li class="f" data-k="fx-idx">   └─ index.js</li>
-    <li class="fc" id="fc-fx-idx">
-      <div class="why">教学插件本体：export function apply(ctx, config)，拍两张树快照</div>
-      <div class="src">experiments/00-base/baseline-profile/fixtures/base-census/index.js</div>
-      <pre>/**
+}</pre></div>
+    <div id="fc-fx-idx" data-name="index.js" data-src="experiments/00-base/baseline-profile/fixtures/base-census/index.js" data-why="教学插件本体：export function apply(ctx, config)，拍两张树快照"><pre>/**
  * 树的普查员：从进程内部给 loader 上的整棵条目树拍快照。
  *
  * 存在的理由：`--dump-config` 只能告诉你「配方算出来是什么」，看不到框架在
@@ -583,14 +569,13 @@ export function apply(ctx, config) {
     flush();
   }, delayMs);
   ctx.on(&quot;dispose&quot;, () => clearTimeout(handle));
-}</pre>
-    </li>
-  </ul>
+}</pre></div>
+  </div>
 </aside>
 </div>
 
 <script>
-/* ── 机制舞台：五步，process 类内容用纯分步，不需要 hover ── */
+/* ── 机制舞台：五步，直接点节点切换 ── */
 const MSTEPS = [...document.querySelectorAll('.mstep')];
 const MLAST = MSTEPS.length - 1;
 const MSTEP_T = ['① 三件套', '② patch 是什么', '③ 条目长什么样', '④ 树是怎么来的', '⑤ 插件怎么被找到'];
@@ -601,9 +586,7 @@ const MCAP = [
   '各层 patch 依次叠完之后，得到的是一棵真正在跑的树，树根固定叫 <code>cordis:include</code>——它是 boot 期由框架自己创建的一条条目，不写在任何 patch 文件里。patch 里写出来的条目全都住在它的子树里，后面会用 <code>⊂include</code> 标出这层归属。<code>cordis.yml</code> 那个恒为空的数组，就是 <code>cordis:include</code> 的起点——它自己再吃进每一层 patch，拼出这整棵树。',
   '条目的 <code>name</code> 字段怎么变成真正被 import 的模块，看它的写法。裸包名（比如 <code>base-census</code>）走 Node 标准的包解析，去 profile 目录下的 <code>node_modules</code> 里找；本仓的教学插件不走 <code>pnpm install</code>，而是靠一条 <b>junction</b>（Windows 下的目录联结点）把包名指到 fixtures 源码目录，效果跟真的装进去一样。写成相对路径（<code>./xxx</code>）则走纯 URL 解析，必须指到具体文件，指到目录会报错。',
 ];
-const mpos = document.getElementById('mpos');
 const mcapT = document.getElementById('mcap-t'), mcapD = document.getElementById('mcap-d');
-const mprev = document.getElementById('mprev'), mnext = document.getElementById('mnext');
 let mcur = 0;
 
 function mrender(i){
@@ -613,20 +596,22 @@ function mrender(i){
   });
   mcapT.textContent = MSTEP_T[i];
   mcapD.innerHTML = MCAP[i];
-  mpos.textContent = `${mcur + 1} / ${MSTEPS.length}`;
 }
 
 function mgoto(i){
   mcur = Math.max(0, Math.min(MLAST, i));
   mrender(mcur);
-  mprev.disabled = mcur === 0;
-  mnext.disabled = mcur === MLAST;
 }
 
-mprev.addEventListener('click', () => mgoto(mcur - 1));
-mnext.addEventListener('click', () => mgoto(mcur + 1));
+MSTEPS.forEach((s, i) => {
+  s.tabIndex = 0;
+  s.addEventListener('click', () => mgoto(i));
+  s.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { mgoto(i); e.preventDefault(); }
+  });
+});
 
-/* ── 主图：三件套 → 树，静态关系 + hover/分步联动高亮 ── */
+/* ── 主图：三件套 → 树，静态关系 + hover/点击联动高亮 ── */
 const FILES = [...document.querySelectorAll('.file')];
 const NODES = [...document.querySelectorAll('.node')];
 const LAST = FILES.length - 1;
@@ -638,12 +623,11 @@ const CAP = [
   '基础设施块显式带上 <code>timer</code> 与 <code>hmr</code>，不依赖框架 fallback——两条 id 都是我们给的，落在 <code>include</code> 子树里（⊂include）。',
   '调用方追加的 <code>census</code> 块拼在基础设施块<b>之后</b>——两个 <code>insert:</code> 块各自生效，互不覆盖。',
 ];
-const posEl = document.getElementById('pos');
 const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
-const prev = document.getElementById('prev'), next = document.getElementById('next');
 let cur = 0;
 
-/** 渲染第 i 张文件卡片对应的高亮——hover 与分步共用，hover 只做临时预览，不碰 cur。 */
+/* 渲染第 i 张文件卡片对应的高亮——hover 与点击共用这同一个函数，但只有点击
+   （经 gotoStep）才会把 cur 改掉；hover 只是临时预览，鼠标移开就回落到 cur。 */
 function render(i){
   const hitIds = (FILES[i].dataset.hit || '').split(',').filter(Boolean);
   FILES.forEach((f, k) => {
@@ -658,38 +642,29 @@ function render(i){
   });
   capT.textContent = STEP_T[i];
   capD.innerHTML = CAP[i];
-  // 计数器读的是 cur 不是 i：hover 预览别的卡片时指针没动，数字跟着动会让
-  // 读者分不清「现在钉在哪一步」和「正在预览哪一张」。
-  posEl.textContent = `${cur + 1} / ${FILES.length}`;
 }
 
 function gotoStep(i){
   cur = Math.max(0, Math.min(LAST, i));
   render(cur);
-  prev.disabled = cur === 0;
-  next.disabled = cur === LAST;
 }
 
 FILES.forEach((f, i) => {
   f.addEventListener('mouseenter', () => render(i));
   f.addEventListener('focus', () => render(i));
+  f.addEventListener('click', () => gotoStep(i));
   f.tabIndex = 0;
 });
 document.getElementById('files').addEventListener('mouseleave', () => render(cur));
 
-prev.addEventListener('click', () => gotoStep(cur - 1));
-next.addEventListener('click', () => gotoStep(cur + 1));
-
-/* ── 变体对比：两步，独立的分步序列 ── */
+/* ── 变体对比：两张卡，点卡片钉住、hover 临时预览 ── */
 const VCARDS = [...document.querySelectorAll('.vcard')];
 const VLAST = VCARDS.length - 1;
 const VCAP = [
   '<code>hmr_root</code> 不传时默认 <code>[]</code>——够监听 patch 文件本身（按精确路径注册，与 root 无关），但<b>不监听代码文件</b>。',
   '显式传 <code>["."]</code>——树的形状（四个 id）跟默认变体完全一样，<b>唯一的差别就是 hmr 这一行 config</b>。',
 ];
-const vpos = document.getElementById('vpos');
 const vcapT = document.getElementById('vcap-t'), vcapD = document.getElementById('vcap-d');
-const vprev = document.getElementById('vprev'), vnext = document.getElementById('vnext');
 let vcur = 0;
 
 function vrender(i){
@@ -700,58 +675,47 @@ function vrender(i){
   vcapT.textContent = VCARDS[i].querySelector('.vt').textContent;
   vcapT.style.color = getComputedStyle(VCARDS[i]).getPropertyValue('--c');
   vcapD.innerHTML = VCAP[i];
-  vpos.textContent = `${vcur + 1} / ${VCARDS.length}`;
 }
 
 function vgoto(i){
   vcur = Math.max(0, Math.min(VLAST, i));
   vrender(vcur);
-  vprev.disabled = vcur === 0;
-  vnext.disabled = vcur === VLAST;
 }
 
 VCARDS.forEach((c, i) => {
   c.addEventListener('mouseenter', () => vrender(i));
   c.addEventListener('focus', () => vrender(i));
+  c.addEventListener('click', () => vgoto(i));
   c.tabIndex = 0;
 });
 document.getElementById('variant').addEventListener('mouseleave', () => vrender(vcur));
-
-vprev.addEventListener('click', () => vgoto(vcur - 1));
-vnext.addEventListener('click', () => vgoto(vcur + 1));
-
-/* ── 键盘方向键按鼠标所在舞台分派：页面上有三条独立分步序列 ── */
-let activeStage = 'mechanism';
-document.getElementById('msteps').addEventListener('mouseenter', () => activeStage = 'mechanism');
-document.querySelector('.diagram').addEventListener('mouseenter', () => activeStage = 'main');
-document.getElementById('variant').addEventListener('mouseenter', () => activeStage = 'variant');
-
-addEventListener('keydown', e => {
-  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-  const dir = e.key === 'ArrowLeft' ? -1 : 1;
-  if (activeStage === 'mechanism') mgoto(mcur + dir);
-  else if (activeStage === 'variant') vgoto(vcur + dir);
-  else gotoStep(cur + dir);
-  e.preventDefault();
-});
 
 mgoto(0);
 gotoStep(0);
 vgoto(0);
 
-/* ── 侧边文件树：点文件展开真实内容，同时最多展开一个 ── */
-document.querySelectorAll('.ft li.f').forEach(li => {
-  li.tabIndex = 0;
-  const toggle = () => {
-    const box = document.getElementById('fc-' + li.dataset.k);
-    const was = box.classList.contains('on');
-    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
-    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
-    if (!was) { box.classList.add('on'); li.classList.add('on'); }
-  };
-  li.addEventListener('click', toggle);
-  li.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+/* ── 侧边栏：树窗 + 文件窗，点文件把原文显示到下面那个独立的窗里 ── */
+const side = document.querySelector('.side');
+const vhint = document.getElementById('vhint'), vmeta = document.getElementById('vmeta');
+const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');
+const vwhy = document.getElementById('vwhy'), vcode = document.getElementById('vcode');
+
+document.querySelectorAll('.ft .tw').forEach(b => {
+  b.addEventListener('click', () => b.parentElement.classList.toggle('shut'));
+});
+
+document.querySelectorAll('.ft .fl').forEach(b => {
+  b.addEventListener('click', () => {
+    const box = document.getElementById('fc-' + b.dataset.k);
+    document.querySelectorAll('.ft .fl.on').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    vname.textContent = box.dataset.name;
+    vsrc.textContent = box.dataset.src;
+    vwhy.textContent = box.dataset.why;
+    // 克隆，别搬走 stash 里的原件——它是校验脚本比对的对象
+    vcode.replaceChildren(box.querySelector('pre').cloneNode(true));
+    vhint.hidden = true; vmeta.hidden = false;
+    side.classList.add('has-file');
   });
 });
 </script>

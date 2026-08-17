@@ -49,34 +49,52 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 /* ── 全内容区虚线框：跟已验项在视觉上分开 ── */
 .gapwrap{border:1.5px dashed var(--line);border-radius:14px;padding:6px 22px 20px}
 
-/* ── 侧边文件树 ── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
-  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
-.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
-  background:var(--card);border:1.5px dashed var(--line);border-radius:10px;padding:12px 10px}
-.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
-  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
-.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
-  font-size:11.5px;line-height:1.5}
-.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
-.ft li.br{color:var(--dim);margin-top:7px}
-.ft li.f{cursor:pointer}
-.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft li.f::after{content:" ·";color:var(--dim)}
-.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+/* ── 版心：正文 + 右栏两窗 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:32px;
+  max-width:1532px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+main{min-width:0;max-width:820px}
+
+.side{position:sticky;top:18px;height:calc(100vh - 36px);
+  display:flex;flex-direction:column;gap:10px}
+.pane{background:var(--card);border:1.5px dashed var(--line);border-radius:10px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pane > h3{margin:0;padding:10px 12px 8px;font-family:var(--mono);font-size:11px;
+  font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);flex:none}
+
+/* 树窗 */
+.tree-pane{flex:1 1 auto}
+.ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
+  font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.ft ul{list-style:none;margin:0;padding-left:13px;border-left:1px solid var(--line)}
+.ft button{display:block;width:100%;text-align:left;border:0;background:none;
+  color:inherit;font:inherit;padding:1px 5px;border-radius:4px;cursor:pointer}
+.ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft .tw::before{content:"▾ ";color:var(--dim)}
+.ft li.shut > .tw::before{content:"▸ "}
+.ft li.shut > ul{display:none}
+.ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
   color:var(--bmhit);font-weight:600}
-.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
-  border-left:2px solid var(--bmhit);white-space:normal}
-.fc.on{display:block}
-.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
-  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
-.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
-.fc pre{margin:0 0 8px;font-size:10.5px;line-height:1.5;white-space:pre;
-  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
-  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
-@media (max-width:1040px){
-  .layout{grid-template-columns:1fr;max-width:860px}
-  .side{position:static;max-height:none;order:-1}
+
+/* 文件窗 */
+.view-pane{flex:none}
+.side.has-file .view-pane{flex:0 0 56%}
+.vmeta{padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
+.vname{font-family:var(--mono);font-size:12px;font-weight:600}
+.vsrc{font-size:9.5px;color:var(--dim);word-break:break-all;margin-top:2px}
+.vwhy{font-size:11.5px;color:var(--dim);line-height:1.55;margin-top:5px}
+.vcode{overflow:auto;flex:1 1 auto;min-height:0}
+/* 软换行：不让长行把文件窗撑出横向滚动 */
+.vcode pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11px;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.vhint{padding:11px 12px;font-size:11.5px;color:var(--dim);line-height:1.6}
+
+@media (max-width:1180px){
+  .layout{grid-template-columns:1fr;max-width:880px}
+  main{max-width:none}
+  .side{position:static;height:auto;order:-1}
+  .tree-pane .ft{max-height:320px}
+  .side.has-file .view-pane{flex:none}
+  .vcode{max-height:420px}
 }
 
 h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
@@ -115,16 +133,18 @@ h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
   background:color-mix(in srgb,var(--fg) 6%,transparent);
   padding:1px 5px;border-radius:4px}
 
-/* ── 控件 ── */
-.ctl{display:flex;gap:8px;align-items:center;margin-top:13px;
-  padding-top:12px;border-top:1px solid var(--line)}
+/* ── 五条并列说明（原「机制怎么工作」，摊平后零交互） ── */
+.steplist{list-style:none;margin:14px 0 6px;padding:0;
+  display:flex;flex-direction:column;gap:10px}
+.steplist li{border-radius:12px;background:var(--card);border:1px solid var(--line);
+  border-left:4px solid var(--dim);padding:13px 16px;font-size:13px;line-height:1.75}
+.steplist b{display:block;margin-bottom:4px;font-size:13.5px}
+
+/* ── 按钮基础重置（卡片、树窗折叠按钮都是 button） ── */
 button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
 button:hover:not(:disabled){border-color:var(--dim)}
 button:disabled{opacity:.35;cursor:default}
-.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
-  min-width:120px;text-align:center}
-.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 
 /* ── 三态小结 ── */
 .legend3{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 4px;
@@ -173,16 +193,9 @@ footer a{color:inherit}
 
 <h2>机制怎么工作</h2>
 <p class="note">下面五步，从「一个实例需要什么」讲到「实验台怎么让这几样东西每次都不撞
-车」。每一步点亮右边源码树里对应的那一行，走完这五步，前面提到的隔离机制就有一条完整
-链条了。</p>
+车」。走完这五步，前面提到的隔离机制就有一条完整链条了。</p>
 
-<div class="detail" id="stepdetail"></div>
-
-<div class="ctl">
-  <button id="prev0">← 上一步</button>
-  <span class="pos" id="pos0"></span>
-  <button id="next0">下一步 →</button>
-</div>
+<ol class="steplist" id="steplist"></ol>
 
 <h2>四条机制，点一条看谁实现、缺什么</h2>
 <p class="note">卡片是并发跑各组用例时依赖的四条隔离；点一条，下面联动出「谁实现」「没验证什么」
@@ -191,13 +204,6 @@ footer a{color:inherit}
 <div class="cards" id="cards"></div>
 
 <div class="detail" id="detail"></div>
-
-<div class="ctl">
-  <button id="prev">← 上一条</button>
-  <span class="pos" id="pos"></span>
-  <button id="next">下一条 →</button>
-  <span class="hint">← → 键也行，也可以直接点卡片</span>
-</div>
 
 <div class="legend3">
   <span><i></i>状态词只是这条缺口的形状，不是严重程度排名——四条都还没人验过</span>
@@ -220,23 +226,65 @@ footer a{color:inherit}
 
 </main>
 <aside class="side">
-  <h3>假 home ＋ 实验台源码（右边这支不是插件，是实验台自己）</h3>
-  <ul class="ft">
-    <li class="br">假 home · out/testhome/ 下按项分</li>
-    <li>out/testhome/</li>
-    <li>├─ minimal-profile/</li>
-    <li>│  └─ profiles/</li>
-    <li>│     └─ minimal/</li>
-    <li>├─ baseline-profile/</li>
-    <li>├─ recorder-reach/</li>
-    <li>└─ framework-fallback/</li>
-    <li class="br">实验台源码 · experiments/</li>
-    <li>experiments/</li>
-    <li class="f" data-k="conftest">├─ conftest.py</li>
-    <li class="fc" id="fc-conftest">
-      <div class="src">experiments/conftest.py · _label_of()</div>
-      <div class="why">home 标签怎么算——「一项一个假 home」这条隔离靠标签全局唯一撑住。</div>
-      <pre>def _label_of(request: pytest.FixtureRequest) -> str:
+  <div class="pane tree-pane">
+    <h3>假 home ＋ 实验台源码（右边这支不是插件，是实验台自己）</h3>
+    <ul class="ft">
+      <li><button class="tw">out/testhome/</button>
+        <ul>
+          <li class="shut"><button class="tw">minimal-profile/</button>
+            <ul>
+              <li>profiles/
+                <ul><li>minimal/</li></ul>
+              </li>
+            </ul>
+          </li>
+          <li>baseline-profile/</li>
+          <li>recorder-reach/</li>
+          <li>framework-fallback/</li>
+        </ul>
+      </li>
+      <li><button class="tw">experiments/</button>
+        <ul>
+          <li><button class="tw">conftest.py</button>
+            <ul>
+              <li><button class="fl" data-k="conftest-label">_label_of()</button></li>
+              <li><button class="fl" data-k="conftest-ports">_my_ports()</button></li>
+            </ul>
+          </li>
+          <li><button class="tw">lab/</button>
+            <ul>
+              <li><button class="tw">core.py</button>
+                <ul>
+                  <li><button class="fl" data-k="core-root">TESTHOME_ROOT</button></li>
+                  <li><button class="fl" data-k="core-ports">LAB_PORT_RANGE / FORBIDDEN_PORTS</button></li>
+                  <li><button class="fl" data-k="core-rmtree">rmtree_safe()</button></li>
+                </ul>
+              </li>
+              <li><button class="fl" data-k="instance-lock">instance.py</button></li>
+              <li>dump.py</li>
+              <li>events.py</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-conftest-label" data-name="_label_of()"
+         data-src="experiments/conftest.py · _label_of()"
+         data-why="home 标签怎么算——「一项一个假 home」这条隔离靠标签全局唯一撑住。">
+    <pre>def _label_of(request: pytest.FixtureRequest) -> str:
     """实验目录名就是标签，**整个用上、不截断**。
 
     ⚠️ 由此得出一条硬约束：**叶子目录名必须全局唯一**。两项算出同一个标签就
@@ -246,9 +294,12 @@ footer a{color:inherit}
     所以不截断、不取第一段——唯一性交给文件系统保证，不依赖命名纪律。
     """
     return request.path.parent.name</pre>
-      <div class="src">experiments/conftest.py · _my_ports()</div>
-      <div class="why">端口怎么按 xdist worker 静态切段，避开「查完到起进程」之间的撞车窗口。</div>
-      <pre>def _my_ports(config: pytest.Config) -> list[int]:
+    </div>
+
+    <div id="fc-conftest-ports" data-name="_my_ports()"
+         data-src="experiments/conftest.py · _my_ports()"
+         data-why="端口怎么按 xdist worker 静态切段，避开「查完到起进程」之间的撞车窗口。">
+    <pre>def _my_ports(config: pytest.Config) -> list[int]:
     """本进程可用的那一小段端口。
 
     并行时必须**静态分段**而不是共享整段：`port_listening()` 查完到真正
@@ -273,13 +324,12 @@ footer a{color:inherit}
     idx = int(str(wi["workerid"]).removeprefix("gw"))
     per = len(ports) // count
     return ports[idx * per : (idx + 1) * per]</pre>
-    </li>
-    <li>└─ lab/</li>
-    <li class="f" data-k="core">   ├─ core.py</li>
-    <li class="fc" id="fc-core">
-      <div class="src">experiments/lab/core.py · TESTHOME_ROOT</div>
-      <div class="why">假 home 的根，LabHome 只允许建在它下面。</div>
-      <pre>#: 假 DSH home 的根，每个实验在下面占一个子目录。跑某一项时先整个清掉再重建，
+    </div>
+
+    <div id="fc-core-root" data-name="TESTHOME_ROOT"
+         data-src="experiments/lab/core.py · TESTHOME_ROOT"
+         data-why="假 home 的根，LabHome 只允许建在它下面。">
+    <pre>#: 假 DSH home 的根，每个实验在下面占一个子目录。跑某一项时先整个清掉再重建，
 #: 跑完留着供排查。**这是实验台的安全边界**：`DSH_HOME` 只会指向这下面，
 #: 绝不指向 `~/.dsh`。
 #:
@@ -290,16 +340,22 @@ footer a{color:inherit}
 #: `test_*.py`、IDE 索引持续吃 CPU。现在只需挡住 `out/` 一处，搬进去要挡四处，
 #: 漏一处就是踩坑。归档产物不同——那是纯文件，所以它住各实验目录下的 `results/`。
 TESTHOME_ROOT = OUT_DIR / "testhome"</pre>
-      <div class="src">experiments/lab/core.py · LAB_PORT_RANGE / FORBIDDEN_PORTS</div>
-      <div class="why">实验只用 3090–3099，3080/3239/3733 三个端口任何情况下都不许碰。</div>
-      <pre>#: 本机上可能有别的东西在跑的端口，任何情况下都不许碰
+    </div>
+
+    <div id="fc-core-ports" data-name="LAB_PORT_RANGE / FORBIDDEN_PORTS"
+         data-src="experiments/lab/core.py · LAB_PORT_RANGE / FORBIDDEN_PORTS"
+         data-why="实验只用 3090–3099，3080/3239/3733 三个端口任何情况下都不许碰。">
+    <pre>#: 本机上可能有别的东西在跑的端口，任何情况下都不许碰
 FORBIDDEN_PORTS = (3080, 3239, 3733)
 
 #: 本箱可用端口。上下界都是硬的——3080 与 3100 以上都可能被别的进程占着
 LAB_PORT_RANGE = range(3090, 3100)</pre>
-      <div class="src">experiments/lab/core.py · rmtree_safe()</div>
-      <div class="why">删假 home 时遇到 junction 只拆链接本身，绝不递归进去删源码或 npx 缓存。</div>
-      <pre>def rmtree_safe(path: Path) -> None:
+    </div>
+
+    <div id="fc-core-rmtree" data-name="rmtree_safe()"
+         data-src="experiments/lab/core.py · rmtree_safe()"
+         data-why="删假 home 时遇到 junction 只拆链接本身，绝不递归进去删源码或 npx 缓存。">
+    <pre>def rmtree_safe(path: Path) -> None:
     """删目录树，遇到 junction / symlink 只拆链接本身，绝不跟进去。
 
     为什么不用 shutil.rmtree：profile 的 node_modules 里全是指向插件源码和 npx
@@ -325,12 +381,12 @@ LAB_PORT_RANGE = range(3090, 3100)</pre>
             child.chmod(0o600)  # node_modules 里可能有只读文件
             child.unlink()
     path.rmdir()</pre>
-    </li>
-    <li class="f" data-k="instance">   ├─ instance.py</li>
-    <li class="fc" id="fc-instance">
-      <div class="src">experiments/lab/instance.py · acquire_lock()</div>
-      <div class="why">整个 pytest 会话只在主进程拿一次锁，防两个真实会话同时开跑互踩 patch 文件。</div>
-      <pre>def acquire_lock(label: str, *, wait: float = 900.0, poll: float = 3.0) -> None:
+    </div>
+
+    <div id="fc-instance-lock" data-name="acquire_lock()"
+         data-src="experiments/lab/instance.py · acquire_lock()"
+         data-why="整个 pytest 会话只在主进程拿一次锁，防两个真实会话同时开跑互踩 patch 文件。">
+    <pre>def acquire_lock(label: str, *, wait: float = 900.0, poll: float = 3.0) -> None:
     """拿实验台的独占锁。**占用时排队等待**，不是直接失败。
 
     存在的理由：v1 曾有两个会话并发跑实验，共用 profile 名和端口，
@@ -386,10 +442,8 @@ LAB_PORT_RANGE = range(3090, 3100)</pre>
             started_waiting = time.monotonic()
             print(f"\n[lab] 实验台被 {held.get('label')} 占用中，排队等待…", flush=True)
         time.sleep(poll)</pre>
-    </li>
-    <li>   ├─ dump.py</li>
-    <li>   └─ events.py</li>
-  </ul>
+    </div>
+  </div>
 </aside>
 </div>
 
@@ -443,27 +497,32 @@ const M = [
   },
 ];
 
-document.querySelectorAll('.ft li.f').forEach(li => {
-  li.tabIndex = 0;
-  const toggle = () => {
-    const box = document.getElementById('fc-' + li.dataset.k);
-    const was = box.classList.contains('on');
-    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
-    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
-    if (!was) { box.classList.add('on'); li.classList.add('on'); }
-  };
-  li.addEventListener('click', toggle);
-  li.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+const side = document.querySelector('.side');
+const vhint = document.getElementById('vhint'), vmeta = document.getElementById('vmeta');
+const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');
+const vwhy = document.getElementById('vwhy'), vcode = document.getElementById('vcode');
+
+document.querySelectorAll('.ft .tw').forEach(b => {
+  b.addEventListener('click', () => b.parentElement.classList.toggle('shut'));
+});
+
+document.querySelectorAll('.ft .fl').forEach(b => {
+  b.addEventListener('click', () => {
+    const box = document.getElementById('fc-' + b.dataset.k);
+    document.querySelectorAll('.ft .fl.on').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    vname.textContent = box.dataset.name;
+    vsrc.textContent = box.dataset.src;
+    vwhy.textContent = box.dataset.why;
+    // 克隆，别搬走 stash 里的原件——它是校验脚本比对的对象
+    vcode.replaceChildren(box.querySelector('pre').cloneNode(true));
+    vhint.hidden = true; vmeta.hidden = false;
+    side.classList.add('has-file');
   });
 });
-const sideTree = document.querySelector('.side .ft');
 
 const cardsEl = document.getElementById('cards');
 const detailEl = document.getElementById('detail');
-const posEl = document.getElementById('pos');
-const prevBtn = document.getElementById('prev');
-const nextBtn = document.getElementById('next');
 const cardNodes = [];
 
 M.forEach((m, i) => {
@@ -482,7 +541,7 @@ M.forEach((m, i) => {
 let cur = 0;
 
 function goto(i){
-  cur = Math.max(0, Math.min(M.length - 1, i));
+  cur = i;
   const m = M[cur];
   cardNodes.forEach((n, k) => {
     n.classList.toggle('sel', k === cur);
@@ -495,16 +554,7 @@ function goto(i){
     <div class="drow"><span class="k">没验证什么</span><span class="v">${m.unproven}</span></div>
     <div class="drow"><span class="k">补上要造什么</span><span class="v">${m.need}</span></div>
   `;
-  posEl.textContent = `${cur + 1} / ${M.length} · ${m.nm}`;
-  prevBtn.disabled = cur === 0;
-  nextBtn.disabled = cur === M.length - 1;
 }
-prevBtn.addEventListener('click', () => goto(cur - 1));
-nextBtn.addEventListener('click', () => goto(cur + 1));
-addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft'){ goto(cur - 1); e.preventDefault(); }
-  if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
-});
 goto(0);
 
 const STEPS = [
@@ -548,28 +598,11 @@ const STEPS = [
     +`各自互不相干。` },
 ];
 
-const stepDetail = document.getElementById('stepdetail');
-const stepPos = document.getElementById('pos0');
-const stepPrev = document.getElementById('prev0');
-const stepNext = document.getElementById('next0');
-stepDetail.style.setProperty('--accent', 'var(--dim)');
-let stepCur = 0;
-
-/** 走到第 i 步：换内容面板文字，点亮侧边树里对应的源码行。 */
-function gotoStep(i){
-  stepCur = Math.max(0, Math.min(STEPS.length - 1, i));
-  const s = STEPS[stepCur];
-  stepDetail.innerHTML = `
-    <div class="hd"><span class="nm">${stepCur + 1}. ${s.nm}</span></div>
-    <div class="drow"><span class="v">${s.body}</span></div>
-  `;
-  stepPos.textContent = `${stepCur + 1} / ${STEPS.length} · ${s.nm}`;
-  stepPrev.disabled = stepCur === 0;
-  stepNext.disabled = stepCur === STEPS.length - 1;
-}
-stepPrev.addEventListener('click', () => gotoStep(stepCur - 1));
-stepNext.addEventListener('click', () => gotoStep(stepCur + 1));
-gotoStep(0);
+// 五步一次性摊平铺开，零交互——不再是逐步轮换的面板
+const CIRCLED = ['①','②','③','④','⑤'];
+document.getElementById('steplist').innerHTML = STEPS.map((s, i) =>
+  `<li><b>${CIRCLED[i]} ${s.nm}</b>${s.body}</li>`
+).join('');
 </script>
 </body>
 </html>

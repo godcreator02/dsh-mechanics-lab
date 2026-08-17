@@ -19,34 +19,52 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-/* ── 侧边文件树 ── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
-  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
-.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
-.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
-  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
-.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
-  font-size:11.5px;line-height:1.5}
-.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
-.ft li.br{color:var(--dim);margin-top:7px}
-.ft li.f{cursor:pointer}
-.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft li.f::after{content:" ·";color:var(--dim)}
-.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+/* ── 版心：正文 + 右栏两窗 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:32px;
+  max-width:1532px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+main{min-width:0;max-width:820px}
+
+.side{position:sticky;top:18px;height:calc(100vh - 36px);
+  display:flex;flex-direction:column;gap:10px}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pane > h3{margin:0;padding:10px 12px 8px;font-family:var(--mono);font-size:11px;
+  font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);flex:none}
+
+/* 树窗 */
+.tree-pane{flex:1 1 auto}
+.ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
+  font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.ft ul{list-style:none;margin:0;padding-left:13px;border-left:1px solid var(--line)}
+.ft button{display:block;width:100%;text-align:left;border:0;background:none;
+  color:inherit;font:inherit;padding:1px 5px;border-radius:4px;cursor:pointer}
+.ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft .tw::before{content:"▾ ";color:var(--dim)}
+.ft li.shut > .tw::before{content:"▸ "}
+.ft li.shut > ul{display:none}
+.ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
   color:var(--bmhit);font-weight:600}
-.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
-  border-left:2px solid var(--bmhit);white-space:normal}
-.fc.on{display:block}
-.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
-  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
-.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
-.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
-  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
-  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
-@media (max-width:1040px){
-  .layout{grid-template-columns:1fr;max-width:860px}
-  .side{position:static;max-height:none;order:-1}
+
+/* 文件窗 */
+.view-pane{flex:none}
+.side.has-file .view-pane{flex:0 0 56%}
+.vmeta{padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
+.vname{font-family:var(--mono);font-size:12px;font-weight:600}
+.vsrc{font-size:9.5px;color:var(--dim);word-break:break-all;margin-top:2px}
+.vwhy{font-size:11.5px;color:var(--dim);line-height:1.55;margin-top:5px}
+.vcode{overflow:auto;flex:1 1 auto;min-height:0}
+/* 软换行：绝大多数行在 80 字符内，剩下几条绝对路径折一次，不要横向滚动 */
+.vcode pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11px;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.vhint{padding:11px 12px;font-size:11.5px;color:var(--dim);line-height:1.6}
+
+@media (max-width:1180px){
+  .layout{grid-template-columns:1fr;max-width:880px}
+  main{max-width:none}
+  .side{position:static;height:auto;order:-1}
+  .tree-pane .ft{max-height:320px}
+  .side.has-file .view-pane{flex:none}
+  .vcode{max-height:420px}
 }
 
 /* ── 头 ── */
@@ -163,12 +181,13 @@ footer a{color:inherit}
 <code>docs/GLOSSARY.md</code> 里都有记录）；④⑤ 是本项自己的判据与落点，跟本页
 后面的实测快照用的是同一条用例、同一份「待验」证据。</p>
 
-<div class="stage" id="stage2">
-  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
-  <div class="ctl">
-    <button id="prev2">← 上一步</button>
-    <span class="pos" id="pos2"></span>
-    <button id="next2">下一步 →</button>
+<div class="stage">
+  <div class="reads">
+    <div class="read"><span class="n">①</span><p><b>条目 / 插件</b><br>配方里的一行叫<b>条目（entry）</b>——本项唯一的一条是 <code>census</code>，写着『挂 <code>base-census</code> 这个插件、给它什么 <code>config</code>』。插件本身是一段可挂载的代码，DSH 的写法是模块导出一个 <code>apply(ctx, config)</code> 函数：<code>ctx</code> 是这次挂载拿到的上下文，插件靠它访问一切。</p></div>
+    <div class="read"><span class="n">②</span><p><b>服务</b><br>插件在 <code>apply</code> 里可以往 <code>ctx</code> 上 <b>provide</b> 一个具名对象，这就是<b>服务（service）</b>；别的插件靠 <b>inject</b> 声明依赖，或者用 <code>ctx.get("服务名")</code> 运行时现查来拿。服务名跟条目 id 是两码事——本项的 <code>base-census</code> 自己不 provide 任何服务，只在 <code>apply</code> 里用 <code>ctx.get()</code> 挨个查 <code>loader</code>（读组合树的服务）、<code>timer</code>、<code>hmr</code> 在不在，把结果拍进快照。</p></div>
+    <div class="read"><span class="n">③</span><p><b>boot</b><br><b>boot</b> 是 dsh 进程起来后把整份配方挂成一棵条目树、逐条激活插件的那一程；它有个明确的收尾时刻——负责启动的 <code>@deepseek-ai/dsh-app-boot</code> 里那个 <code>boot()</code> 函数返回。</p></div>
+    <div class="read"><span class="n">④</span><p><b>判据</b><br><code>boot()</code> 收尾那一刻，框架自己再查一遍 <code>ctx.get("timer")</code> / <code>ctx.get("hmr")</code>——查的是这两个<b>服务</b>在不在，不是有没有一条 id 叫 timer/hmr 的条目。不在，就调用 <code>ctx.loader.create()</code> 自己造一条条目，分别对应 <code>@deepseek-ai/cordis-plugin-timer</code> 和 <code>@deepseek-ai/cordis-plugin-hmr</code> 这两个包。<span class="badge">⚠️ 待验</span></p></div>
+    <div class="read"><span class="n">⑤</span><p><b>落点</b><br>整棵配方树有个固定的根：<code>cordis:include</code>，id 固定是 <code>include</code>，由 <code>mountRootInclude()</code> 在 boot 期建好——你写的每一条条目最终都挂在它的子树下面。框架兜底补的这两条不是这样：<code>ctx.loader.create()</code> 不传 <code>parent</code>，默认落进跟 <code>include</code> 平级的<b>根组</b>——组合树最外层那一层，<code>include</code> 自己也只是它的一个成员。<span class="badge">⚠️ 待验</span></p></div>
   </div>
 </div>
 
@@ -254,18 +273,51 @@ footer a{color:inherit}
 
 </main>
 <aside class="side">
-  <h3>实验现场的文件</h3>
-  <ul class="ft">
-    <li class="br">$DSH_HOME/</li>
-    <li>├─ logs/</li>
-    <li>└─ profiles/</li>
-    <li>   ├─ node_modules/</li>
-    <li>   └─ no-infra/</li>
-    <li class="f" data-k="pkg">      ├─ package.json</li>
-    <li class="fc" id="fc-pkg">
-      <div class="why">dsh.profile.bundles: []，dependencies 里 link: 供给 base-census</div>
-      <div class="src">results/20260817-151139/profiles/no-infra/package.json</div>
-      <pre>{
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li>node_modules/</li>
+              <li><button class="tw">no-infra/</button>
+                <ul>
+                  <li><button class="fl" data-k="pkg">package.json</button></li>
+                  <li><button class="fl" data-k="yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>base-census →</li></ul>
+                  </li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/base-census/</button>
+            <ul>
+              <li><button class="fl" data-k="fixpkg">package.json</button></li>
+              <li><button class="fl" data-k="fixidx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-pkg" data-name="package.json"
+         data-src="results/20260817-151139/profiles/no-infra/package.json"
+         data-why="dsh.profile.bundles: []，dependencies 里 link: 供给 base-census"><pre>{
   "name": "dsh-profile-no-infra",
   "private": true,
   "dsh": {
@@ -278,22 +330,18 @@ footer a{color:inherit}
   }
 }
 </pre>
-    </li>
-    <li class="f" data-k="yml">      ├─ cordis.yml</li>
-    <li class="fc" id="fc-yml">
-      <div class="why">恒为 []，每次启动被 profile-boot 重写</div>
-      <div class="src">results/20260817-151139/profiles/no-infra/cordis.yml</div>
-      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+    </div>
+    <div id="fc-yml" data-name="cordis.yml"
+         data-src="results/20260817-151139/profiles/no-infra/cordis.yml"
+         data-why="恒为 []，每次启动被 profile-boot 重写"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
 # each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
 # --patch overlays. Edit cordis.patch.yml, not this file.
 []
 </pre>
-    </li>
-    <li class="f" data-k="patch">      ├─ cordis.patch.yml</li>
-    <li class="fc" id="fc-patch">
-      <div class="why">活层 —— 挂哪个插件、给什么配置写在这里，本项只声明了 census 一条</div>
-      <div class="src">results/20260817-151139/profiles/no-infra/cordis.patch.yml</div>
-      <pre># 完全不声明 timer/hmr，只有普查员自己
+    </div>
+    <div id="fc-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151139/profiles/no-infra/cordis.patch.yml"
+         data-why="活层 —— 挂哪个插件、给什么配置写在这里，本项只声明了 census 一条"><pre># 完全不声明 timer/hmr，只有普查员自己
 - insert:
     - id: census
       name: base-census
@@ -301,16 +349,10 @@ footer a{color:inherit}
         out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/framework-fallback/census-fallback.json"
         delayMs: 3000
 </pre>
-    </li>
-    <li>      └─ node_modules/</li>
-    <li>         └─ base-census →</li>
-    <li class="br">插件源码</li>
-    <li>└─ fixtures/base-census/</li>
-    <li class="f" data-k="fixpkg">   ├─ package.json</li>
-    <li class="fc" id="fc-fixpkg">
-      <div class="why">包型插件：有 package.json，靠包名引用</div>
-      <div class="src">experiments/00-base/framework-fallback/fixtures/base-census/package.json</div>
-      <pre>{
+    </div>
+    <div id="fc-fixpkg" data-name="package.json"
+         data-src="experiments/00-base/framework-fallback/fixtures/base-census/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
   "name": "base-census",
   "version": "1.0.0",
   "private": true,
@@ -320,12 +362,10 @@ footer a{color:inherit}
   }
 }
 </pre>
-    </li>
-    <li class="f" data-k="fixidx">   └─ index.js</li>
-    <li class="fc" id="fc-fixidx">
-      <div class="why">export function apply(ctx, config) —— 拍 boot / settle 两张树快照</div>
-      <div class="src">experiments/00-base/framework-fallback/fixtures/base-census/index.js</div>
-      <pre>/**
+    </div>
+    <div id="fc-fixidx" data-name="index.js"
+         data-src="experiments/00-base/framework-fallback/fixtures/base-census/index.js"
+         data-why="export function apply(ctx, config) —— 拍 boot / settle 两张树快照"><pre>/**
  * 树的普查员：从进程内部给 loader 上的整棵条目树拍快照。
  *
  * 存在的理由：`--dump-config` 只能告诉你「配方算出来是什么」，看不到框架在
@@ -407,8 +447,8 @@ export function apply(ctx, config) {
   ctx.on("dispose", () => clearTimeout(handle));
 }
 </pre>
-    </li>
-  </ul>
+    </div>
+  </div>
 </aside>
 </div>
 
@@ -497,79 +537,28 @@ addEventListener('keydown', e => {
 });
 goto(0);
 
-// ── 机制怎么工作：五步概念走查，跟上面的实测快照分开一套指针 ──
-const STEPS2 = [
-  { t:'条目 / 插件',
-    cap:'配方里的一行叫<b>条目（entry）</b>——本项唯一的一条是 <code>census</code>，写着'
-      + '『挂 <code>base-census</code> 这个插件、给它什么 <code>config</code>』。插件本身是'
-      + '一段可挂载的代码，DSH 的写法是模块导出一个 <code>apply(ctx, config)</code> 函数：'
-      + '<code>ctx</code> 是这次挂载拿到的上下文，插件靠它访问一切。' },
+// ── 侧边文件树：树窗 + 文件窗两窗，目录折叠、点文件在下方文件窗显示原文 ──
+const side = document.querySelector('.side');
+const vhint = document.getElementById('vhint'), vmeta = document.getElementById('vmeta');
+const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');
+const vwhy = document.getElementById('vwhy'), vcode = document.getElementById('vcode');
 
-  { t:'服务',
-    cap:'插件在 <code>apply</code> 里可以往 <code>ctx</code> 上 <b>provide</b> 一个具名对象，这就是'
-      + '<b>服务（service）</b>；别的插件靠 <b>inject</b> 声明依赖，或者用 <code>ctx.get("服务名")</code> '
-      + '运行时现查来拿。服务名跟条目 id 是两码事——本项的 <code>base-census</code> 自己不 provide '
-      + '任何服务，只在 <code>apply</code> 里用 <code>ctx.get()</code> 挨个查 <code>loader</code>'
-      + '（读组合树的服务）、<code>timer</code>、<code>hmr</code> 在不在，把结果拍进快照。' },
+document.querySelectorAll('.ft .tw').forEach(b => {
+  b.addEventListener('click', () => b.parentElement.classList.toggle('shut'));
+});
 
-  { t:'boot',
-    cap:'<b>boot</b> 是 dsh 进程起来后把整份配方挂成一棵条目树、逐条激活插件的那一程；它有个'
-      + '明确的收尾时刻——负责启动的 <code>@deepseek-ai/dsh-app-boot</code> 里那个 <code>boot()</code> '
-      + '函数返回。' },
-
-  { t:'判据',
-    cap:'<code>boot()</code> 收尾那一刻，框架自己再查一遍 <code>ctx.get("timer")</code> / '
-      + '<code>ctx.get("hmr")</code>——查的是这两个<b>服务</b>在不在，不是有没有一条 id 叫 '
-      + 'timer/hmr 的条目。不在，就调用 <code>ctx.loader.create()</code> 自己造一条条目，'
-      + '分别对应 <code>@deepseek-ai/cordis-plugin-timer</code> 和 '
-      + '<code>@deepseek-ai/cordis-plugin-hmr</code> 这两个包。'
-      + '<span class="badge">⚠️ 待验</span>' },
-
-  { t:'落点',
-    cap:'整棵配方树有个固定的根：<code>cordis:include</code>，id 固定是 <code>include</code>，'
-      + '由 <code>mountRootInclude()</code> 在 boot 期建好——你写的每一条条目最终都挂在它的'
-      + '子树下面。框架兜底补的这两条不是这样：<code>ctx.loader.create()</code> 不传 '
-      + '<code>parent</code>，默认落进跟 <code>include</code> 平级的<b>根组</b>——组合树最'
-      + '外层那一层，<code>include</code> 自己也只是它的一个成员。'
-      + '<span class="badge">⚠️ 待验</span>' },
-];
-const LAST2 = STEPS2.length - 1;
-
-const pos2 = document.getElementById('pos2');
-const cap2T = document.getElementById('cap2-t'), cap2D = document.getElementById('cap2-d');
-const prev2 = document.getElementById('prev2'), next2 = document.getElementById('next2');
-
-function render2(i){
-  const s = STEPS2[i];
-  pos2.textContent = `${i + 1} / ${STEPS2.length}`;
-  cap2T.textContent = s.t;
-  cap2D.innerHTML = s.cap;
-  prev2.disabled = i === 0;
-  next2.disabled = i === LAST2;
-}
-
-let cur2 = 0;
-function goto2(i){
-  cur2 = Math.max(0, Math.min(LAST2, i));
-  render2(cur2);
-}
-prev2.addEventListener('click', () => goto2(cur2 - 1));
-next2.addEventListener('click', () => goto2(cur2 + 1));
-goto2(0);
-
-// ── 侧边文件树：点文件行展开内容，同时最多展开一个 ──
-document.querySelectorAll('.ft li.f').forEach(li => {
-  li.tabIndex = 0;
-  const toggle = () => {
-    const box = document.getElementById('fc-' + li.dataset.k);
-    const was = box.classList.contains('on');
-    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
-    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
-    if (!was) { box.classList.add('on'); li.classList.add('on'); }
-  };
-  li.addEventListener('click', toggle);
-  li.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+document.querySelectorAll('.ft .fl').forEach(b => {
+  b.addEventListener('click', () => {
+    const box = document.getElementById('fc-' + b.dataset.k);
+    document.querySelectorAll('.ft .fl.on').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    vname.textContent = box.dataset.name;
+    vsrc.textContent = box.dataset.src;
+    vwhy.textContent = box.dataset.why;
+    // 克隆，别搬走 stash 里的原件——它是校验脚本比对的对象
+    vcode.replaceChildren(box.querySelector('pre').cloneNode(true));
+    vhint.hidden = true; vmeta.hidden = false;
+    side.classList.add('has-file');
   });
 });
 </script>
