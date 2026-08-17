@@ -61,6 +61,13 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .bm-h2{font-family:var(--mono);font-size:10px;color:var(--dim);margin:0 0 4px}
 @media (max-width:700px){.basemap{grid-template-columns:1fr}.bm-dual{flex-direction:column}}
 
+/* ── 板块 0：机制怎么工作（分步说明）── */
+.mech-body{font-size:13.5px;line-height:1.75;min-height:108px}
+.mech-body .mt{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--fg)}
+.mech-body .mb{margin:0}
+.mech-body .mb code{font-family:var(--mono);font-size:12.5px}
+.mech-body .mb b{color:var(--say)}
+
 /* ── 板块一：听见了谁（hover + 分步辅助）── */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:20px 20px 16px}
@@ -182,13 +189,67 @@ footer a{color:inherit}
 
 <div class="crumb">00-base / recorder-reach</div>
 <h1>采集器自己看得见什么</h1>
-<p class="sub">lab-recorder 是后面每一项实验的地基——先看清它自己的观测边界：
-听得多远，以及睁眼之前的世界它够不着。</p>
+<p class="sub">插件系统在运行时会把每条插件的生命周期变化广播出来。这一项讲的是怎么把
+这些变化接住、攒成一份能事后翻查的记录——本仓所有实验的数据都从这份记录来。
+干这活的是 <code>lab-recorder</code>，它自己就是一条普通插件。</p>
 <div class="tags">
   <span class="tag">档次 ①</span>
   <span class="tag">🔬 发现型</span>
   <span class="tag ok">✅ 3 条用例</span>
   <span class="tag">不需要 web</span>
+</div>
+
+<h2>机制怎么工作</h2>
+<p class="note">从「配置里写的一行」到「一份能翻查的事件流」，分五步走完整条链路。
+点下面的按钮切一步，或者用「上一步 / 下一步」。</p>
+
+<div class="basemap" id="bm0">
+  <div>
+    <div class="bm-h">profile 树 · 假 home 里这次实验的样子</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，这一项独占，住 out/testhome/recorder-reach/</span></li>
+      <li data-f="events"><span class="bm-n">├─ events.jsonl</span><span class="bm-c">lab-recorder 追加写的事件流——本仓所有实验的原料</span></li>
+      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
+      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；框架自带条目（timer / hmr 等）靠 Node parent-walk 在这里解析到</span></li>
+      <li data-f="prof"><span class="bm-n">   └─ observer/</span><span class="bm-c">本项唯一的 profile</span></li>
+      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: [dsh-base] ＋ dependencies.lab-recorder（link: 供给）</span></li>
+      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
+      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 我们写的两条 insert 都在这里</span></li>
+      <li data-f="neighborfile"><span class="bm-n">      ├─ neighbor.mjs</span><span class="bm-c">裸文件插件，直接躺在 profile 目录里，patch 里靠 ./neighbor.mjs 相对路径引用</span></li>
+      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">         └─ lab-recorder →</span><span class="bm-c">junction，指向右边包型插件的源码</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">插件树 · 两种引用形态并排</div>
+    <div class="bm-dual">
+      <div>
+        <div class="bm-h2">包型 · 靠包名引用</div>
+        <ul class="bm-tree">
+          <li data-f="pluglab_pkgdir"><span class="bm-n">observatory/lab-recorder/</span><span class="bm-c">采集器本身</span></li>
+          <li data-f="pluglab_pkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name: lab-recorder，type: module</span></li>
+          <li data-f="pluglab_idx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="bm-h2">裸文件 · 靠相对路径引用</div>
+        <ul class="bm-tree">
+          <li data-f="plugbare"><span class="bm-n">fixtures/neighbor.mjs</span><span class="bm-c">单文件，没有 package.json、没有构建</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="stepbar" id="stepbarM"></div>
+  <div class="mech-body" id="mechbody"></div>
+  <div class="ctl">
+    <button id="prevM">← 上一步</button>
+    <span class="pos" id="posM"></span>
+    <button id="nextM">下一步 →</button>
+  </div>
 </div>
 
 <h2>它听见了谁</h2>
@@ -397,6 +458,7 @@ function bmHighlight(scopeEl, keys){
     li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
   });
 }
+const bm0 = document.getElementById('bm0');
 const bm1 = document.getElementById('bm1');
 const bm2 = document.getElementById('bm2');
 //: 左栏「lab-recorder」这个插件牵动的所有行——node_modules 里的 junction，
@@ -404,6 +466,70 @@ const bm2 = document.getElementById('bm2');
 const FILES_LAB_RECORDER = ['junction','pluglab_pkgdir','pluglab_pkg','pluglab_idx'];
 //: 同理，「neighbor」牵动的行——profile 目录里那个裸文件，加上右栏它自己那行。
 const FILES_NEIGHBOR = ['neighborfile','plugbare'];
+//: events.jsonl 本身，只在 bm0 里出现。
+const FILES_EVENTS = ['events'];
+
+// ══ 板块 0：机制怎么工作 ══════════════════════════════════════
+const STEPS_MECH = [
+  { label: '① 条目', mt: '条目是 patch 文件里的一行',
+    mb: `条目（entry）是 patch 文件（<code>cordis.patch.yml</code>）里的一行，写明
+      “挂哪个插件、给它什么配置”；运行时一条条目对应一个 <b>fiber</b>——这个插件这一次
+      生命的载体。这次实验的 patch 文件只写了两条：<code>lab-recorder</code> 自己，
+      和陪衬插件 <code>neighbor</code>。`,
+    files: ['patch'] },
+  { label: '② 状态', mt: 'fiber 有状态，会往前迁移',
+    mb: `fiber 的状态一共六种，这一项用得到三种：<code>PENDING</code>（它依赖的服务还没
+      就位，先等着）、<code>LOADING</code>（插件的入口函数 <code>apply</code> 正在执行）、
+      <code>ACTIVE</code>（加载完成，正在提供服务）。首次挂载走的是
+      <code>PENDING → LOADING → ACTIVE</code> 这条链。`,
+    files: ['patch'] },
+  { label: '③ 仪器', mt: 'lab-recorder 自己就是一条普通条目',
+    mb: `lab-recorder 在自己的 <code>apply</code> 里做两件事：一是 <b>provide</b> 一个叫
+      <code>labObserver</code> 的服务——provide 就是“这条条目把某个能力交给别人用”的
+      意思；二是挂上钩子，监听所有条目的 <code>PENDING</code> / <code>LOADING</code> /
+      <code>ACTIVE</code> 迁移。`,
+    files: [...FILES_LAB_RECORDER, 'patch'] },
+  { label: '④ 依赖', mt: '别的条目靠 inject 声明要用它',
+    mb: `陪衬插件 <code>neighbor.mjs</code> 写了 <code>export const inject = ['labObserver']</code>
+      ——<b>inject</b> 就是条目“声明自己需要哪些服务才能跑”的意思。框架保证被依赖的服务
+      先就位，之后才会调用声明方的 <code>apply</code>；neighbor.mjs 正是这样等到
+      <code>labObserver</code> 备好，才在自己的 apply 里说话。`,
+    files: [...FILES_NEIGHBOR, 'patch'] },
+  { label: '⑤ 记录', mt: '状态迁移全部写进 events.jsonl',
+    mb: `钩子收到的每一条状态迁移，都被追加写进 <code>events.jsonl</code>——这份文件就是
+      后面所有实验的原料。下面「它听见了谁」「睁眼那一刻」两节，读的都是同一份
+      <code>events.jsonl</code>。`,
+    files: FILES_EVENTS },
+];
+
+const stepbarM = document.getElementById('stepbarM');
+const mechbody = document.getElementById('mechbody');
+const posM = document.getElementById('posM');
+const prevM = document.getElementById('prevM');
+const nextM = document.getElementById('nextM');
+let curM = 0;
+
+STEPS_MECH.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'step-btn' + (i === 0 ? ' on' : '');
+  b.textContent = s.label;
+  b.addEventListener('click', () => gotoM(i));
+  stepbarM.appendChild(b);
+});
+
+function gotoM(i){
+  curM = Math.max(0, Math.min(STEPS_MECH.length - 1, i));
+  const s = STEPS_MECH[curM];
+  [...stepbarM.children].forEach((b, k) => b.classList.toggle('on', k === curM));
+  mechbody.innerHTML = `<p class="mt">${s.mt}</p><p class="mb">${s.mb}</p>`;
+  posM.textContent = `${curM + 1} / ${STEPS_MECH.length}`;
+  prevM.disabled = curM === 0;
+  nextM.disabled = curM === STEPS_MECH.length - 1;
+  bmHighlight(bm0, s.files);
+}
+prevM.addEventListener('click', () => gotoM(curM - 1));
+nextM.addEventListener('click', () => gotoM(curM + 1));
+gotoM(0);
 
 // ══ 板块一：它听见了谁 ══════════════════════════════════════
 // 名字取自归档 results/20260817-151019/summary.md 里

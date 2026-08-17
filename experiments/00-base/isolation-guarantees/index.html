@@ -150,6 +150,57 @@ footer a{color:inherit}
 
 <div class="gapwrap">
 
+<h2>这一项讲的是哪个机制</h2>
+<p class="note">这一项讲的不是 DSH 框架本身的机制，是实验台自己怎么不撞车。本仓其余每一项
+实验，都要真的拉起一个 dsh 实例才能观测到东西——真的进程、真的端口、真的 home 目录
+（一套 dsh 部署落地存数据的地方，完整定义见 <code>docs/GLOSSARY.md</code>）。</p>
+<p class="note">这台机器上同一时间，往往还跑着一套在用的 dsh 实例——就是
+<code>CLAUDE.md</code> 实验纪律里反复点名、绝不能碰的那个主实例，挂在真实 home
+（<code>~/.dsh</code>）和 3080 端口上，背后接的是真实的分发线。实验怎么跑，都不能碰到
+它，撞上了代价很难收场。这一项要讲清楚的，就是实验台靠什么机制，把「跑实验」和
+「那套在用的实例」摆在互不相干的两个世界里，而不是靠人记住一条「别乱跑」的纪律。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">下面五步，从「一个实例需要什么」讲到「实验台怎么让这几样东西每次都不撞
+车」。每一步点亮右边源码树里对应的那一行，走完这五步，前面提到的隔离机制就有一条完整
+链条了。</p>
+
+<div class="basemap" id="bm0">
+  <div>
+    <div class="bm-h">假 home 落地形态 · out/testhome/&lt;项名&gt;/（隔离的物理落点）</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">out/testhome/</span><span class="bm-c">TESTHOME_ROOT —— 所有假 home 共同的根</span></li>
+      <li data-f="home"><span class="bm-n">└─ isolation-guarantees/</span><span class="bm-c">本项的假 home，环境变量 DSH_HOME 就指向这里</span></li>
+      <li data-f="home"><span class="bm-n">   ├─ profiles/&lt;profile&gt;/</span><span class="bm-c">profile —— 一套具体的组合配方，本身也是一个 npm 包</span></li>
+      <li data-f="junction"><span class="bm-n">   │  └─ node_modules/</span><span class="bm-c">junction 农场，link 供给落地在这里</span></li>
+      <li data-f="home"><span class="bm-n">   └─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
+      <li data-f="lock"><span class="bm-n">out/testhome/.lab-lock.json</span><span class="bm-c">会话锁文件，跟各项假 home 目录同级</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">实验台源码里管这件事的几个名字</div>
+    <ul class="bm-tree">
+      <li data-f="ctx"><span class="bm-n">experiments/lab/core.py</span><span class="bm-c"></span></li>
+      <li data-f="home"><span class="bm-n">├─ TESTHOME_ROOT</span><span class="bm-c">假 home 的根，LabHome 只能建在它下面</span></li>
+      <li data-f="port"><span class="bm-n">├─ LAB_PORT_RANGE</span><span class="bm-c">3090–3099，端口分段的原料</span></li>
+      <li data-f="port"><span class="bm-n">├─ FORBIDDEN_PORTS</span><span class="bm-c">(3080, 3239, 3733)，任何情况下都不许碰</span></li>
+      <li data-f="junction"><span class="bm-n">└─ rmtree_safe()</span><span class="bm-c">删目录遇到 junction 或符号链接，只拆链接本身，不递归进去</span></li>
+      <li data-f="ctx"><span class="bm-n">experiments/lab/instance.py</span><span class="bm-c"></span></li>
+      <li data-f="lock"><span class="bm-n">└─ acquire_lock()</span><span class="bm-c">拿不到就排队等待，只认活着的 pid</span></li>
+      <li data-f="ctx"><span class="bm-n">experiments/conftest.py</span><span class="bm-c"></span></li>
+      <li data-f="port"><span class="bm-n">└─ _my_ports()</span><span class="bm-c">按 xdist worker 把端口段切成互不重叠的几份</span></li>
+    </ul>
+  </div>
+</div>
+
+<div class="detail" id="stepdetail"></div>
+
+<div class="ctl">
+  <button id="prev0">← 上一步</button>
+  <span class="pos" id="pos0"></span>
+  <button id="next0">下一步 →</button>
+</div>
+
 <h2>四条机制，点一条看谁实现、缺什么</h2>
 <p class="note">卡片是并发跑各组用例时依赖的四条隔离；点一条，下面联动出「谁实现」「没验证什么」
 「补上要造什么」。四条现状相近——都是<b>有源码机制，没有用例</b>，差别在缺口的形状。</p>
@@ -336,6 +387,72 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
 });
 goto(0);
+
+const STEPS = [
+  { nm:'一个实例需要什么', files:[], body:
+    `一个 dsh 实例要跑起来，最少吃下三样东西：一个 <code>home</code> 目录——存放这次用的 profile`
+    +`（一套具体的组合配方，本身也是一个真正的 npm 包）和运行日志；如果这个 profile 叠了 web `
+    +`服务，还要一个端口拿来听 HTTP；再加上承载这一切的进程本身。这三样都是可能撞车的东西`
+    +`——两套实例写进同一个 home、抢同一个端口、进程互相踩，观测到的数据就分不清是谁的。`
+    +`后面四步，讲的是实验台怎么让这三样东西，每次都各自独立、互不相干。` },
+  { nm:'假 home', files:['home'], body:
+    `实验台不用真 home。真 home 就是 <code>~/.dsh</code>，机器上那套在用的主实例的家，里面`
+    +`挂着真实的会话和分发线，绝不能碰。实验台给每一项实验单独准备一个假 home，落在`
+    +`<code>out/testhome/&lt;项名&gt;/</code> 下面——<code>TESTHOME_ROOT</code> 是它们共同的根，`
+    +`定义在 <code>experiments/lab/core.py</code>。哪个进程用哪个 home，靠环境变量`
+    +`<code>DSH_HOME</code>：dsh 进程启动时读它决定这次用哪个 home，不设它就退回真 home。`
+    +`实验台把这个变量经子进程环境传给要拉起的 dsh 实例，不改当前进程自己的环境变量——这样`
+    +`不存在漏改回来的窗口，也不会有别的代码在中途读到一个被悄悄换过的环境。` },
+  { nm:'端口静态分段', files:['port'], body:
+    `实验只用 3090–3099 这十个端口，代码里叫 <code>LAB_PORT_RANGE</code>。3080、3239、3733`
+    +`三个端口——<code>FORBIDDEN_PORTS</code>——被硬编码成任何情况下都不许碰，其中 3080 正是`
+    +`那套在用的主实例正在听的端口。光划出这一段还不够：并行跑的时候，如果每个 worker`
+    +`（pytest 用 <code>pytest-xdist</code> 插件把用例拆给多个并行子进程跑，每个子进程就叫`
+    +`一个 worker）都在整段里各自扫一遍「哪个口空着」，扫完到真正起进程之间那个窗口，两个`
+    +`worker 完全可能同时判定同一个端口空闲、同时抢它。实验台按 worker 数量，把`
+    +`<code>LAB_PORT_RANGE</code> 静态切成互不重叠的小段，各 worker 只在自己那一段里找`
+    +`空闲端口，段与段之间不会撞。` },
+  { nm:'删目录拆 junction', files:['junction'], body:
+    `profile 的 <code>node_modules</code> 目录里，装的不是真文件，是一整片 junction——`
+    +`Windows 下一种目录重解析点，效果类似符号链接，打开它就像走进了别的地方，指向的是`
+    +`插件源码和 npx 缓存里的真实位置。删假 home 时如果用普通的递归删除，遇到这类链接会`
+    +`真的走进去，把链接另一头的源码和缓存内容当成这次实验的垃圾删掉——那是别处的真东西。`
+    +`实验台自己写的 <code>rmtree_safe()</code>（<code>experiments/lab/core.py</code>）专门`
+    +`认这件事：碰到 junction 或符号链接，只拆链接本身，从不递归进去。` },
+  { nm:'会话锁', files:['lock'], body:
+    `前四步保证的是「实验台」和「那套在用的实例」不撞车，实验台自己也可能被同时开两次——`
+    +`比如两个人、或者两个 subagent，各自跑了一次 pytest。整个 pytest 会话启动时，只由主`
+    +`进程（不是每个 xdist worker）调一次 <code>acquire_lock()</code>`
+    +`（<code>experiments/lab/instance.py</code>），把 <code>TESTHOME_ROOT</code> 根目录下的`
+    +`锁文件占住；后来者发现锁被占着就排队等待，而不是直接报错或者硬闯。这把锁只挡「两个`
+    +`会话同时开跑」这一层——本项内部各 worker 之间不需要再抢它，前四步的隔离已经让它们`
+    +`各自互不相干。` },
+];
+
+const bm0 = document.getElementById('bm0');
+const stepDetail = document.getElementById('stepdetail');
+const stepPos = document.getElementById('pos0');
+const stepPrev = document.getElementById('prev0');
+const stepNext = document.getElementById('next0');
+stepDetail.style.setProperty('--accent', 'var(--dim)');
+let stepCur = 0;
+
+/** 走到第 i 步：换内容面板文字，点亮 bm0 对应的源码行。 */
+function gotoStep(i){
+  stepCur = Math.max(0, Math.min(STEPS.length - 1, i));
+  const s = STEPS[stepCur];
+  stepDetail.innerHTML = `
+    <div class="hd"><span class="nm">${stepCur + 1}. ${s.nm}</span></div>
+    <div class="drow"><span class="v">${s.body}</span></div>
+  `;
+  stepPos.textContent = `${stepCur + 1} / ${STEPS.length} · ${s.nm}`;
+  stepPrev.disabled = stepCur === 0;
+  stepNext.disabled = stepCur === STEPS.length - 1;
+  bmHighlight(bm0, s.files);
+}
+stepPrev.addEventListener('click', () => gotoStep(stepCur - 1));
+stepNext.addEventListener('click', () => gotoStep(stepCur + 1));
+gotoStep(0);
 </script>
 </body>
 </html>

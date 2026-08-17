@@ -133,13 +133,59 @@ footer a{color:inherit}
 <div class="wrap">
 
 <div class="crumb">00-base / framework-fallback</div>
-<h1>兜底补 timer/hmr：判服务不判条目</h1>
-<p class="sub">patch 里一个字都不提，<code>boot()</code> 收尾时框架照样把两样服务焊上——而且没有开关能拦。</p>
+<h1>兜底补 timer/hmr</h1>
+<p class="sub">patch 里一个字都不提，dsh 启动收尾时照样把两样基础设施焊上。</p>
 <div class="tags">
   <span class="tag">档次 ①</span>
   <span class="tag">🔬 发现型</span>
   <span class="tag part">⚠️ 部分覆盖 · 1 条用例</span>
   <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">dsh 启动的时候，除了把你写好的插件一个个挂起来，框架自己还会在启动收尾那一刻
+做一次检查：有几样基础设施是插件系统运转本身离不开的，你没主动挂，框架就自己补上。
+这一项讲的正是这套兜底怎么运作——它拿什么当判据、补进来的东西是什么样子、又落在
+整棵树的哪个位置。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">下面走一遍完整链条：①②③ 讲的是插件系统本身的通用机制（源码与
+<code>docs/GLOSSARY.md</code> 里都有记录）；④⑤ 是本项自己的判据与落点，跟本页
+后面的实测快照用的是同一条用例、同一份「待验」证据。</p>
+
+<div class="basemap" id="bm0">
+  <div>
+    <div class="bm-h">profile 树 · 这一步在动哪个文件</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，本项专属，住 out/testhome/framework-fallback/</span></li>
+      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr（no-infra.out.log / no-infra.err.log）</span></li>
+      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
+      <li data-f="prof"><span class="bm-n">   └─ no-infra/</span><span class="bm-c">本项唯一的 profile</span></li>
+      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: []，dependencies 里 link: 供给 base-census</span></li>
+      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
+      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 挂哪个插件、给什么配置写在这个文件里，本项只声明了 census 一条</span></li>
+      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">插件树 · 本项用的教学插件</div>
+    <ul class="bm-tree">
+      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
+      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
+      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config) —— 拍 boot / settle 两张树快照</span></li>
+    </ul>
+  </div>
+</div>
+
+<div class="stage" id="stage2">
+  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
+  <div class="ctl">
+    <button id="prev2">← 上一步</button>
+    <span class="pos" id="pos2"></span>
+    <button id="next2">下一步 →</button>
+  </div>
 </div>
 
 <h2>boot() 收尾那一刻，树上发生了什么</h2>
@@ -345,6 +391,68 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
 });
 goto(0);
+
+// ── 机制怎么工作：五步概念走查，跟上面的实测快照分开一套指针 ──
+const STEPS2 = [
+  { t:'条目 / 插件', files:['patch','plugpkg','plugidx'],
+    cap:'配方里的一行叫<b>条目（entry）</b>——本项唯一的一条是 <code>census</code>，写着'
+      + '『挂 <code>base-census</code> 这个插件、给它什么 <code>config</code>』。插件本身是'
+      + '一段可挂载的代码，DSH 的写法是模块导出一个 <code>apply(ctx, config)</code> 函数：'
+      + '<code>ctx</code> 是这次挂载拿到的上下文，插件靠它访问一切。' },
+
+  { t:'服务', files:['plugidx'],
+    cap:'插件在 <code>apply</code> 里可以往 <code>ctx</code> 上 <b>provide</b> 一个具名对象，这就是'
+      + '<b>服务（service）</b>；别的插件靠 <b>inject</b> 声明依赖，或者用 <code>ctx.get("服务名")</code> '
+      + '运行时现查来拿。服务名跟条目 id 是两码事——本项的 <code>base-census</code> 自己不 provide '
+      + '任何服务，只在 <code>apply</code> 里用 <code>ctx.get()</code> 挨个查 <code>loader</code>'
+      + '（读组合树的服务）、<code>timer</code>、<code>hmr</code> 在不在，把结果拍进快照。' },
+
+  { t:'boot', files:[],
+    cap:'<b>boot</b> 是 dsh 进程起来后把整份配方挂成一棵条目树、逐条激活插件的那一程；它有个'
+      + '明确的收尾时刻——负责启动的 <code>@deepseek-ai/dsh-app-boot</code> 里那个 <code>boot()</code> '
+      + '函数返回。' },
+
+  { t:'判据', files:[],
+    cap:'<code>boot()</code> 收尾那一刻，框架自己再查一遍 <code>ctx.get("timer")</code> / '
+      + '<code>ctx.get("hmr")</code>——查的是这两个<b>服务</b>在不在，不是有没有一条 id 叫 '
+      + 'timer/hmr 的条目。不在，就调用 <code>ctx.loader.create()</code> 自己造一条条目，'
+      + '分别对应 <code>@deepseek-ai/cordis-plugin-timer</code> 和 '
+      + '<code>@deepseek-ai/cordis-plugin-hmr</code> 这两个包。'
+      + '<span class="badge">⚠️ 待验</span>' },
+
+  { t:'落点', files:[],
+    cap:'整棵配方树有个固定的根：<code>cordis:include</code>，id 固定是 <code>include</code>，'
+      + '由 <code>mountRootInclude()</code> 在 boot 期建好——你写的每一条条目最终都挂在它的'
+      + '子树下面。框架兜底补的这两条不是这样：<code>ctx.loader.create()</code> 不传 '
+      + '<code>parent</code>，默认落进跟 <code>include</code> 平级的<b>根组</b>——组合树最'
+      + '外层那一层，<code>include</code> 自己也只是它的一个成员。'
+      + '<span class="badge">⚠️ 待验</span>' },
+];
+const LAST2 = STEPS2.length - 1;
+
+const bm0 = document.getElementById('bm0');
+const pos2 = document.getElementById('pos2');
+const cap2T = document.getElementById('cap2-t'), cap2D = document.getElementById('cap2-d');
+const prev2 = document.getElementById('prev2'), next2 = document.getElementById('next2');
+
+function render2(i){
+  const s = STEPS2[i];
+  pos2.textContent = `${i + 1} / ${STEPS2.length}`;
+  cap2T.textContent = s.t;
+  cap2D.innerHTML = s.cap;
+  prev2.disabled = i === 0;
+  next2.disabled = i === LAST2;
+  bmHighlight(bm0, s.files);
+}
+
+let cur2 = 0;
+function goto2(i){
+  cur2 = Math.max(0, Math.min(LAST2, i));
+  render2(cur2);
+}
+prev2.addEventListener('click', () => goto2(cur2 - 1));
+next2.addEventListener('click', () => goto2(cur2 + 1));
+goto2(0);
 </script>
 </body>
 </html>

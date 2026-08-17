@@ -55,6 +55,24 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .bm-tree li.hit .bm-c{color:var(--fg)}
 @media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
+/* ── 开篇立机制的一段话 ── */
+.lead{font-size:14px;line-height:1.85;margin:0 0 8px}
+.lead code{font-family:var(--mono);font-size:12.5px}
+
+/* ── 机制链条：五个抽象环节，过程型分步 ── */
+.chain{display:flex;align-items:center;justify-content:center;gap:6px;
+  flex-wrap:wrap;padding:4px 0 2px}
+.cnode{width:104px;text-align:center;padding:10px 6px;border-radius:10px;
+  border:2px solid var(--line);background:var(--bg);
+  transition:border-color .25s,background .25s,opacity .25s}
+.cnode .k{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.cnode .nm{font-weight:700;margin-top:3px;font-size:12px}
+.cnode.cur{border-color:var(--bmhit);background:color-mix(in srgb,var(--bmhit) 10%,var(--bg))}
+.cnode.cur .nm{color:var(--bmhit)}
+.cnode.done{border-color:var(--dim);opacity:.8}
+.cnode.todo{opacity:.35}
+.chain-arrow{font-family:var(--mono);font-size:15px;color:var(--dim)}
+
 /* ── 卡片：五个 profile 并置 ── */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
   gap:10px;margin-bottom:14px}
@@ -155,6 +173,63 @@ footer a{color:inherit}
   <span class="tag">不需要 web</span>
 </div>
 
+<h2>一个实例是怎么拼出来的</h2>
+<p class="lead">
+一个 dsh 实例能跑起来，靠的是几处文件被按固定顺序拼成一棵插件树。最外层是
+<b>profile</b>——一个目录，同时是一个 Node 包，也是一套组合配方；配方由几层
+<b>patch</b>（补丁：对条目列表的一次编辑指令）按顺序叠加，叠出最终的
+<b>条目</b>（entry：配方里的一行，写着挂哪个插件、给它什么配置）列表——这份
+列表就是最终要跑起来的插件树。每条条目在运行时对应一个 <b>fiber</b>，也就是
+这个插件这一次生命的载体。这一项要讲清楚的，是这整套拼装链条里最少需要哪些
+零件：从几个文件，到一个真的在跑的进程。
+</p>
+
+<h2>零件怎么拼起来</h2>
+<p class="note">跟着 1 → 5 走一遍，每一步点亮底座里对应的位置；下面的按钮 / ← → 键把
+「当前讲到哪」钉在某一环上。</p>
+
+<div class="basemap" id="bm0">
+  <div>
+    <div class="bm-h">profile 树 · 这个 profile 自己的目录</div>
+    <ul class="bm-tree">
+      <li data-f="prof"><span class="bm-n">$DSH_HOME/profiles/&lt;名&gt;/</span><span class="bm-c">一个目录，同时是一个 Node 包</span></li>
+      <li data-f="pkg"><span class="bm-n">├─ package.json</span><span class="bm-c">dsh.profile.bundles 名单 —— 配方第一层从这里来</span></li>
+      <li data-f="yml"><span class="bm-n">├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被重写，不用手建</span></li>
+      <li data-f="patch"><span class="bm-n">├─ cordis.patch.yml</span><span class="bm-c">活层 —— 配方第二层，insert 等 patch 指令写在这里</span></li>
+      <li data-f="nm"><span class="bm-n">└─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">     └─ &lt;自己 link 的插件&gt; →</span><span class="bm-c">junction（目录符号链接），指向插件源码</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">再往上一层 · timer / hmr 从哪解析出来</div>
+    <ul class="bm-tree">
+      <li data-f="farm"><span class="bm-n">$DSH_HOME/profiles/node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护</span></li>
+      <li data-f="farmjunction"><span class="bm-n">└─ @deepseek-ai/cordis-plugin-timer →</span><span class="bm-c">junction，指向 npx 缓存 —— hmr 同理，两者都不必 link 进每个 profile</span></li>
+    </ul>
+  </div>
+</div>
+
+<div class="stage" id="stage0">
+  <div class="chain" id="chain0">
+    <div class="cnode"><div class="k">1</div><div class="nm">profile 目录</div></div>
+    <div class="chain-arrow">→</div>
+    <div class="cnode"><div class="k">2</div><div class="nm">配方叠加</div></div>
+    <div class="chain-arrow">→</div>
+    <div class="cnode"><div class="k">3</div><div class="nm">条目 / fiber</div></div>
+    <div class="chain-arrow">→</div>
+    <div class="cnode"><div class="k">4</div><div class="nm">解析插件</div></div>
+    <div class="chain-arrow">→</div>
+    <div class="cnode"><div class="k">5</div><div class="nm">进程存活</div></div>
+  </div>
+  <div class="cap"><span class="t" id="cap0-t"></span><span class="d" id="cap0-d"></span></div>
+  <div class="ctl">
+    <button id="prev0">← 上一步</button>
+    <span class="pos" id="pos0"></span>
+    <button id="next0">下一步 →</button>
+    <span class="hint">← → 键也行</span>
+  </div>
+</div>
+
 <h2>五个 profile，同一个问题</h2>
 <p class="note">bundles 都写到几乎空，差别全在 <code>cordis.patch.yml</code> 里插了什么。
 把鼠标放到卡片上看细节；下面的按钮 / ← → 键把「当前选中」钉在某一张上。</p>
@@ -224,7 +299,7 @@ footer a{color:inherit}
   </div>
 </div>
 
-<div class="stage">
+<div class="stage" id="stage2">
   <div class="pair">
     <div class="tentry" id="te"><div class="st">PENDING</div><div class="nm">timer</div></div>
     <div class="arrow" id="arrow"><span class="ar">⇢</span><span id="arrow-txt">🔒 等 timer 到 ACTIVE</span></div>
@@ -358,9 +433,59 @@ function bmHighlight(scopeEl, keys){
     li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
   });
 }
+const bm0 = document.getElementById('bm0');
 const bm1 = document.getElementById('bm1');
 const bm1ProfName = document.getElementById('bm1-prof');
 const bm2 = document.getElementById('bm2');
+
+// ── 机制链条（过程型：分步，五个抽象环节，跟归档数字无关） ────────────────────
+const BEATS0 = [
+  { t: 'profile', bm: ['prof'],
+    d: '一个目录，同时是一个 Node 包 —— 有 <code>package.json</code>，也有 <code>node_modules</code>。' +
+       '<code>$DSH_HOME/profiles/&lt;名&gt;/</code> 下的每个子目录都是一个 profile，也是一套组合配方。' },
+  { t: '配方', bm: ['pkg', 'yml', 'patch'],
+    d: '<code>package.json</code> 里 <code>dsh.profile.bundles</code> 列出的每个 bundle —— 这里指 ' +
+       'profile bundle：一个自带 <code>cordis.patch.yml</code> 的 npm 包，实质是一叠 patch 指令，' +
+       '不是插件浏览器那半边的 client bundle —— 按顺序叠成 bundle 层；再叠上 profile 自己的 ' +
+       '<code>cordis.patch.yml</code> —— 这一层叫活层，新增条目靠的 <code>insert</code> 指令' +
+       '（把条目追加进列表）就写在这里。<code>cordis.yml</code> 恒为空数组 <code>[]</code>，' +
+       '每次启动都被框架重写，不用手建。' },
+  { t: '条目 / fiber', bm: ['patch'],
+    d: '条目（entry）是配方里的一行：写着挂哪个插件、给它什么配置。运行时一条条目对应一个 fiber —— ' +
+       '这个插件这一次生命的载体，从 <code>PENDING</code>（等它声明的服务就位：代码里 export 一个 ' +
+       '<code>inject</code> 数组，或者包级字段 <code>services.required</code> 点名）到 ' +
+       '<code>LOADING</code>（插件自己的 <code>apply</code> 函数正在跑）再到 <code>ACTIVE</code>（跑完，正在提供服务）。' },
+  { t: '解析', bm: ['nm', 'junction', 'farm', 'farmjunction'],
+    d: '条目的 <code>name</code> 决定挂哪个插件：自己 link 进来的插件走包名，在 profile 自己的 ' +
+       '<code>node_modules</code> 里靠一条 junction 指到真实源码。<code>timer</code>、<code>hmr</code> ' +
+       '这两个基础设施包名不在 profile 自己的 <code>node_modules</code> 下，靠标准 Node parent-walk 在' +
+       '上一层 —— <code>$DSH_HOME/profiles/node_modules</code> —— 的符号链接农场里被找到。' },
+  { t: '存活', bm: [],
+    d: 'Node 进程在事件循环空了之后就会退出。timer 的定时器、hmr 的文件 watcher、web 服务的监听套接字' +
+       '都是候选 —— 谁持有能让事件循环不空的东西，进程就跟着活。最少要留哪个，往下看。' },
+];
+const chain0 = document.getElementById('chain0');
+const chainNodes = [...chain0.querySelectorAll('.cnode')];
+const cap0t = document.getElementById('cap0-t'), cap0d = document.getElementById('cap0-d');
+const pos0 = document.getElementById('pos0');
+const prev0 = document.getElementById('prev0'), next0 = document.getElementById('next0');
+let cur0 = 0;
+function goto0(i){
+  cur0 = Math.max(0, Math.min(BEATS0.length - 1, i));
+  chainNodes.forEach((n, k) => {
+    n.classList.toggle('cur', k === cur0);
+    n.classList.toggle('done', k < cur0);
+    n.classList.toggle('todo', k > cur0);
+  });
+  bmHighlight(bm0, BEATS0[cur0].bm);
+  cap0t.textContent = BEATS0[cur0].t;
+  cap0d.innerHTML = BEATS0[cur0].d;
+  pos0.textContent = `${cur0 + 1} / ${BEATS0.length}`;
+  prev0.disabled = cur0 === 0;
+  next0.disabled = cur0 === BEATS0.length - 1;
+}
+prev0.addEventListener('click', () => { activeStage = 0; goto0(cur0 - 1); });
+next0.addEventListener('click', () => { activeStage = 0; goto0(cur0 + 1); });
 
 const cardsEl = document.getElementById('cards');
 PROFILES.forEach((p, i) => {
@@ -447,21 +572,27 @@ function goto2(i){
 prev2.addEventListener('click', () => { activeStage = 2; goto2(cur2 - 1); });
 next2.addEventListener('click', () => { activeStage = 2; goto2(cur2 + 1); });
 
-// 两组分步各自独立，方向键作用于最近交互（或悬停）的那一组
-let activeStage = 1;
+// 三组分步各自独立，方向键作用于最近交互（或悬停）的那一组
+let activeStage = 0;
+document.getElementById('stage0').addEventListener('mouseenter', () => activeStage = 0);
 document.getElementById('cards').addEventListener('mouseenter', () => activeStage = 1);
-document.querySelector('.stage').addEventListener('mouseenter', () => activeStage = 2);
+document.getElementById('stage2').addEventListener('mouseenter', () => activeStage = 2);
 addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft'){
-    if (activeStage === 1) goto1(cur1 - 1); else goto2(cur2 - 1);
+    if (activeStage === 0) goto0(cur0 - 1);
+    else if (activeStage === 1) goto1(cur1 - 1);
+    else goto2(cur2 - 1);
     e.preventDefault();
   }
   if (e.key === 'ArrowRight'){
-    if (activeStage === 1) goto1(cur1 + 1); else goto2(cur2 + 1);
+    if (activeStage === 0) goto0(cur0 + 1);
+    else if (activeStage === 1) goto1(cur1 + 1);
+    else goto2(cur2 + 1);
     e.preventDefault();
   }
 });
 
+goto0(0);
 goto1(0);
 goto2(0);
 </script>

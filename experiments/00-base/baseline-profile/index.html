@@ -72,6 +72,22 @@ h2{font-size:15px;margin:38px 0 4px}
   word-break:break-all;color:var(--fg);line-height:1.55}
 .file .cm{color:var(--dim)}
 
+/* ── 开篇立机制 ── */
+.lede{font-size:13.5px;line-height:1.85;margin:0 0 8px;color:var(--fg)}
+.lede b{color:var(--fg)}
+
+/* ── 机制舞台：三件套 → patch → 条目 → 树 → 插件解析，process 类内容纯分步 ── */
+.mdiag{display:flex;flex-direction:column;gap:8px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.mstep{border:1px solid var(--line);border-left:3px solid var(--c);border-radius:8px;
+  padding:9px 12px;cursor:default;transition:opacity .22s,box-shadow .22s;background:var(--bg)}
+.mstep.dim{opacity:.32}
+.mstep.cur{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent)}
+.mstep .mt{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--c);
+  display:flex;justify-content:space-between}
+.mstep pre{margin:6px 0 0;font-family:var(--mono);font-size:11px;white-space:pre-wrap;
+  word-break:break-all;color:var(--fg);line-height:1.55}
+
 .tree{display:flex;flex-direction:column;align-items:center;gap:0}
 .node{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);
   transition:opacity .22s,box-shadow .22s,border-color .22s;width:100%}
@@ -153,6 +169,89 @@ footer a{color:inherit}
   <span class="tag">🔬 发现型</span>
   <span class="tag ok">✅ 1 条用例（2 变体）</span>
   <span class="tag">不需要 web</span>
+</div>
+
+<p class="lede">dsh 启动一个实例，不是直接读一份配置文件——它把好几层 <b>patch</b>（补丁：对树上
+『条目』列表的一次编辑指令；<b>条目</b>／entry 是树上的一行，描述「挂哪个插件、给它
+什么配置」）按顺序叠加，拼出一棵条目树，再把这棵树挂起来对外提供服务。装着这份输入的
+地方叫 <b>profile</b>：一个真正的 npm 包，同时是一整套组合配方。这一项钉住的是最基础的
+那套输入——喂进去之后长出来的树是什么形状；后面所有实验都从这棵树的形状出发，这一项
+先把形状焊死。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">跟着<b>下一步</b>走一遍——从 profile 目录里的三个文件，到一棵真正在跑的树。
+这是一条有先后顺序的链条，不是并列关系，所以这里用分步，不用 hover。</p>
+
+<div class="basemap" id="bm0">
+  <div>
+    <div class="bm-h">profile 树 · 三件套住在假 home 里的哪个位置</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
+      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
+      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 幂等维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
+      <li data-f="prof"><span class="bm-n">   └─ &lt;名&gt;/</span><span class="bm-c">一个 profile（这里是 dflt 或 rooted）</span></li>
+      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">bundles: []，dependencies 里 base-census 走 link: 协议</span></li>
+      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
+      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 实验改的就是这个文件</span></li>
+      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">插件树 · 本项用的教学插件</div>
+    <ul class="bm-tree">
+      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
+      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
+      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
+    </ul>
+  </div>
+</div>
+
+<div class="mdiag" id="msteps">
+  <div class="mstep" data-i="0" data-bm="pkg,yml,patch" style="--c:var(--pkg)">
+    <div class="mt">profile 的三件套<span>①</span></div>
+    <pre>package.json      dsh.profile.bundles: []
+cordis.yml        恒为 []
+cordis.patch.yml  活层，人改这个</pre>
+  </div>
+  <div class="mstep" data-i="1" data-bm="patch" style="--c:var(--infra)">
+    <div class="mt">patch 是什么<span>②</span></div>
+    <pre>cordis.patch.yml:
+- insert:
+    - id: timer
+    - id: hmr
+- insert:
+    - id: census</pre>
+  </div>
+  <div class="mstep" data-i="2" data-bm="patch" style="--c:var(--caller)">
+    <div class="mt">条目长什么样<span>③</span></div>
+    <pre>- id: census
+  name: base-census
+  config:
+    out: "…/census.json"</pre>
+  </div>
+  <div class="mstep" data-i="3" data-bm="yml,patch" style="--c:var(--yml)">
+    <div class="mt">树是怎么来的<span>④</span></div>
+    <pre>cordis:include
+├─ timer
+├─ hmr
+└─ census</pre>
+  </div>
+  <div class="mstep" data-i="4" data-bm="nm,junction,plugpkg,plugidx" style="--c:var(--rooted)">
+    <div class="mt">插件怎么被找到<span>⑤</span></div>
+    <pre>name: '@deepseek-ai/cordis-plugin-timer'   包名 → node_modules
+name: 'base-census'                         包名 → node_modules（junction 供给）
+name: './local-plugin.js'                   相对路径 → 文件</pre>
+  </div>
+</div>
+
+<div class="cap"><span class="t" id="mcap-t"></span><span class="d" id="mcap-d"></span></div>
+<div class="ctl">
+  <button id="mprev">← 上一步</button>
+  <span class="pos" id="mpos"></span>
+  <button id="mnext">下一步 →</button>
+  <span class="hint">← → 键也行，或先把鼠标停在这个舞台上</span>
 </div>
 
 <h2>三件套怎么长成这棵树</h2>
@@ -341,8 +440,46 @@ function bmHighlight(scopeEl, keys){
     li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
   });
 }
+const bm0 = document.getElementById('bm0');
 const bm1 = document.getElementById('bm1');
 const bm2 = document.getElementById('bm2');
+
+/* ── 机制舞台：五步，process 类内容用纯分步，不需要 hover ── */
+const MSTEPS = [...document.querySelectorAll('.mstep')];
+const MLAST = MSTEPS.length - 1;
+const MSTEP_T = ['① 三件套', '② patch 是什么', '③ 条目长什么样', '④ 树是怎么来的', '⑤ 插件怎么被找到'];
+const MCAP = [
+  '一个 profile 目录里固定是这三个文件。<code>package.json</code> 既是 Node 的包清单，也是这个 profile 的补丁名单——它的 <code>dsh.profile.bundles</code> 字段列出还要叠哪些官方发的补丁包，本项留空 <code>[]</code>，只留两条必需的基础设施插件和调用方自己那一条。<code>cordis.yml</code> 是 profile 的根，内容恒为空数组——它不装配方，只给 <code>loader</code>（负责组合这棵树的服务）一个起点，每次启动都会被无条件重写。真正被改的是 <code>cordis.patch.yml</code>——本仓管这一层叫<b>活层</b>，实验改配置动的就是它。',
+  '<code>cordis.patch.yml</code> 里装的是一叠 <b>patch</b>：每个 patch 是一次对条目列表的编辑指令。往树上加条目用 <code>insert</code> 块——<code>- insert:</code> 后面跟一份条目数组，就整批追加进树。一份 <code>cordis.patch.yml</code> 里可以写好几个 <code>insert</code> 块，它们按写在文件里的顺序依次拼接、各自生效，谁都不覆盖谁。',
+  'insert 块里的每一行就是一条<b>条目</b>。<code>id</code> 是它在树上的名字，patch 靠这个名字定位条目；<code>name</code> 说明这条条目要挂哪个插件——是一个模块说明符，交给 Node 去解析；<code>config</code> 是这个插件启动时拿到的配置，原样传进插件的 <code>apply(ctx, config)</code>。',
+  '各层 patch 依次叠完之后，得到的是一棵真正在跑的树，树根固定叫 <code>cordis:include</code>——它是 boot 期由框架自己创建的一条条目，不写在任何 patch 文件里。patch 里写出来的条目全都住在它的子树里，后面会用 <code>⊂include</code> 标出这层归属。<code>cordis.yml</code> 那个恒为空的数组，就是 <code>cordis:include</code> 的起点——它自己再吃进每一层 patch，拼出这整棵树。',
+  '条目的 <code>name</code> 字段怎么变成真正被 import 的模块，看它的写法。裸包名（比如 <code>base-census</code>）走 Node 标准的包解析，去 profile 目录下的 <code>node_modules</code> 里找；本仓的教学插件不走 <code>pnpm install</code>，而是靠一条 <b>junction</b>（Windows 下的目录联结点）把包名指到 fixtures 源码目录，效果跟真的装进去一样。写成相对路径（<code>./xxx</code>）则走纯 URL 解析，必须指到具体文件，指到目录会报错。',
+];
+const mpos = document.getElementById('mpos');
+const mcapT = document.getElementById('mcap-t'), mcapD = document.getElementById('mcap-d');
+const mprev = document.getElementById('mprev'), mnext = document.getElementById('mnext');
+let mcur = 0;
+
+function mrender(i){
+  MSTEPS.forEach((s, k) => {
+    s.classList.toggle('dim', k !== i);
+    s.classList.toggle('cur', k === i);
+  });
+  mcapT.textContent = MSTEP_T[i];
+  mcapD.innerHTML = MCAP[i];
+  mpos.textContent = `${mcur + 1} / ${MSTEPS.length}`;
+  bmHighlight(bm0, (MSTEPS[i].dataset.bm || '').split(',').filter(Boolean));
+}
+
+function mgoto(i){
+  mcur = Math.max(0, Math.min(MLAST, i));
+  mrender(mcur);
+  mprev.disabled = mcur === 0;
+  mnext.disabled = mcur === MLAST;
+}
+
+mprev.addEventListener('click', () => mgoto(mcur - 1));
+mnext.addEventListener('click', () => mgoto(mcur + 1));
 
 /* ── 主图：三件套 → 树，静态关系 + hover/分步联动高亮 ── */
 const FILES = [...document.querySelectorAll('.file')];
@@ -446,19 +583,22 @@ document.getElementById('variant').addEventListener('mouseleave', () => vrender(
 vprev.addEventListener('click', () => vgoto(vcur - 1));
 vnext.addEventListener('click', () => vgoto(vcur + 1));
 
-/* ── 键盘方向键按鼠标所在舞台分派：页面上有两条独立分步序列 ── */
-let activeStage = 'main';
+/* ── 键盘方向键按鼠标所在舞台分派：页面上有三条独立分步序列 ── */
+let activeStage = 'mechanism';
+document.getElementById('msteps').addEventListener('mouseenter', () => activeStage = 'mechanism');
 document.querySelector('.diagram').addEventListener('mouseenter', () => activeStage = 'main');
 document.getElementById('variant').addEventListener('mouseenter', () => activeStage = 'variant');
 
 addEventListener('keydown', e => {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   const dir = e.key === 'ArrowLeft' ? -1 : 1;
-  if (activeStage === 'variant') vgoto(vcur + dir);
+  if (activeStage === 'mechanism') mgoto(mcur + dir);
+  else if (activeStage === 'variant') vgoto(vcur + dir);
   else gotoStep(cur + dir);
   e.preventDefault();
 });
 
+mgoto(0);
 gotoStep(0);
 vgoto(0);
 </script>
