@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>self-registration · 包自注册要两个条件同时成立</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0891b2;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#22d3ee;
+}}
+:root[data-theme=dark]{
+ --bmhit:#22d3ee;
+}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.b2.miss{color:var(--miss)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+.ccard .row b{color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">03-supply / self-registration</div>
+<h1>一个包怎么把自己挂上树</h1>
+<p class="sub">一个真正被人安装、分发出去的插件包，不想指望"装它的人替它手写一条 insert"——它想自己带着"该往树上插什么"这份说明，装上就生效。这一项讲的是这条供给路径要满足的两个条件，以及少一个会怎样。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 2 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">一个 profile 只需要两个文件就能起来——<code>package.json</code> 里的 <code>bundles</code> 名单，加上 <code>cordis.patch.yml</code> 那份活层（见 <code>00-base/minimal-profile</code>）。活层是人日常动的那一层：想让某条目上树，最直接的写法是在这里手写一条 <code>insert</code>（见 <code>02-recipe/insert-semantics</code>）。但一个真正被打包、分发出去的插件，不太可能指望每个装它的人都替它写这一条——它想做到"装上就自动生效"。<code>03-supply</code> 这一组回答的问题是"插件从哪来"；这一项讲的是其中一条供给路径：包自己声明一份属于自己的 patch，只要它被这个 profile 认下，那份 patch 里写的条目就自动出现在组合树上，活层不用改一个字。这条路径叫<b>包自注册（self-registration）</b>。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍一个包怎么把自己焊上树：①②是包与 profile 各自要做的一件事，③是启动时框架怎么把它们对上号，④是少一样时会发生什么。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">包声明 <code>dsh.bundle.patch</code></span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">profile 记的 <code>dsh.profile.bundles</code></span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">启动时按名单读一遍</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">名单之外</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>两个教学插件，一正一负</h2>
+<p class="note">两条用例各用一个只声明 <code>dsh.bundle</code>、不声明别的教学插件（<code>ch2-greeter</code> 与 <code>ch2-courier</code>），避免混进无关变量。判据落在 lab-recorder 这个观测插件（<code>00-base/recorder-reach</code> 讲过它怎么采集）上报的内容上：条目在不在树上、说过什么话。<code>ch2-greeter</code> 那份包先被拷进 <code>$DSH_HOME/pkg/</code> 再 link 进 profile（侧栏可查看这份运行时拷贝，跟仓库里的源文件逐字节相同）——保证这次实验不会碰到仓库里那份源文件；<code>ch2-courier</code> 没有这一步，直接从 <code>fixtures/</code> link 过去。</p>
+
+<h2>看到的：一个上树，一个什么都没发生</h2>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">selfmount · ch2-greeter</span><span class="b2 ok">✓ 条目自动上树</span></div>
+    <div class="row">活层（<code>cordis.patch.yml</code>）只写了 timer / hmr / lab-recorder 三条，一个字没提 greeter</div>
+    <div class="row"><code>dsh.profile.bundles</code> = <b>['ch2-greeter']</b></div>
+    <div class="row">组合树上多出的条目：<b>greeter</b>（1.03s）</div>
+    <div class="row">它说的话：<b>['第一版']</b>——包自己那份 patch 里写的 <code>config.版本</code> 原样送达</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">notinstalled · ch2-courier</span><span class="b2 miss">✗ 什么都没发生</span></div>
+    <div class="row">同一个包目录，同样 link 进了 <code>node_modules</code>，只是没被列进名单</div>
+    <div class="row"><code>dsh.profile.bundles</code> = <b>[]</b></div>
+    <div class="row">组合树上的条目：<b>['hmr', 'include', 'lab-recorder', 'timer']</b>（25.16s，含 10 秒固定等待）</div>
+    <div class="row">它说的话：<b>（一句都没有）</b>——包里那份 <code>cordis.patch.yml</code> 没人读过</div>
+  </div>
+</div>
+<p class="note">两条用例除了"包名有没有写进 <code>dsh.profile.bundles</code>"之外一模一样：同样的目录结构、同样建好 <code>node_modules</code> junction、同样起一个实例。唯一变量就是这一份名单。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>包自注册需要两个条件同时成立：包声明 <code>dsh.bundle.patch</code>，且包名进了 <code>dsh.profile.bundles</code> 名单。</b>两样齐备时，profile 活层一个字不用写，包自己那份 patch 里的条目就会出现在树上、<code>apply</code> 会跑、<code>config</code> 会送达。
+    <span class="from">test_a_package_mounts_itself</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>缺一样，什么都不会发生——不是报错，是安安静静地不存在。</b>同一个包、同样建好 <code>node_modules</code> junction，只要没被列进 <code>dsh.profile.bundles</code>、活层也没手写 <code>insert</code>，条目就不存在：包目录里那份 <code>cordis.patch.yml</code> 没人会去读它。
+    <span class="from">test_the_package_alone_registers_nothing</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_self_registration.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151104/</code>（<code>summary.md</code> 与 <code>profiles/</code> 下 2 个 profile 的 6 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">pkg/</button>
+            <ul>
+              <li><button class="tw">ch2-greeter/</button>
+                <ul>
+                  <li><button class="fl" data-k="pkg-greeter-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="pkg-greeter-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="pkg-greeter-idx">index.js</button></li>
+                </ul></li>
+            </ul></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">selfmount/</button>
+                <ul>
+                  <li><button class="fl" data-k="sm-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="sm-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="sm-pkg">package.json</button></li>
+                  <li><button class="tw">node_modules/</button>
+                    <ul><li>ch2-greeter →</li></ul></li>
+                </ul></li>
+              <li><button class="tw">notinstalled/</button>
+                <ul>
+                  <li><button class="fl" data-k="ni-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ni-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ni-pkg">package.json</button></li>
+                  <li><button class="tw">node_modules/</button>
+                    <ul><li>ch2-courier →</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">ch2-greeter/</button>
+                <ul>
+                  <li><button class="fl" data-k="fx-greeter-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fx-greeter-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="fx-greeter-idx">index.js</button></li>
+                </ul></li>
+              <li><button class="tw">courier/</button>
+                <ul>
+                  <li><button class="fl" data-k="fx-courier-idx">index.mjs</button></li>
+                  <li><button class="fl" data-k="fx-courier-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fx-courier-patch">cordis.patch.yml</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-sm-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151104/profiles/selfmount/cordis.patch.yml"
+         data-why="profile 自己的活层——只写了基础设施三条（timer / hmr / lab-recorder），一个字没提 greeter"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/self-registration/events-selfmount.jsonl"
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-sm-yml" data-name="cordis.yml"
+         data-src="results/20260817-151104/profiles/selfmount/cordis.yml"
+         data-why="profile 根文件：永远是空数组，真正的树全由 patch 叠出来（见 00-base/minimal-profile）"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-sm-pkg" data-name="package.json"
+         data-src="results/20260817-151104/profiles/selfmount/package.json"
+         data-why="dsh.profile.bundles 里带了 ch2-greeter——这是让包自己那份 patch 生效的唯一开关"><pre>{
+  "name": "dsh-profile-selfmount",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "ch2-greeter"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "ch2-greeter": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/self-registration/pkg/ch2-greeter"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-ni-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151104/profiles/notinstalled/cordis.patch.yml"
+         data-why="同样只写了基础设施三条，没有 courier 的任何痕迹"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/self-registration/events-notinstalled.jsonl"
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-ni-yml" data-name="cordis.yml"
+         data-src="results/20260817-151104/profiles/notinstalled/cordis.yml"
+         data-why="同样是空条目列表，跟 selfmount 那份逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-ni-pkg" data-name="package.json"
+         data-src="results/20260817-151104/profiles/notinstalled/package.json"
+         data-why="dsh.profile.bundles = []——包目录已经 link 进来了，但名单里没有它的名字"><pre>{
+  "name": "dsh-profile-notinstalled",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "ch2-courier": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/03-supply/self-registration/fixtures/courier"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-pkg-greeter-pkg" data-name="package.json"
+         data-src="fixtures/ch2-greeter/package.json"
+         data-why="运行时拷贝，与右边 fixtures/ch2-greeter/package.json 逐字节相同——测试先把包拷到这里再 link，保证仓库里的源文件不会被这次实验碰到"><pre>{
+  "name": "ch2-greeter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-pkg-greeter-patch" data-name="cordis.patch.yml"
+         data-src="fixtures/ch2-greeter/cordis.patch.yml"
+         data-why="同一份拷贝里的 patch 文件，内容跟 fixtures/ch2-greeter/cordis.patch.yml 逐字节相同"><pre># 这份 patch 文件跟着包走——它住在包里，不在 profile 目录里。
+# package.json 的 dsh.bundle.patch 指着它，包一旦进了某个 profile 的 bundle
+# 名单，这里写的条目就自动上树，profile 那边一个字都不用写。
+- insert:
+    - id: greeter
+      name: ch2-greeter
+      config:
+        版本: 第一版
+</pre>
+    </div>
+    <div id="fc-pkg-greeter-idx" data-name="index.js"
+         data-src="fixtures/ch2-greeter/index.js"
+         data-why="同一份拷贝里真正执行的代码，跟 fixtures/ch2-greeter/index.js 逐字节相同"><pre>/**
+ * ch2-greeter ——一个包身兼两职：
+ *
+ *   1. 它是**包**：`package.json` 声明了 `dsh.bundle.patch`，指向同目录的
+ *      `cordis.patch.yml`。这个包一旦进了某个 profile 的 bundle 名单，那份
+ *      patch 文件里写的条目就自动上树——不用手写 insert。
+ *   2. 它也是那份 patch 文件指向的**插件模块**：`name: ch2-greeter` 找的就是
+ *      这个文件，真正的 `apply` 长在这儿。
+ *
+ * 只干一件事：把自己收到的 `版本` 报出来。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", { 版本: config?.版本 ?? null });
+}
+</pre>
+    </div>
+    <div id="fc-fx-greeter-pkg" data-name="package.json"
+         data-src="fixtures/ch2-greeter/package.json"
+         data-why="dsh.bundle.patch 指着同目录的 cordis.patch.yml——这一行让这个目录成为一个'包'，不只是一堆代码"><pre>{
+  "name": "ch2-greeter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fx-greeter-patch" data-name="cordis.patch.yml"
+         data-src="fixtures/ch2-greeter/cordis.patch.yml"
+         data-why="包自己带的那份 patch：不带顶层 id 的一条 insert，把 greeter 这条插进树里"><pre># 这份 patch 文件跟着包走——它住在包里，不在 profile 目录里。
+# package.json 的 dsh.bundle.patch 指着它，包一旦进了某个 profile 的 bundle
+# 名单，这里写的条目就自动上树，profile 那边一个字都不用写。
+- insert:
+    - id: greeter
+      name: ch2-greeter
+      config:
+        版本: 第一版
+</pre>
+    </div>
+    <div id="fc-fx-greeter-idx" data-name="index.js"
+         data-src="fixtures/ch2-greeter/index.js"
+         data-why="greeter 这条真正执行的代码：把收到的 config.版本 上报出来"><pre>/**
+ * ch2-greeter ——一个包身兼两职：
+ *
+ *   1. 它是**包**：`package.json` 声明了 `dsh.bundle.patch`，指向同目录的
+ *      `cordis.patch.yml`。这个包一旦进了某个 profile 的 bundle 名单，那份
+ *      patch 文件里写的条目就自动上树——不用手写 insert。
+ *   2. 它也是那份 patch 文件指向的**插件模块**：`name: ch2-greeter` 找的就是
+ *      这个文件，真正的 `apply` 长在这儿。
+ *
+ * 只干一件事：把自己收到的 `版本` 报出来。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", { 版本: config?.版本 ?? null });
+}
+</pre>
+    </div>
+    <div id="fc-fx-courier-idx" data-name="index.mjs"
+         data-src="fixtures/courier/index.mjs"
+         data-why="courier 真正执行的代码，跟 greeter 长得一样——两条用例只差'名单里有没有它'"><pre>/**
+ * 负对照用的教学插件：包里声明了 `dsh.bundle`，但只 link 不装的话什么都不会
+ * 发生。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", { 途径: config?.途径 });
+}
+</pre>
+    </div>
+    <div id="fc-fx-courier-pkg" data-name="package.json"
+         data-src="fixtures/courier/package.json"
+         data-why="同样声明了 dsh.bundle.patch，这份声明本身不保证它会被读"><pre>{
+  "name": "ch2-courier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "教学插件：只声明 dsh.bundle，不进名单就不会自注册",
+  "exports": { ".": "./index.mjs" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}
+</pre>
+    </div>
+    <div id="fc-fx-courier-patch" data-name="cordis.patch.yml"
+         data-src="fixtures/courier/cordis.patch.yml"
+         data-why="包自己带的那份 patch——负对照要证的就是：没被列进名单，这份文件永远不会被打开"><pre># 包自己带的那一行。只要没被列进 profile 的 dsh.profile.bundles，这份 patch
+# 永远不会被读——负对照要证的就是这件事。
+- insert:
+    - id: courier
+      name: ch2-courier
+      config:
+        途径: 正经安装
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>包声明 <code>dsh.bundle.patch</code></b><br>一个包要参与自注册，先得在自己的 <code>package.json</code> 里写
+   <code>{ "dsh": { "bundle": { "patch": "./cordis.patch.yml" } } }</code>——指着包目录里那份 <code>cordis.patch.yml</code>。
+   这份文件跟着包走，不属于任何 profile；语法上它跟活层、跟 <code>--patch</code> overlay 是同一套 <code>- insert:</code>
+   指令（见 <code>02-recipe/insert-semantics</code>），只是住的地方不一样。`,
+  `<b>profile 记的那份名单：<code>dsh.profile.bundles</code></b><br>光①那步声明还不够——profile 自己的
+   <code>package.json</code> 里有一个 <code>dsh.profile.bundles</code> 数组，列着"这次组合要叠哪些包"。要让①那份 patch
+   生效，包名必须原样出现在这份名单里；这份名单只认字符串，不关心那份 patch 里到底写了什么内容。`,
+  `<b>启动时按名单读一遍：<code>composeProfile()</code></b><br>组合树从空数组开始按序叠层：先按
+   <code>dsh.profile.bundles</code> 列出的顺序，把每个包自己的 <code>cordis.patch.yml</code> 读一遍——这一层叫
+   <b>bundle 层</b>；再叠 profile 自己那份<b>活层</b>。bundle 层只在进程启动那一刻读一次（冷），活层改了会被
+   watcher 秒级重放（热）。两层都读完，组合树才算数。`,
+  `<b>名单之外：不读，也不报错</b><br>没被列进 <code>dsh.profile.bundles</code> 的包，哪怕它的目录已经
+   <code>link</code> 进了 profile 的 <code>node_modules</code>、包里那份 <code>cordis.patch.yml</code> 也确实存在，
+   <code>composeProfile()</code> 都不会去打开那份文件——它对组合树而言就是不存在，不是"读了但失败"。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

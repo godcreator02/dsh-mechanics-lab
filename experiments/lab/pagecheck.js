@@ -54,17 +54,24 @@
     if (len <= 0) out.dead.push(f.textContent.replace(/[├└─│▾▸]/g, '').trim() + ' → ' + len);
   });
 
-  // 折行检测比宽度阈值准：窄本身不是毛病，同一组标签里只有一个折了才是。
-  // 拿实际高度跟行高比，超过 1.6 倍就是折了。
-  document.querySelectorAll('td,th,.k,.nm,.hd,.name,.file,.c-name').forEach((e) => {
-    const r = e.getBoundingClientRect();
-    const cs = getComputedStyle(e);
-    const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
-    if (r.height > lh * 1.6 && e.textContent.trim().length > 3) {
-      out.wrapped.push(
-        e.tagName + '.' + e.className + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)
-        + ' «' + e.textContent.trim().slice(0, 20) + '»'
-      );
+  // 折行检测踩过两个坑，两个都会造出假的「挤坏了」：
+  //
+  // ① 拿 getBoundingClientRect().height 跟 lineHeight 比 —— height 含 padding，
+  //    单元格上下各 7px 的内边距让 18px 行高的单行格量出 32px，整张表全报折行。
+  // ② 用 Range.getClientRects().length 当行数 —— 每个 inline 子元素单独占一个
+  //    矩形，`在外面（以 <code>..</code> 开头）` 明明一行，却被数成 3 行。
+  //
+  // 所以行数按矩形的 top 去重来数。一格折两行是正常换行，超过两行才值得看。
+  const rg = document.createRange();
+  document.querySelectorAll('td,th,.k,.nm,.hd,.name,.file,.c-name,.c-val,.c-mono').forEach((e) => {
+    // 里面有块级子元素的容器不算「一格文本」，它的换行由子元素自己决定
+    if (e.children.length && [...e.children].some((c) => getComputedStyle(c).display !== 'inline')) return;
+    const txt = e.textContent.trim();
+    if (txt.length < 4) return;
+    rg.selectNodeContents(e);
+    const rows = new Set([...rg.getClientRects()].map((r) => Math.round(r.top))).size;
+    if (rows > 2) {
+      out.wrapped.push(rows + '行 ' + Math.round(e.getBoundingClientRect().width) + 'px «' + txt.slice(0, 22) + '»');
     }
   });
 

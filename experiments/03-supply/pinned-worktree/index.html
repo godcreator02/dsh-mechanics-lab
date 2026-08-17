@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pinned-worktree · 依赖指向一份钉住的 git 工作副本，换 tag 即换版本</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#7c3aed; --pin:#0ea5e9; --dev:#f97316;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#a78bfa; --pin:#38bdf8; --dev:#fb923c;
+}}
+:root[data-theme=dark]{
+ --bmhit:#a78bfa; --pin:#38bdf8; --dev:#fb923c;
+}
+.b-pin{color:var(--pin);font-weight:600}
+.b-dev{color:var(--dev);font-weight:600}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+.fsmap{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 16px;margin:12px 0;font-family:var(--mono);font-size:11.5px;
+  line-height:1.75;white-space:pre;overflow-x:auto}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+.ccard .row b{color:var(--fg);font-weight:600}
+.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:11px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:150px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
+.kv .v.b-pin{color:var(--pin)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">03-supply / pinned-worktree</div>
+<h1>依赖指向一份钉住的 git 工作副本，换 tag 即换版本</h1>
+<p class="sub">profile 的依赖不一定要指向一个只会被手改的静态目录——指向一份钉在某个 git tag 上的工作副本一样能被当成插件加载；开发照常在另一份跟着 HEAD 走的副本里继续，发一次版就是让钉住的那份副本切一次 tag，热重载把新代码原地挂上，进程不重启。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">这一组（03-supply）讲的是插件代码怎么「供给」进一个 profile——条目（entry，见 <code>00-base/minimal-profile</code>）的 <code>name</code> 指向一个包名，那个包在磁盘上真正的文件从哪儿来，是这一组要回答的问题，跟 <code>name</code> 字符串本身怎么被解析（那是 <code>01-entry/name-resolution</code> 管的）是两件事。profile 通过 <code>package.json</code> 的 <code>dependencies</code> 用 <code>link:</code> 协议指向一个目录，<code>node_modules</code> 下建一条 junction（Windows 的目录重解析点，见 <code>00-base/isolation-guarantees</code>）——这条路径本身没什么特别，特别的是这一项要试的目标目录：不是一份普通的源码目录，而是用 <b>git worktree</b>（git 自带的功能：同一个仓库能在别的目录下再开一份独立的工作副本，各自签出到不同的提交，文件互不干扰，但共享同一份提交历史）开出来的一份工作副本，还钉在某个 tag 上，不跟着分支走。这一项讲的正是：依赖指向这样一份「钉住」的工作副本会发生什么，以及在这条供给方式下，「发一次版」具体对应哪个动作。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">从「同一个仓库的两份工作副本」到「profile 的依赖指向哪一份」到「文件真的换了会被谁接住」，走一遍这五步：①②搭好两份互不干扰的工作副本，③是依赖怎么落地成 profile 能读到的东西，④是文件被换掉之后谁在看、看见了做什么，⑤是这条链路里唯一真正算「发版」的那个动作。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">开一份钉住的工作副本</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">另一份继续跟着 HEAD</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">依赖落地成 junction</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">文件变了，谁接住</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">发版＝切一次 tag</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>现场：一个仓库，三份钉住的工作副本</h2>
+<p class="note">整个实验只有一个 git 仓库（<code>repo/</code>，跟着 HEAD 走）。三条用例各自用 <code>Repo.pin()</code>（<code>git worktree add --detach &lt;目录&gt; v1.0.0</code>）从它开出一份独立的、钉在 <code>v1.0.0</code> 上的工作副本，各用各的，互不干扰。profile 的依赖不指向右栏的 <code>fixtures/</code>——它指向这样一份工作副本，<code>node_modules</code> 里那条 junction 落到的正是下面这几个目录之一。</p>
+<div class="fsmap">$DSH_HOME/
+├─ repo/          <span class="b-dev">跟着 HEAD 走的开发副本</span>——此刻在第二版
+├─ pinned-a/       <span class="b-pin">钉在 v1.0.0</span>，a-pinned 这个 profile 的依赖指向它
+├─ pinned-b/       <span class="b-pin">钉在 v1.0.0</span>，测试中途 checkout 到 v2.0.0
+├─ pinned-d/       <span class="b-pin">钉在 v1.0.0</span>，全程没人碰它
+└─ profiles/
+   └─ &lt;profile&gt;/node_modules/greeter →   junction，指到上面对应的 pinned-* 目录
+</div>
+<p class="note">这几份工作副本本身不在归档范围内（<code>results/</code> 只留了每个 profile 的三份文件，见右栏），但此刻的内容可以确定：<code>copy_version()</code> 把 <code>fixtures/v1</code>（或 <code>fixtures/v2</code>）的文件原样复制进 <code>repo/</code>、提交、打 tag，仓库关掉了 <code>core.autocrlf</code>——git checkout 出来的正是提交时的那份字节，所以 <code>pinned-a</code> 与 <code>pinned-d</code> 此刻的四个文件与右栏 <code>fixtures/v1</code> 逐字节相同，<code>pinned-b</code> checkout 到 <code>v2.0.0</code> 之后与右栏 <code>fixtures/v2</code> 逐字节相同。</p>
+
+<h2>怎么测：三个字段来自三个不同的文件</h2>
+<p class="note">教学插件 <code>greeter</code>（右栏 <code>fixtures/v1</code> 与 <code>fixtures/v2</code>）说的话固定带三个字段——版本号来自 <code>package.json</code> 与 <code>version.js</code>，招呼语来自 <code>greeting.js</code>，入口来自 <code>index.js</code> 自己写死的字符串。三个字段来自三个不同的文件，换版本只换了一半的话，这里立刻能看出来。判「热重载」还是「重启」看事件流里的 <code>status</code> 事件与进程 pid：pid 不变、旧条目走过 <code>DISPOSED</code>，才是热重载。</p>
+
+<h2>依赖指向工作副本，插件照常加载——认的是 tag 不是 HEAD</h2>
+<div class="kv">
+  <div class="r"><span class="k">跟着 HEAD 的副本</span><span class="v">HEAD <b>c71eb0a</b>（第二版）</span></div>
+  <div class="r"><span class="k">钉在 tag 上的副本</span><span class="v b-pin">v1.0.0</span></div>
+  <div class="r"><span class="k">插件说的</span><span class="v ok">{'版本': '1.0.0', '招呼语': '早上好', '入口': '第一版'}</span></div>
+  <div class="r"><span class="k">耗时</span><span class="v">1.47s</span></div>
+</div>
+<p class="note">此刻仓库主线已经在第二版（<code>c71eb0a</code>），但依赖指向的是钉在 <code>v1.0.0</code> 上的那份副本——插件仍然报第一版。跟一份指向普通目录的依赖相比，能观察到的行为没有任何差别，只是这份目录的内容认的是 tag，不是 HEAD。</p>
+
+<h2>checkout 换 tag——进程 pid 不变，重叠窗口不到 1 毫秒</h2>
+<p class="note">发一次版就是在钉住的那份副本里跑 <code>git checkout v2.0.0</code>：四个文件（含 <code>package.json</code>）同时被换掉。归档的事件流里能看到从旧的开始拆到新的就绪之间有短暂重叠——<b>1371.8ms</b> 新的 <code>greeter</code> 已经进了 <code>PENDING → LOADING</code>，此刻旧的还没走到 <b>1371.9ms</b> 才发生的 <code>DISPOSED</code>，不是拆完了才建。</p>
+<div class="ccard">
+  <div class="hd"><span class="nm">b-checkout</span><span class="b2 ok">✓ 热重载，pid 不变</span></div>
+  <div class="row">进程 pid：<b>151576 → 151576</b></div>
+  <div class="row">hmr 报的重新加载次数：<b>1</b></div>
+  <div class="row">插件说过的话：<b>[{'版本': '1.0.0', '招呼语': '早上好', '入口': '第一版'}, {'版本': '2.0.0', '招呼语': '晚上好', '入口': '第二版'}]</b></div>
+  <pre>1245.8ms  hmr-change              文件变了：package.json
+1371.6ms  status      greeter     ACTIVE → UNLOADING
+1371.8ms  status      greeter     PENDING → LOADING
+1371.9ms  hmr-reload              重新加载了 1 个：['index.js']
+1371.9ms  status      greeter     UNLOADING → DISPOSED
+1372.0ms  report      greeter     我跑起来了 {"版本": "2.0.0", "招呼语": "晚上好", "入口": "第二版"}
+1372.0ms  status      greeter     LOADING → ACTIVE</pre>
+</div>
+<p class="note">从旧的开始拆（<code>1371.6ms</code>）到新的就绪（<code>1372.0ms</code>），总共 <b>0.4 毫秒</b>；期间 <code>timer</code>/<code>hmr</code>/<code>lab-recorder</code> 三个条目没有一个走过 <code>DISPOSED</code>，换版本没有牵连别的条目。</p>
+
+<h2>另一个副本随便改、提交、打 tag——钉住的这份纹丝不动</h2>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm b-dev">repo（跟着 HEAD）</span><span class="b2 ok">改了三个文件</span></div>
+    <div class="row">HEAD → <b>3851d7c</b>（第三版）</div>
+    <div class="row"><code>index.js</code> 连语法都是坏的</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm b-pin">pinned-d（钉住）</span><span class="b2 ok">纹丝不动</span></div>
+    <div class="row">HEAD 仍是 <b>ffbc58e</b></div>
+    <div class="row"><code>git status --porcelain</code> = <b>（无）</b></div>
+    <div class="row">插件说过的话仍是第一版</div>
+  </div>
+</div>
+<p class="note">在 <code>repo</code> 里把三个文件全部改坏（<code>index.js</code> 改成语法都不完整的半成品）、提交、打新 tag <code>v3.0.0</code>，固定等待 15 秒——插件那边什么都没发生，钉住的那份副本连 git 状态都是干净的。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>依赖指向一份钉在 tag 上的工作副本，插件照常加载——跟普通的 junction 没有区别，只是它认的是 tag 不是 HEAD。</b>仓库主线已经在第二版，被钉住的这份仍然报第一版。
+    <span class="from">test_a_pinned_copy_is_just_a_dependency</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b><code>git checkout &lt;新 tag&gt;</code> 换掉插件跑的代码，进程 pid 一动不动。</b>发一次版就是在钉住的那个副本里切一次 tag：旧的条目被拆掉（<code>DISPOSED</code>）、新的挂上（<code>ACTIVE</code>），走的是热重载那条路，不是重启；<code>timer</code>/<code>hmr</code>/<code>lab-recorder</code> 三个不相干的条目不受牵连。
+    <span class="from">test_b_checkout_swaps_the_version_in_place</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>拆旧、建新之间有重叠窗口，整个过程压缩在不到 1 毫秒内。</b>本次归档的时间线：旧的 <code>ACTIVE → UNLOADING</code>（1371.6ms）→ 新的 <code>PENDING → LOADING</code>（1371.8ms，此刻旧的还没 <code>DISPOSED</code>）→ <code>hmr-reload</code> 事件（1371.9ms）→ 旧的 <code>UNLOADING → DISPOSED</code>（1371.9ms）→ 新的 <code>LOADING → ACTIVE</code>（1372.0ms），从旧的开始拆到新的就绪总共 0.4 毫秒。
+    <span class="from">test_b_checkout_swaps_the_version_in_place</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>跟着 HEAD 走的那个副本随便改、提交、打 tag，钉住的这份纹丝不动。</b>两个工作副本各有一份文件，互不干扰——这正是「写到一半的东西不会被实例吃进去」的由来。
+    <span class="from">test_d_the_dev_copy_moves_on_alone</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_pinned_worktree.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151055/</code>（<code>summary.md</code> 与 <code>profiles/</code> 下 3 个 profile 的 9 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">a-pinned/</button>
+                <ul>
+                  <li><button class="fl" data-k="apatch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ayml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="apkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>lab-recorder →</li>
+                      <li>greeter →</li>
+                    </ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">b-checkout/</button>
+                <ul>
+                  <li><button class="fl" data-k="bpatch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="byml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="bpkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>lab-recorder →</li>
+                      <li>greeter →</li>
+                    </ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">d-independent/</button>
+                <ul>
+                  <li><button class="fl" data-k="dpatch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="dyml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="dpkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>lab-recorder →</li>
+                      <li>greeter →</li>
+                    </ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">v1/</button>
+                <ul>
+                  <li><button class="fl" data-k="v1pkg">package.json</button></li>
+                  <li><button class="fl" data-k="v1idx">index.js</button></li>
+                  <li><button class="fl" data-k="v1ver">version.js</button></li>
+                  <li><button class="fl" data-k="v1gre">greeting.js</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">v2/</button>
+                <ul>
+                  <li><button class="fl" data-k="v2pkg">package.json</button></li>
+                  <li><button class="fl" data-k="v2idx">index.js</button></li>
+                  <li><button class="fl" data-k="v2ver">version.js</button></li>
+                  <li><button class="fl" data-k="v2gre">greeting.js</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-v1pkg" data-name="package.json"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v1/package.json"
+         data-why="第一版的包清单——exports['.'] 指到 index.js，被 copy_version() 原样复制进仓库、提交、打上 v1.0.0"><pre>{
+  &quot;name&quot;: &quot;greeter&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;private&quot;: true,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;exports&quot;: { &quot;.&quot;: &quot;./index.js&quot; }
+}
+</pre>
+    </div>
+    <div id="fc-v1idx" data-name="index.js"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v1/index.js"
+         data-why="第一版入口：说的话固定带版本/招呼语/入口三个字段，来自三个不同的文件"><pre>/**
+ * 教学插件「greeter」第一版——包的入口文件。
+ *
+ * 拆成三个文件：这个入口，加两个各只导出一个常量的小文件。拆开是有意的：
+ * 换一次版本要同时改动好几个文件，那才是真实发版的形态。
+ */
+
+import { version } from &quot;./version.js&quot;;
+import { greeting } from &quot;./greeting.js&quot;;
+
+export const inject = [&quot;labObserver&quot;];
+
+export function apply(ctx) {
+  const say = ctx.labObserver.for(ctx);
+
+  // 三个字段来自三个不同的文件——万一某次只换了一半，这里立刻看得出来
+  say(&quot;我跑起来了&quot;, { 版本: version, 招呼语: greeting, 入口: &quot;第一版&quot; });
+}
+</pre>
+    </div>
+    <div id="fc-v1ver" data-name="version.js"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v1/version.js"
+         data-why="版本号单独一个文件——跟入口、招呼语分开，换版本只换一半时能看出来"><pre>export const version = &quot;1.0.0&quot;;
+</pre>
+    </div>
+    <div id="fc-v1gre" data-name="greeting.js"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v1/greeting.js"
+         data-why="招呼语单独一个文件"><pre>export const greeting = &quot;早上好&quot;;
+</pre>
+    </div>
+    <div id="fc-v2pkg" data-name="package.json"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v2/package.json"
+         data-why="第二版的包清单，跟第一版比版本号变了，同样被复制进仓库、提交、打上 v2.0.0"><pre>{
+  &quot;name&quot;: &quot;greeter&quot;,
+  &quot;version&quot;: &quot;2.0.0&quot;,
+  &quot;private&quot;: true,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;exports&quot;: { &quot;.&quot;: &quot;./index.js&quot; }
+}
+</pre>
+    </div>
+    <div id="fc-v2idx" data-name="index.js"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v2/index.js"
+         data-why="第二版入口：跟第一版比，三个文件连同 package.json 的版本号一起变了——一次 checkout 要落下的就是这一批改动"><pre>/**
+ * 教学插件「greeter」第二版——包的入口文件。
+ *
+ * 跟第一版比，三个文件（入口 / version.js / greeting.js）连同 package.json
+ * 里的版本号一起变了。一次 checkout 要落下的就是这一批改动。
+ */
+
+import { version } from &quot;./version.js&quot;;
+import { greeting } from &quot;./greeting.js&quot;;
+
+export const inject = [&quot;labObserver&quot;];
+
+export function apply(ctx) {
+  const say = ctx.labObserver.for(ctx);
+
+  // 三个字段来自三个不同的文件——万一某次只换了一半，这里立刻看得出来
+  say(&quot;我跑起来了&quot;, { 版本: version, 招呼语: greeting, 入口: &quot;第二版&quot; });
+}
+</pre>
+    </div>
+    <div id="fc-v2ver" data-name="version.js"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v2/version.js"
+         data-why="第二版的版本号"><pre>export const version = &quot;2.0.0&quot;;
+</pre>
+    </div>
+    <div id="fc-v2gre" data-name="greeting.js"
+         data-src="experiments/03-supply/pinned-worktree/fixtures/v2/greeting.js"
+         data-why="第二版的招呼语"><pre>export const greeting = &quot;晚上好&quot;;
+</pre>
+    </div>
+    <div id="fc-apatch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151055/profiles/a-pinned/cordis.patch.yml"
+         data-why="a-pinned 的活层：greeter 走裸包名，靠 node_modules 里那条 junction 落到钉住的工作副本；hmr 的 root/ignored 显式指到那份副本，不然它连人带马被默认忽略名单吃掉"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&#x27;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/pinned-a&#x27;]
+        ignored: [&#x27;**/node_modules&#x27;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/events-a-pinned.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: greeter
+      name: greeter
+</pre>
+    </div>
+    <div id="fc-ayml" data-name="cordis.yml"
+         data-src="results/20260817-151055/profiles/a-pinned/cordis.yml"
+         data-why="profile 根文件：空条目列表，真正的树全由 cordis.patch.yml 叠出来"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-apkg" data-name="package.json"
+         data-src="results/20260817-151055/profiles/a-pinned/package.json"
+         data-why="dependencies.greeter 的 link: 目标是 pinned-a——一份 git 工作副本，不是 fixtures 本身"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-a-pinned&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;greeter&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/pinned-a&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-bpatch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151055/profiles/b-checkout/cordis.patch.yml"
+         data-why="b-checkout 的活层，跟 a-pinned 结构相同，只有 root/ignored 与事件输出路径指到 pinned-b"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&#x27;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/pinned-b&#x27;]
+        ignored: [&#x27;**/node_modules&#x27;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/events-b-checkout.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: greeter
+      name: greeter
+</pre>
+    </div>
+    <div id="fc-byml" data-name="cordis.yml"
+         data-src="results/20260817-151055/profiles/b-checkout/cordis.yml"
+         data-why="同样是空条目列表；跟另两个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-bpkg" data-name="package.json"
+         data-src="results/20260817-151055/profiles/b-checkout/package.json"
+         data-why="dependencies.greeter 指向 pinned-b——测试中途会在这份副本里跑 git checkout v2.0.0"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-b-checkout&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;greeter&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/pinned-b&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-dpatch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151055/profiles/d-independent/cordis.patch.yml"
+         data-why="d-independent 的活层，结构同上，root/ignored 与事件输出路径指到 pinned-d"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&#x27;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/pinned-d&#x27;]
+        ignored: [&#x27;**/node_modules&#x27;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/events-d-independent.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: greeter
+      name: greeter
+</pre>
+    </div>
+    <div id="fc-dyml" data-name="cordis.yml"
+         data-src="results/20260817-151055/profiles/d-independent/cordis.yml"
+         data-why="同样是空条目列表；跟另两个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-dpkg" data-name="package.json"
+         data-src="results/20260817-151055/profiles/d-independent/package.json"
+         data-why="dependencies.greeter 指向 pinned-d——这份副本全程不会被 checkout，用来证明另一个副本怎么改都不牵连它"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-d-independent&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;greeter&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/pinned-worktree/pinned-d&quot;
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>开一份钉住的工作副本</b><br><code>git worktree add --detach &lt;目录&gt; v1.0.0</code>：从同一个仓库再开一份独立的工作目录，
+   <code>--detach</code> 让它停在 <code>v1.0.0</code> 对应的那个提交上，不跟着任何分支走。仓库主线后续不管提交多少次、
+   打多少新 tag，这份工作副本的文件都不会变——除非有人对它自己再运行一次 <code>checkout</code>。`,
+  `<b>另一份继续跟着 HEAD 走</b><br>仓库原本那份工作副本（<code>repo</code>）什么都不受影响，该提交提交、该打 tag 打 tag。
+   两份副本各有一份完整的文件、互不干扰，靠共享的同一段 git 历史关联在一起。`,
+  `<b>依赖落地成一条 junction</b><br>profile 的 <code>package.json</code> 用 <code>link:</code> 依赖协议指向钉住的那份工作副本，
+   <code>node_modules</code> 下建一条 junction——Node 的模块解析只看这条 junction，完全不知道目标目录背后是个 git 检出，
+   看到的只是一堆普通文件，跟指向任何其它目录没有区别。`,
+  `<b>文件变了，hmr 的 watcher 接住</b><br>cordis-plugin-hmr 的 watcher 监听范围写在它的 <code>config.root</code> 里
+   （见 <code>00-base/baseline-profile</code>）——只要写的是这份工作副本的目录，<code>checkout</code> 换掉的文件就会被看见。
+   看见之后，如果这个文件之前被 Node 的 ES 模块系统 import 过，就清掉模块缓存、重新 import 一遍，把这个条目的旧 fiber
+   拆掉（<code>DISPOSED</code>）、新的原位挂上（重新经过 <code>LOADING</code> 到 <code>ACTIVE</code>）——进程本身不重启，pid 不变。`,
+  `<b>发版＝切一次 tag</b><br><code>git checkout &lt;新 tag&gt;</code> 这一条命令换掉的只是钉住的那份工作副本目录里的文件——
+   依赖指向哪里、watcher 盯着哪个目录、Node 该不该走热重载，都不因为这条命令而改变，它们本来就在正常运转。
+   「发版」能被压缩成一条 <code>checkout</code>，正是因为前四步早就把「文件变了会被自动接住」这件事铺好了。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

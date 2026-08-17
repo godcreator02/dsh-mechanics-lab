@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>four-ways · 四条供给路径，挂出同一个条目</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0891b2; --sup:#0ea5e9; --mnt:#7c3aed;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#22d3ee; --sup:#38bdf8; --mnt:#a78bfa;
+}}
+:root[data-theme=dark]{
+ --bmhit:#22d3ee; --sup:#38bdf8; --mnt:#a78bfa;
+}
+.b-sup{color:var(--sup);font-weight:600}
+.b-mnt{color:var(--mnt);font-weight:600}
+.note code{font-family:var(--mono);font-size:12px}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+table.matrix{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+table.matrix th,table.matrix td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+table.matrix th{color:var(--dim);font-weight:600;font-family:var(--mono);font-size:11px}
+table.matrix td.c-name{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap}
+table.matrix td.c-val{font-family:var(--mono);font-size:11px}
+table.matrix .yes{color:var(--ok)}
+table.matrix .no{color:var(--miss)}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:170px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">03-supply / four-ways</div>
+<h1>四条供给路径，挂出同一个条目</h1>
+<p class="sub">把插件代码送到 profile 能找到的位置——本项试了单文件拷贝、目录链接、走官方安装命令、指向 git 工作副本四种姿势。只要挂载那步真的发生，四条路挂出来的条目在运行时没有任何区别，各自留下的代价却差得很远。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">📗 部分复述</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">一个插件要真的在 dsh 里跑起来，两件事缺一不可：配方树里得有一条 entry 指向它——<b class="b-mnt">挂载</b>，02-recipe/insert-semantics 讲过的姿势，靠 <code>- insert:</code> 写活层；entry 的 <code>name</code> 字段还得能被 Node 解析到真代码——01-entry/name-resolution 讲过的两条解析算法。这两条链条共同的前提是：那份被解析到的代码，首先得摆在 Node resolve 得到的地方。这一项讲的正是这件更前置的事——<b class="b-sup">供给</b>：一个 npm 包（教学插件 <code>ch2-courier</code>，见侧栏它的三份文件）能用几种不同姿势，把自己的代码交付到 profile 能找到的位置，以及这几种姿势挂出来的条目，运行时表现有没有区别。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍四条路怎么把 <code>ch2-courier</code> 送到 profile 上：①是两条线索怎么分工，②③是<b class="b-sup">供给</b>的四种实现各自怎么办，④是供给方式跟运行时结果之间的关系，⑤补全「两件事缺一不可」这句话的另一半。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">挂载与供给，两件事</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">①②④：活层手写 insert</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">③：包自己的 bundle 层自注册</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">供给不漏进运行时</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">挂载不做，什么都没有</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>观测方法：四个独立实例，只看插件自己说了什么</h2>
+<p class="note">判据全部落在 <code>ch2-courier</code> 自己上报的内容上——通过 <code>labObserver</code>（00-base/recorder-reach 讲过的观测服务）——不看树的其它部分：条目在不在树上、走过哪些状态、说过什么话、报出来的 <code>config</code>、条目上的 <code>name</code>。四条路各起一个独立的 dsh 实例（一条路一个 profile，互不干扰），各自等 <code>ch2-courier</code> 说话，再把四份观测横向摆在一起对比；第五个 profile（<code>notinstalled</code>）不手写 <code>insert</code>、也不跑安装命令，作负对照。</p>
+
+<h2>四条路，同一个条目</h2>
+<p class="note">四个 profile 各自独立起一个实例，等 <code>ch2-courier</code> 自己上报，再横向对比。除了条目上的 <code>name</code>，其余全部一致——供给方式没有漏进运行时。</p>
+<table class="matrix">
+  <thead><tr><th></th><th>① 单文件</th><th>② 目录链接</th><th>③ 正经安装</th><th>④ 工作副本</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">在树上</td><td class="c-val">true</td><td class="c-val">true</td><td class="c-val">true</td><td class="c-val">true</td></tr>
+    <tr><td class="c-name">走过的状态</td><td class="c-val">LOADING → ACTIVE</td><td class="c-val">LOADING → ACTIVE</td><td class="c-val">LOADING → ACTIVE</td><td class="c-val">LOADING → ACTIVE</td></tr>
+    <tr><td class="c-name">说的话</td><td class="c-val">"我跑起来了"</td><td class="c-val">"我跑起来了"</td><td class="c-val">"我跑起来了"</td><td class="c-val">"我跑起来了"</td></tr>
+    <tr><td class="c-name">apply 早于 ACTIVE</td><td class="c-val">true</td><td class="c-val">true</td><td class="c-val">true</td><td class="c-val">true</td></tr>
+    <tr><td class="c-name">disabled</td><td class="c-val">false</td><td class="c-val">false</td><td class="c-val">false</td><td class="c-val">false</td></tr>
+    <tr><td class="c-name">报出来的 config</td><td class="c-val">{"途径": "单文件"}</td><td class="c-val">{"途径": "目录链接"}</td><td class="c-val">{"途径": "正经安装"}</td><td class="c-val">{"途径": "工作副本"}</td></tr>
+    <tr><td class="c-name">条目上的 name</td><td class="c-val">"./courier.mjs"</td><td class="c-val">"ch2-courier"</td><td class="c-val">"ch2-courier"</td><td class="c-val">"ch2-courier"</td></tr>
+  </tbody>
+</table>
+<p class="note">附：观察器睁眼那一刻看到的它——四条路都是 <code>"PENDING"</code>。这一行不进判定，取决于观察器自己挂上的时机，是时序信号，不是条目的属性。</p>
+
+<h2>各自的代价</h2>
+<p class="note">同样是让 <code>ch2-courier</code> 出现在树上，四条路在 profile 目录里留下的东西、要不要手写 <code>insert</code>，差得很远。</p>
+<table class="matrix">
+  <thead><tr><th></th><th>① 单文件</th><th>② 目录链接</th><th>③ 正经安装</th><th>④ 工作副本</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">profile 目录里</td>
+      <td class="c-val">cordis.patch.yml, cordis.yml, courier.mjs, package.json</td>
+      <td class="c-val">cordis.patch.yml, cordis.yml, package.json</td>
+      <td class="c-val">cordis.patch.yml, cordis.yml, package.json, pnpm-lock.yaml</td>
+      <td class="c-val">cordis.patch.yml, cordis.yml, package.json</td></tr>
+    <tr><td class="c-name">node_modules 里</td>
+      <td class="c-val">lab-recorder</td>
+      <td class="c-val">ch2-courier, lab-recorder</td>
+      <td class="c-val">.package-map.json, .pnpm, .pnpm-workspace-state-v1.json, ch2-courier, lab-recorder</td>
+      <td class="c-val">ch2-courier, lab-recorder</td></tr>
+    <tr><td class="c-name">dsh.profile.bundles</td>
+      <td class="c-val">[]</td><td class="c-val">[]</td>
+      <td class="c-val">["ch2-courier"]</td><td class="c-val">[]</td></tr>
+    <tr><td class="c-name">dependencies</td>
+      <td class="c-val">lab-recorder</td>
+      <td class="c-val">ch2-courier, lab-recorder</td>
+      <td class="c-val">ch2-courier, lab-recorder</td>
+      <td class="c-val">ch2-courier, lab-recorder</td></tr>
+    <tr><td class="c-name">patch 文件里手写了 courier 吗</td>
+      <td class="c-val yes">true</td><td class="c-val yes">true</td>
+      <td class="c-val no">false</td><td class="c-val yes">true</td></tr>
+  </tbody>
+</table>
+<p class="note">③正经安装是唯一「包自己声明要挂哪个条目」的一条——代价是它会改写 profile 的 <code>package.json</code>（<code>dsh.profile.bundles</code> 多出一项、<code>node_modules</code> 里多出 pnpm 自己的记账文件），而且是唯一一个活层 <code>cordis.patch.yml</code> 不用写 <code>courier</code> 这个 id 的。</p>
+
+<h2>对照组：包在，但没装也没写</h2>
+<p class="note"><code>notinstalled</code> profile 跟 <code>linked</code> 走的是同一份代码，同样建好了 <code>ch2-courier</code> 的 junction（侧栏可查看它的三份文件，跟 <code>linked</code> 逐字节相同）——唯一的差别是活层没有手写那句 <code>- insert:</code>，<code>dsh.profile.bundles</code> 也没有它的名字。</p>
+<div class="kv">
+  <div class="r"><span class="k">实例还活着？</span><span class="v">True</span></div>
+  <div class="r"><span class="k">树上的条目</span><span class="v">['hmr', 'include', 'lab-recorder', 'timer']</span></div>
+  <div class="r"><span class="k">它说的话</span><span class="v">（一句都没有）</span></div>
+  <div class="r"><span class="k">dsh.profile.bundles</span><span class="v">[]</span></div>
+</div>
+<p class="note">包目录里那份 <code>cordis.patch.yml</code>（侧栏可点开）没人会去读它——供给这一步单独做好，不会让条目凭空出现在树上。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>四条路挂出来的条目没有任何区别。</b>差别只落在条目自己的 <code>name</code> 上——单文件写相对路径，其余三条写包名。
+    <span class="from">test_four_ways_mount_the_same_entry</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>apply 早于 ACTIVE 这条判定，寄居在同一张对比表里。</b>四条路的 <code>apply</code> 全都跑在该条目变 <code>ACTIVE</code> 之前；以后要找这条判定，grep <code>apply 早于 ACTIVE</code>。
+    <span class="from">test_four_ways_mount_the_same_entry</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>四条路的代价差得很远。</b>要准备的文件、profile 目录里留下的东西、要不要手写活层 <code>insert</code>，各不相同——见上方「各自的代价」。
+    <span class="from">test_four_ways_mount_the_same_entry</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>包摆在那儿，不装也不写，什么都不会发生。</b>自注册靠的是「装」这个动作，不是「包目录里躺着一份 patch 文件」。
+    <span class="from">test_the_package_alone_registers_nothing</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_four_ways.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151133/</code>（<code>summary.md</code> 与 <code>profiles/</code> 下 5 个 profile 的 15 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">single-file/</button>
+                <ul>
+                  <li><button class="fl" data-k="sf-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="sf-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="sf-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="sf-mjs">courier.mjs</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-recorder →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">linked/</button>
+                <ul>
+                  <li><button class="fl" data-k="ln-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ln-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ln-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>ch2-courier → 插件源码/fixtures/courier/</li>
+                      <li>lab-recorder →</li>
+                    </ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">installed/</button>
+                <ul>
+                  <li><button class="fl" data-k="in-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="in-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="in-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>ch2-courier</li>
+                      <li>lab-recorder →</li>
+                    </ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">worktree/</button>
+                <ul>
+                  <li><button class="fl" data-k="wt-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="wt-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="wt-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>ch2-courier → $DSH_HOME/delivery/at-v1/</li>
+                      <li>lab-recorder →</li>
+                    </ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">notinstalled/</button>
+                <ul>
+                  <li><button class="fl" data-k="no-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="no-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="no-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>ch2-courier → 插件源码/fixtures/courier/</li>
+                      <li>lab-recorder →</li>
+                    </ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/courier/</button>
+            <ul>
+              <li><button class="fl" data-k="cr-mjs">index.mjs</button></li>
+              <li><button class="fl" data-k="cr-pkg">package.json</button></li>
+              <li><button class="fl" data-k="cr-patch">cordis.patch.yml</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-sf-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151133/profiles/single-file/cordis.patch.yml"
+         data-why="活层手写一句 insert，name 写相对路径 ./courier.mjs——走 URL 解析，01-entry/name-resolution 讲过"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/four-ways/events-single-file.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: courier
+      name: "./courier.mjs"
+      config:
+        途径: 单文件
+</pre>
+    </div>
+    <div id="fc-sf-yml" data-name="cordis.yml"
+         data-src="results/20260817-151133/profiles/single-file/cordis.yml"
+         data-why="profile 根文件：空条目列表，跟其余四个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-sf-pkg" data-name="package.json"
+         data-src="results/20260817-151133/profiles/single-file/package.json"
+         data-why="dependencies 只 link 了 lab-recorder——courier 这条路根本不靠 dependencies"><pre>{
+  "name": "dsh-profile-single-file",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-sf-mjs" data-name="courier.mjs"
+         data-src="experiments/03-supply/four-ways/fixtures/courier/index.mjs"
+         data-why="这份文件被 shutil.copy2 原样拷进 single-file 的 profile 目录，字节级等同源文件；归档没有单独存这份拷贝，这里直接内联源文件"><pre>/**
+ * 四种交付途径共用的**同一份代码**。
+ *
+ * 它只做一件事：把自己收到的 `config.途径` 原样报给观察器。于是「用哪种途径
+ * 挂上去的」这件事由插件自己说出来，不靠从旁边推断。
+ *
+ * ⚠️ 这个文件被两种方式用到，一个字都不改：
+ *   * 途径①：这个文件本身被拷进 profile 目录，条目的 `name` 写它的相对路径
+ *   * 途径②③④：它是同目录那个包的入口（见 package.json 的 exports）
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", { 途径: config?.途径 });
+}
+</pre>
+    </div>
+    <div id="fc-ln-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151133/profiles/linked/cordis.patch.yml"
+         data-why="活层手写一句 insert，name 写包名 ch2-courier——走包解析，靠 node_modules 里那条 junction"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/four-ways/events-linked.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: courier
+      name: "ch2-courier"
+      config:
+        途径: 目录链接
+</pre>
+    </div>
+    <div id="fc-ln-yml" data-name="cordis.yml"
+         data-src="results/20260817-151133/profiles/linked/cordis.yml"
+         data-why="同样是空条目列表；跟其余四个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-ln-pkg" data-name="package.json"
+         data-src="results/20260817-151133/profiles/linked/package.json"
+         data-why="dependencies 里 link: 了 ch2-courier——声明与 node_modules 里的 junction 缺一不可"><pre>{
+  "name": "dsh-profile-linked",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "ch2-courier": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/03-supply/four-ways/fixtures/courier"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-in-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151133/profiles/installed/cordis.patch.yml"
+         data-why="活层只有三条基础设施，没有一个字提到 courier——它是包自己的 bundle 层贡献的"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/four-ways/events-installed.jsonl"
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-in-yml" data-name="cordis.yml"
+         data-src="results/20260817-151133/profiles/installed/cordis.yml"
+         data-why="同样是空条目列表；跟其余四个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-in-pkg" data-name="package.json"
+         data-src="results/20260817-151133/profiles/installed/package.json"
+         data-why="dsh plugin add 改写的结果：dsh.profile.bundles 多了 ch2-courier，dependencies 也多了它的 link:"><pre>{
+  "name": "dsh-profile-installed",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "ch2-courier"
+      ]
+    }
+  },
+  "dependencies": {
+    "ch2-courier": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/03-supply/four-ways/fixtures/courier",
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-wt-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151133/profiles/worktree/cordis.patch.yml"
+         data-why="跟 linked 写法完全一样的一句 insert——差别不在这份文件里，在 package.json 的 junction 目标"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/four-ways/events-worktree.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: courier
+      name: "ch2-courier"
+      config:
+        途径: 工作副本
+</pre>
+    </div>
+    <div id="fc-wt-yml" data-name="cordis.yml"
+         data-src="results/20260817-151133/profiles/worktree/cordis.yml"
+         data-why="同样是空条目列表；跟其余四个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-wt-pkg" data-name="package.json"
+         data-src="results/20260817-151133/profiles/worktree/package.json"
+         data-why="ch2-courier 的 link: 指向 $DSH_HOME/delivery/at-v1——一份 git 工作副本，不是 fixtures/courier 本身"><pre>{
+  "name": "dsh-profile-worktree",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "ch2-courier": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/four-ways/delivery/at-v1"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-no-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151133/profiles/notinstalled/cordis.patch.yml"
+         data-why="跟 linked 逐字节相同——三条基础设施，没有一个字提到 courier"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/four-ways/events-notinstalled.jsonl"
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-no-yml" data-name="cordis.yml"
+         data-src="results/20260817-151133/profiles/notinstalled/cordis.yml"
+         data-why="同样是空条目列表；跟其余四个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-no-pkg" data-name="package.json"
+         data-src="results/20260817-151133/profiles/notinstalled/package.json"
+         data-why="dependencies 里同样 link: 了 ch2-courier，junction 也建好了——但 dsh.profile.bundles 是空的"><pre>{
+  "name": "dsh-profile-notinstalled",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "ch2-courier": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/03-supply/four-ways/fixtures/courier"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-cr-mjs" data-name="index.mjs"
+         data-src="experiments/03-supply/four-ways/fixtures/courier/index.mjs"
+         data-why="四条路共用的同一份代码：只把收到的 config.途径 原样报给观察器，用哪条路挂上去的由插件自己说出来"><pre>/**
+ * 四种交付途径共用的**同一份代码**。
+ *
+ * 它只做一件事：把自己收到的 `config.途径` 原样报给观察器。于是「用哪种途径
+ * 挂上去的」这件事由插件自己说出来，不靠从旁边推断。
+ *
+ * ⚠️ 这个文件被两种方式用到，一个字都不改：
+ *   * 途径①：这个文件本身被拷进 profile 目录，条目的 `name` 写它的相对路径
+ *   * 途径②③④：它是同目录那个包的入口（见 package.json 的 exports）
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", { 途径: config?.途径 });
+}
+</pre>
+    </div>
+    <div id="fc-cr-pkg" data-name="package.json"
+         data-src="experiments/03-supply/four-ways/fixtures/courier/package.json"
+         data-why="声明了 dsh.bundle.patch——这是官方文档管这种包叫「组合包」的那个字段，途径③正经安装靠的就是它"><pre>{
+  "name": "ch2-courier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "教学插件：一个包，四种交付途径共用",
+  "exports": { ".": "./index.mjs" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}
+</pre>
+    </div>
+    <div id="fc-cr-patch" data-name="cordis.patch.yml"
+         data-src="experiments/03-supply/four-ways/fixtures/courier/cordis.patch.yml"
+         data-why="包自己带的那一行 insert：装完之后 profile 的活层一个字都不用写，条目照样出现"><pre># 包自己带的那一行——「这个包想挂哪个条目」写在包里，跟着包一起交付。
+#
+# 途径③（正经安装）靠的就是它：装完之后 profile 的 patch 文件里一个字都不用写，
+# 条目照样出现。途径②④不用它——那两条路要在 patch 文件里自己写 insert。
+- insert:
+    - id: courier
+      name: ch2-courier
+      config:
+        途径: 正经安装
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>两件独立的事：挂载与供给</b><br>一个插件要真的跑起来，两件事缺一不可：配方树里得有一条 entry 指向它——<b class="b-mnt">挂载</b>，
+   02-recipe/insert-semantics 讲过的 <code>- insert:</code> 姿势；entry 的 <code>name</code> 字段还得能被 Node 解析到真代码——
+   01-entry/name-resolution 讲过的两条解析算法。这两条链条都假设了一件更前置的事实：代码已经摆在 Node resolve 得到的地方。
+   这就是<b class="b-sup">供给</b>——这一项要看的正是它有几种实现，以及实现方式会不会漏进挂载之后的运行时表现。`,
+  `<b>途径①②④：活层手写 insert，供给各显神通</b><br>这三条路都在 profile 的 <code>cordis.patch.yml</code> 里手写同一句
+   <code>- insert:</code>，只是 <code>name</code> 和「代码怎么摆过去」不同：①把 <code>.mjs</code> 文件本身拷进 profile 目录，
+   <code>name</code> 写相对路径，走 URL 解析；②在 <code>package.json</code> 的 <code>dependencies</code> 写一行
+   <code>link:&lt;绝对路径&gt;</code>，再在 <code>node_modules</code> 建一条指向源码目录的 junction（Windows 下的目录链接，
+   效果等价于 symlink），<code>name</code> 写包名，走包解析；④跟②同一套写法，只是 junction 指向的不是插件源码目录本身，
+   而是从它签出的一份 git 工作副本——先在源码上 <code>git init</code>、<code>commit</code>、打 <code>tag</code>，
+   再 <code>git worktree add</code> 出这份副本。`,
+  `<b>途径③：不写活层，靠包自己的 bundle 层自注册</b><br>官方 <code>dsh plugin add &lt;包目录&gt;</code> 命令做两件事：
+   用 pnpm 把包 link 进 profile 的 <code>node_modules</code>（跟②同样的 <code>link:</code> 机制），再把包名追加进
+   <code>package.json</code> 的 <code>dsh.profile.bundles</code> 名单（<code>docs/official/zh/user/develop/basic/publish.md:83</code>）。
+   因为这个包声明了 <code>dsh.bundle</code>（官方文档管这种包叫「组合包」），它自己的 <code>cordis.patch.yml</code> 会在
+   bundle 层贡献同一句 insert——profile 的活层一个字都不用写，entry 照样出现在树上。`,
+  `<b>供给方式不会漏进运行时</b><br>不管代码是被拷贝、junction 到源码目录、junction 到 git 工作副本，还是靠 pnpm 装出来的，
+   只要挂载那半件事真的发生了，条目的运行时表现——状态迁移、<code>apply</code> 执行的时机（01-entry/apply-runs 讲过：
+   apply 跑在 <code>LOADING</code> 期间，不等到 <code>ACTIVE</code>）、<code>config</code> 送达、<code>disabled</code> 取值——
+   完全一致。供给方式只会体现在条目自己的 <code>name</code> 字段上：写相对路径还是写包名。`,
+  `<b>挂载不做，什么都不会发生</b><br>包摆在那儿、junction 也建好了，只要没跑 <code>dsh plugin add</code>
+   （没进 <code>dsh.profile.bundles</code>），活层也没手写 <code>insert</code>，entry 就不存在——包目录里那份
+   <code>cordis.patch.yml</code> 没人会去读它。这不是「半成品」，是彻底不存在。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>reload-unit · 重载的单位是插件入口</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#059669; --pkg:#f97316; --live:#7c3aed;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#34d399; --pkg:#fb923c; --live:#a78bfa;
+}}
+:root[data-theme=dark]{
+ --bmhit:#34d399; --pkg:#fb923c; --live:#a78bfa;
+}
+.b-pkg{color:var(--pkg);font-weight:600}
+.b-live{color:var(--live);font-weight:600}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:190px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
+
+table.matrix{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+table.matrix th,table.matrix td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+table.matrix th{color:var(--dim);font-weight:600;font-family:var(--mono);font-size:11px}
+table.matrix td.c-mono{font-family:var(--mono);font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">05-reload / reload-unit</div>
+<h1>重载的单位是插件入口</h1>
+<p class="sub">hmr 判定一处代码改动要走「代码热重载」这条分支之后，重来的范围只认一件事——这份代码属于哪个插件入口，不管它内部拆成几个文件、被几个条目各挂一份，一起重来的都是这个入口文件本身。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 2 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，配方里的一行，见 <code>00-base/minimal-profile</code>）运行时对应一个 fiber——这个插件这一次生命的载体，滑过 <code>PENDING → LOADING → ACTIVE → UNLOADING → DISPOSED</code> 这几个状态（完整定义同见 <code>00-base/minimal-profile</code>）。hmr（<code>@deepseek-ai/cordis-plugin-hmr</code> 提供的服务）在它监视的目录树里看到一处代码改动、且判定这处改动要走「代码热重载」这条分支后（监视范围由 <code>root</code> 配置决定，完整语义见 <code>05-reload/watch-root</code>），会把相关的插件代码重新 import 一遍：旧 fiber 走一遍 dispose，新的重新 apply，运行中的实例不用重启进程就吃到新代码。</p>
+<p class="note">这一项要讲清楚的是「相关的插件代码」到底圈到哪儿——同一份代码可能被拆成好几个文件，也可能被两个不同的条目各挂一份，改一处代码之后重来的到底是哪个范围、殃及几个条目、发几次重载事件，这几件事分得很开，答案也不直观。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍 hmr 服务里 <code>partialReload()</code>（<code>@deepseek-ai/cordis-plugin-hmr</code> 的 <code>src/index.ts</code>）判定要重来哪些插件、怎么重来的过程：①②收集并解析出入口，③判定谁被这次改动沾上，④原子重来，⑤把所有相关 fiber 逐个重挂。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">收集名字表</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">解析出入口</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">依赖图判定</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">整份重新 import</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">遍历 fiber 重挂</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>改一次代码，两条都重来</h2>
+<p class="note"><code>twoids</code> profile（侧栏可点开）把 <code>hmr-linked</code> 这个包挂了两次，来路不同——<span class="b-pkg">bundle 层</span>（包自己带的 patch，包名进了 profile 的 <code>dsh.profile.bundles</code> 名单后自动生效）与<span class="b-live">活层</span>（profile 自己的 <code>cordis.patch.yml</code> 手写的一条），两者的完整语义见 <code>02-recipe/insert-semantics</code>。<span class="b-pkg">greeter</span> 是 bundle 层贡献的那条（<code>fixtures/hmr-linked/cordis.patch.yml</code> 里写死的 id），<span class="b-live">greeter-live</span> 是活层另外手写的一条不同 id 的 <code>insert</code>，<code>config.版本</code> 写成「活层这条」。两个条目用的是同一份代码，代码以 bundle 形式挂在 profile 外面，所以 <code>hmr</code> 的 <code>root</code> 除了 <code>'.'</code> 还额外加了这份代码的真实路径（<code>watch="source"</code>）——root 各种取值的完整对照见 <code>05-reload/watch-root</code>。</p>
+
+<table class="matrix">
+  <thead><tr><th>时刻</th><th>条目</th><th>版本</th><th>配置版本</th><th>载入次数</th><th>算出来</th></tr></thead>
+  <tbody>
+    <tr><td>启动后（1.4ms）</td><td class="c-mono"><span class="b-pkg">greeter</span></td><td>第一版</td><td>配置第一版</td><td>1</td><td>算法第一版</td></tr>
+    <tr><td>启动后（1.5ms）</td><td class="c-mono"><span class="b-live">greeter-live</span></td><td>第一版</td><td>活层这条</td><td>2</td><td>算法第一版</td></tr>
+    <tr><td>改 index.js 后（1337.2ms）</td><td class="c-mono"><span class="b-pkg">greeter</span></td><td><b>第二版</b></td><td>配置第一版</td><td>1</td><td>算法第一版</td></tr>
+    <tr><td>改 index.js 后（1337.3ms）</td><td class="c-mono"><span class="b-live">greeter-live</span></td><td><b>第二版</b></td><td>活层这条</td><td>2</td><td>算法第一版</td></tr>
+  </tbody>
+</table>
+<p class="note">「载入次数」是 <code>index.js</code> 模块顶层的计数器（<code>let loads = 0</code>，侧栏可查看），不是 fiber 的状态——两次都数到 1、2 这同一组值：<span class="b-pkg">greeter</span> 的 <code>apply</code> 先跑（数到 1），<span class="b-live">greeter-live</span> 的 <code>apply</code> 后跑（数到 2）。改代码之后这组数字原样重演，说明两个条目共享的是同一次 import 出来的同一个模块实例——模块被整个重新求值、计数器归零重数，不是各自独立重载出两份模块。</p>
+
+<p class="note">cordis 发出的事件本身叫 <code>hmr/reload</code>（<code>ctx.emit('hmr/reload', reloads)</code>，<code>reloads</code> 是一个 <code>Map&lt;Plugin, Reload&gt;</code>）；lab-recorder 采集后把它记成 <code>kind: "hmr-reload"</code>，<code>count</code> 字段就是这个 Map 的大小——按 Plugin 去重的重载条数，不是按 fiber 数、也不是按文件数。这次改动只让一个 Plugin 进了这个 Map（<span class="b-pkg">greeter</span> 和 <span class="b-live">greeter-live</span> 解析到的是同一个模块），所以：</p>
+<div class="kv">
+  <div class="r"><span class="k">hmr-reload 事件的 count</span><span class="v ok">1</span></div>
+  <div class="r"><span class="k">hmr-reload 事件的 files</span><span class="v">[".../src-twoids/hmr-linked/index.js"]（唯一一条）</span></div>
+  <div class="r"><span class="k">greeter 的状态序列里 ACTIVE 出现次数</span><span class="v ok">2</span></div>
+  <div class="r"><span class="k">greeter-live 的状态序列里 ACTIVE 出现次数</span><span class="v ok">2</span></div>
+  <div class="r"><span class="k">旧的 ACTIVE→UNLOADING 到两条都回到 ACTIVE</span><span class="v">约 0.65ms（1336.66ms → 1337.31ms）</span></div>
+</div>
+
+<h2>改一个纯函数辅助文件，重来的仍是整个入口</h2>
+<p class="note"><code>helper</code> profile（侧栏可点开）只挂了一次 <code>greeter</code>，代码这次挪进了 profile 目录里面（源码目录在 profile 内部，<code>hmr</code> 的 <code>root</code> 只写 <code>['.']</code> 就够——完整语义同见 <code>05-reload/watch-root</code>）。用例只改 <code>helper.js</code> 里那个不碰 ctx 的纯函数 <code>compute()</code>，<code>index.js</code> 一个字节都不动。</p>
+<table class="matrix">
+  <thead><tr><th>时刻</th><th>版本</th><th>算出来</th></tr></thead>
+  <tbody>
+    <tr><td>启动后（1.4ms）</td><td>第一版</td><td>算法第一版</td></tr>
+    <tr><td>改 helper.js 后（1488.1ms）</td><td>第一版（没变）</td><td><b>算法第二版</b></td></tr>
+  </tbody>
+</table>
+<div class="kv">
+  <div class="r"><span class="k">hmr-reload 事件的 files</span><span class="v">[".../profiles/helper/src/hmr-linked/index.js"]</span></div>
+  <div class="r"><span class="k">greeter 的状态序列里 ACTIVE 出现次数</span><span class="v ok">2</span></div>
+  <div class="r"><span class="k">用例耗时</span><span class="v">2.52s（summary.md）</span></div>
+</div>
+<p class="note">两处证据缺一不可：「算出来」变成了新值，说明 <code>helper.js</code> 里的新实现确实生效了（没有被缓存挡住）；<code>hmr-reload</code> 报的文件名却是 <code>index.js</code>，不是被改的 <code>helper.js</code>——重来的单位是入口，不是被改的那个文件本身。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>重载的单位是插件，不是条目。</b>同一份代码被两个不同 id 的条目各挂一份，改一次只触发一次 <code>hmr/reload</code>，但两个 fiber 全部重挂——重挂遍历的是 <code>runtime.fibers</code>，一个 Plugin 的所有 fiber，各自沿用自己的 <code>oldFiber._config</code>。
+    <span class="from">test_both_layers_different_ids_both_reload</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>拆文件缩不小重载范围。</b>改一个只有纯函数、从不碰 ctx 的辅助文件，<code>hmr/reload</code> 报出来的文件仍是插件入口 <code>index.js</code>——把逻辑拆出去以为能单独热替换的想法不成立，付出的代价跟改主文件一样。
+    <span class="from">test_editing_an_imported_helper_reloads_the_whole_plugin</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_reload_unit.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151124/</code>（<code>summary.md</code>、两份 <code>events-*.jsonl</code> 与 <code>profiles/</code> 下 2 个 profile 的 6 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">twoids/</button>
+                <ul>
+                  <li><button class="fl" data-k="twoids-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="twoids-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="twoids-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>hmr-linked → src-twoids/hmr-linked（fixtures 的运行时拷贝，见下）</li>
+                      <li>lab-recorder → observatory/lab-recorder</li>
+                    </ul></li>
+                </ul></li>
+              <li><button class="tw">helper/</button>
+                <ul>
+                  <li><button class="fl" data-k="helper-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="helper-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="helper-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>hmr-linked → profiles/helper/src/hmr-linked（同一份拷贝，就在 profile 里）</li>
+                      <li>lab-recorder → observatory/lab-recorder</li>
+                    </ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">hmr-linked/</button>
+                <ul>
+                  <li><button class="fl" data-k="fx-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fx-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="fx-helper">helper.js</button></li>
+                  <li><button class="fl" data-k="fx-index">index.js</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-twoids-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151124/profiles/twoids/cordis.patch.yml"
+         data-why="twoids 的活层 patch：基础设施三条之外，额外 insert 一条不同 id 的 greeter-live；root 里多写了 hmr-linked 源码真实所在的目录"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: [".", "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/reload-unit/src-twoids/hmr-linked"]
+        debounce: 100
+        ignored: ["**/node_modules", "cache", "data"]
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/reload-unit/events-twoids.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: greeter-live
+      name: hmr-linked
+      config:
+        版本: 活层这条
+</pre>
+    </div>
+    <div id="fc-twoids-yml" data-name="cordis.yml"
+         data-src="results/20260817-151124/profiles/twoids/cordis.yml"
+         data-why="profile 根文件：空条目列表，跟 helper 那份逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-twoids-pkg" data-name="package.json"
+         data-src="results/20260817-151124/profiles/twoids/package.json"
+         data-why="bundles 里带了 hmr-linked；dependencies 把它 link 到 profile 外面那份运行时拷贝（bundle 挂在 profile 外）"><pre>{
+  "name": "dsh-profile-twoids",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "hmr-linked"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "hmr-linked": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/reload-unit/src-twoids/hmr-linked"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-helper-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151124/profiles/helper/cordis.patch.yml"
+         data-why="helper 的活层 patch：只挂了一次 greeter，root 只写 ['.']——代码就在 profile 目录里面"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: ["."]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/reload-unit/events-helper.jsonl"
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-helper-yml" data-name="cordis.yml"
+         data-src="results/20260817-151124/profiles/helper/cordis.yml"
+         data-why="profile 根文件：跟 twoids 那份逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-helper-pkg" data-name="package.json"
+         data-src="results/20260817-151124/profiles/helper/package.json"
+         data-why="dependencies 把 hmr-linked link 到 profile 自己目录下的 src/hmr-linked（bundle-nested）"><pre>{
+  "name": "dsh-profile-helper",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "hmr-linked"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "hmr-linked": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/reload-unit/profiles/helper/src/hmr-linked"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fx-pkg" data-name="package.json"
+         data-src="experiments/05-reload/reload-unit/fixtures/hmr-linked/package.json"
+         data-why="包清单：dsh.bundle.patch 指向下面这份 cordis.patch.yml，包名一进 profile 的 bundles 名单就自动生效"><pre>{
+  "name": "hmr-linked",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fx-patch" data-name="cordis.patch.yml"
+         data-src="experiments/05-reload/reload-unit/fixtures/hmr-linked/cordis.patch.yml"
+         data-why="bundle 层自带的 patch：贡献 greeter 这一条，config.版本=配置第一版"><pre># 包自己那份 patch 文件（bundle 层）。
+#
+# 这个包一旦进了某个 profile 的 `dsh.profile.bundles` 名单，下面这个条目就自己
+# 上树——不用谁去活层手写 insert。
+#
+# ⚠️ 只在包名进了名单时才生效。没进名单的话这个包就是一个普通依赖。
+- insert:
+    - id: greeter
+      name: hmr-linked
+      config:
+        版本: 配置第一版
+</pre>
+    </div>
+    <div id="fc-fx-helper" data-name="helper.js"
+         data-src="experiments/05-reload/reload-unit/fixtures/hmr-linked/helper.js"
+         data-why="纯算法文件，只有一个 compute()，不碰 ctx——test_editing_an_imported_helper_reloads_the_whole_plugin 只改这个文件"><pre>/**
+ * 纯算法文件。它不导出插件、不碰 ctx、不注册任何东西——只是被 index.js
+ * `import` 进去的一个函数。
+ *
+ * 这一项改的就是这个文件，一个字都不碰 index.js：看重来的是这个文件，
+ * 还是整个插件入口。
+ */
+
+export function compute() {
+  return "算法第一版";
+}
+</pre>
+    </div>
+    <div id="fc-fx-index" data-name="index.js"
+         data-src="experiments/05-reload/reload-unit/fixtures/hmr-linked/index.js"
+         data-why="插件入口：报版本、config、载入次数与 compute() 的结果。test_both_layers_different_ids_both_reload 改的正是这个文件里「第一版」→「第二版」那一行"><pre>/**
+ * 教学插件——一个包，声明了 `dsh.bundle`，但那一段只在包名进了 profile 的
+ * `bundles` 名单时才生效，没进名单它就是个普通依赖。
+ *
+ * 它干四件事：
+ *
+ *   1. 报自己代码里写着的「版本」。用例把「第一版」改成「第二版」，一眼分得出
+ *      重来过没有。
+ *   2. 报 `config` 里那个「版本」——来路不同：那个改代码、这个改配方。
+ *   3. 报身份三件套：模块 URL、树的 baseUrl、loadCache 里跟自己有关的 key。
+ *   4. 报载入次数（模块顶层的计数器）和 `compute()` 的结果。
+ */
+
+import { compute } from "./helper.js";
+
+/**
+ * ⚠️ 模块顶层的状态，不是 fiber 的状态。热重载会把整个模块重新求值一遍，
+ * 这一行也会重跑——于是它归零；同一个模块被两个条目挂着时，两次 apply
+ * 共享同一个模块实例，这个数会数到 2。同一个计数器，两种现象分得开。
+ */
+let loads = 0;
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+  loads += 1;
+
+  say("我跑起来了", {
+    版本: "第一版",
+    配置版本: config?.版本 ?? null,
+    载入次数: loads,
+    算出来: compute(),
+  });
+
+  say("我的模块 URL", { url: import.meta.url });
+  say("树的 baseUrl", { baseUrl: ctx.baseUrl ?? null });
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>①收集名字表——按 baseUrl 收集所有条目的 name</b><br>hmr 遍历 <code>ctx.loader.entries()</code>，把同一棵配方树（同一个 <code>baseUrl</code>）下每个条目的 <code>name</code> 字段收进一张表 <code>nameMap</code>（<code>Dict&lt;Set&lt;string&gt;&gt;</code>，同名去重）——这一步只认字符串，还没决定谁要重来。`,
+  `<b>②解析出入口——把每个 name 解析成一个模块 URL</b><br>对表里每个 name，hmr 调 <code>this._resolve(name, baseUrl, {})</code>——走的是跟 <code>01-entry/name-resolution</code> 同一套 loader 解析逻辑。查到的这个 URL 就是这个条目对应的「插件入口」；<code>internal.loadCache</code> 里查得到它对应的模块，才继续往下走。`,
+  `<b>③依赖图判定——顺着依赖图找出哪些入口被沾上</b><br><code>analyzeChanges()</code> 从被改的文件（<code>stashed</code>）出发，顺着 ESM 依赖图（<code>loadDependencies()</code>，跳过 <code>node:</code> 内置模块与 <code>node_modules</code>）网上找它的引用者，标成 <code>accepted</code>；一个入口只要自己的依赖树里有任何一个文件落进 <code>accepted</code>，这整个入口就要重来——不管被改的是入口文件本身，还是它 import 进来的某个辅助文件。`,
+  `<b>④整份重新 import——清缓存、原子重来</b><br>被判定要重来的入口文件，连同它依赖树里被标记的文件，先从 ESM 的 <code>loadCache</code>（以及可能命中的 CJS <code>Module._cache</code>）里删掉，再重新 <code>import()</code> 一遍——源码注释原话：<code>Plugin entry files are treated as atomic reload units</code>。整个入口模块顶层重新求值一遍，不是只替换被改的那一小块。`,
+  `<b>⑤遍历 fiber 重挂——一个 Plugin 的所有 fiber 各自重来</b><br>新模块到手后，<code>reload()</code> 遍历 <code>runtime.fibers</code>——同一个入口可能被多个条目各挂一份，每份都是这个 Plugin 的一个 fiber。每个 <code>oldFiber</code> 各自沿用自己的 <code>oldFiber._config</code> 重新登记；旧的先进 <code>UNLOADING</code>、新的紧接着开始 <code>LOADING</code>，中间有一段两者并存的窗口（完整时序图见 <code>05-reload/watch-root</code>）。所有 fiber 都处理完，才一次性 <code>emit('hmr/reload', reloads)</code>——这一个事件里可能装着好几个 fiber 的重挂记录。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

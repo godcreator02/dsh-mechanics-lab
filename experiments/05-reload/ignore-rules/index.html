@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ignore-rules · watcher 的 ignored 名单与 loadCache 判等</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0891b2; --blocked:#64748b; --noticed:#d97706; --reloaded:#7c3aed;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#22d3ee; --blocked:#94a3b8; --noticed:#fbbf24; --reloaded:#a78bfa;
+}}
+:root[data-theme=dark]{
+ --bmhit:#22d3ee; --blocked:#94a3b8; --noticed:#fbbf24; --reloaded:#a78bfa;
+}
+.b-blocked{color:var(--blocked);font-weight:600}
+.b-noticed{color:var(--noticed);font-weight:600}
+.b-reloaded{color:var(--reloaded);font-weight:600}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.noticed{color:var(--noticed)}
+.b2.reloaded{color:var(--reloaded)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:5px 0 2px}
+.ccard pre{margin:0 0 6px;padding:7px 9px;font-family:var(--mono);font-size:10px;
+  line-height:1.5;white-space:pre-wrap;word-break:break-all;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:170px}
+.kv .v{font-family:var(--mono);word-break:break-word}
+
+table.matrix{width:100%;border-collapse:collapse;font-size:11.5px;margin:12px 0}
+table.matrix th,table.matrix td{border:1px solid var(--line);padding:6px 7px;text-align:left}
+table.matrix th{color:var(--dim);font-weight:600;font-family:var(--mono);font-size:10.5px}
+table.matrix td.c-name{font-family:var(--mono);font-weight:600}
+table.matrix td.c-num{font-family:var(--mono);text-align:center}
+
+.note code{font-family:var(--mono);font-size:12px}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">05-reload / ignore-rules</div>
+<h1>同一份代码，为什么有时候不热重载</h1>
+<p class="sub">hmr 主 watcher 判断要不要重载一份代码，要闯两道关卡：<code>ignored</code> 名单先筛一遍「看不看得见」，<code>loadCache</code> 的字符串判等再筛一遍「算不算数」——这一项把两道关卡分别钉死，钉的是经 junction 装进来的代码。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 5 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，见 <code>00-base/minimal-profile</code>）在运行时对应一个 fiber——插件这一次生命的载体。给一条条目挂 <code>@deepseek-ai/cordis-plugin-hmr</code>（provide 一个叫 <code>hmr</code> 的服务，包级硬依赖 <code>timer</code>）之后，它会拿 <code>root</code> 配置里列出的目录去监视文件变化：改一处代码，hmr 把对应插件的 fiber 拆了重建，条目本身的 id 不变——这段「拆旧建新」的时序 <code>05-reload/watch-root</code> 已经画过，也讲过 <code>root</code> 该怎么填才能覆盖到代码所在的目录。</p>
+<p class="note">真实的插件代码往往不是物理放在 profile 目录里面，而是作为一个 npm 依赖被 <code>link:</code> 进来——生产环境靠 pnpm 的 hoisted linker，这套实验台靠 <code>mklink /J</code>，两者落地的都是同一种东西：<b>junction</b>，Windows 上的目录重解析点，效果类似符号链接，不需要管理员权限。<code>profile/node_modules/&lt;包名&gt;</code> 是一条 junction，真正指向别处的一个目录。</p>
+<p class="note">这一项要钉死的是：同一份代码，只换一条告诉 hmr 的路径——是这条 junction 本身、还是它指向的真实目录——热重载发生与否就跟着变，原因分两层：一层是 watcher 从没见到这个改动（挡在 <code>ignored</code> 筛子上）；另一层是 watcher 见到了，代码热重载依然没有发生（它报出的路径和 loader 记的路径不是同一个字符串）。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">下面走一遍改一处代码之后，这条变化要闯的两道关卡：①②③是 chokidar（Node 生态最常用的文件监听库）那道 <code>ignored</code> 筛子怎么判「看不看得见」，④⑤是看见之后，hmr 拿这条变化去跟 loader 的 <code>loadCache</code> 对账，判「算不算数」。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn"><code>ignored</code> 筛子</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">先算相对路径</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">反斜杠撞上隐藏文件规则</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">chokidar 报的是哪条路径</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">loadCache 判等</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<div class="kv">
+  <div class="r"><span class="k"><code>ignored</code> 默认值</span><span class="v">['**/node_modules', '**/.*', 'cache', 'data']</span></div>
+  <div class="r"><span class="k">本项改过这份名单的用例</span><span class="v">nodot（去掉 <code>**/.*</code>）</span></div>
+  <div class="r"><span class="k"><code>**/node_modules</code> 挡的是</span><span class="v">路径最后一段恰好叫 node_modules 的情况，挡不住它下面更深的路径</span></div>
+</div>
+
+<h2>五个 profile，同一份代码换着法子接进来</h2>
+<p class="note">五个 profile 都 link 了同一份教学插件（<code>fixtures/hmr-linked</code>，侧栏可点开），它的 <code>apply()</code> 只做四件事：报代码里写死的版本号、报 <code>config</code> 里的版本号、报自己的模块 URL 与 <code>loadCache</code> 里跟自己有关的 key、报载入次数。用例把 <code>index.js</code> 里的「第一版」改成「第二版」——版本号变没变，就是判断有没有重载的信号。五个 profile 只有 <code>root</code>、<code>ignored</code>、还有源码物理放哪儿不一样。</p>
+
+<table class="matrix">
+  <thead><tr><th>变体</th><th>root 比默认多给的</th><th>ignored</th><th>源码相对 watch base</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">source</td><td>源码真实目录（绝对路径）</td><td>默认</td><td>在外面（以 <code>..</code> 开头）</td></tr>
+    <tr><td class="c-name">nodot</td><td>同 source</td><td>去掉 <code>**/.*</code></td><td>在外面</td></tr>
+    <tr><td class="c-name">junction</td><td>node_modules 里那条 junction 本身</td><td>默认</td><td>在里面（junction 落在 watch base 内）</td></tr>
+    <tr><td class="c-name">nested</td><td>不用扩（<code>['.']</code>）</td><td>默认</td><td>在里面（源码物理搬进了 profile）</td></tr>
+    <tr><td class="c-name">jin</td><td>不用扩（<code>['.']</code>）</td><td>默认</td><td>在里面（另一条 src junction，chokidar 自己爬进去）</td></tr>
+  </tbody>
+</table>
+
+<table class="matrix">
+  <thead><tr><th>变体</th><th>hmr-change</th><th>hmr-reload</th><th>结果</th><th>用时</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">source</td><td class="c-num">0</td><td class="c-num">0</td><td>第一版（未重载）</td><td>17.68s</td></tr>
+    <tr><td class="c-name">nodot</td><td class="c-num">0</td><td class="c-num">1</td><td>第一版→第二版</td><td>2.35s</td></tr>
+    <tr><td class="c-name">junction</td><td class="c-num">1</td><td class="c-num">0</td><td>第一版（未重载）</td><td>16.71s</td></tr>
+    <tr><td class="c-name">nested</td><td class="c-num">0</td><td class="c-num">1</td><td>第一版→第二版</td><td>2.35s</td></tr>
+    <tr><td class="c-name">jin</td><td class="c-num">1</td><td class="c-num">0</td><td>第一版（未重载）</td><td>35.03s</td></tr>
+  </tbody>
+</table>
+
+<p class="note">两条「未重载」原因不同，靠 <code>hmr-change</code> 的条数分得开：<b>source</b> 是 0 条——watcher 从头到尾一声没出；<b>junction</b>／<b>jin</b> 是 1 条——watcher 出了声，只是没人接。只看「重载了没有」分不出这两种断点，本项的观测信号一律落在事件条数上，不落在「重载了没有」。</p>
+
+<h2>两条字符串，一眼看出差在哪</h2>
+<p class="note">改的是同一个文件、同一次编辑，<b>junction</b> 案例里 watcher 报的 URL 和 <code>loadCache</code> 里的 key 是两个不同的字符串；<b>nodot</b> 案例里 <code>hmr-reload</code> 事件报的 <code>files</code> 跟 <code>loadCache</code> 的 key 逐字相同。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">junction · 不命中</span><span class="b2 noticed">hmr-change</span></div>
+    <div class="row">watcher 报的 URL：</div>
+    <pre>file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/profiles/junction/node_modules/hmr-linked/index.js</pre>
+    <div class="row"><code>loadCache</code> 里的 key：</div>
+    <pre>file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-junction/hmr-linked/index.js</pre>
+    <div class="row">两条字符串不相等，<code>Map.has()</code> 返回 false</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">nodot · 命中</span><span class="b2 reloaded">hmr-reload</span></div>
+    <div class="row"><code>loadCache</code> 里的 key：</div>
+    <pre>file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-nodot/hmr-linked/index.js</pre>
+    <div class="row"><code>hmr-reload</code> 事件报的 <code>files</code>：</div>
+    <pre>file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-nodot/hmr-linked/index.js</pre>
+    <div class="row">同一个字符串，<code>Map.has()</code> 返回 true</div>
+  </div>
+</div>
+<p class="note"><b>jin</b> 这条用时最长（35.03s），不是行为不同——用例先按 25 秒轮询等两次版本变化，没等到就再固定等 8 秒确认「不是慢而是真的不会」，最终结果跟 <b>junction</b> 完全一致：一条 <code>hmr-change</code>，零条 <code>hmr-reload</code>。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>挡住经 junction 装进来的代码热重载的，是 watcher 的 <code>ignored</code> 名单，而且是被 <code>**/.*</code> 误伤的。</b>hmr 筛的是相对 watch base 的路径，watch base 之外的路径以 <code>..</code> 开头；Windows 上这串反斜杠路径被 picomatch 当成一整段，一段以点开头就撞上了默认名单里「忽略隐藏文件」那条。
+    <span class="from">test_watching_the_real_source_dir_is_silently_ignored</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>这条误伤只在源码位于 watch base 外面时发作，不是「junction 形态跟 hmr 不兼容」。</b>把 <code>**/.*</code> 拿掉，同样的配置立刻就通——配置只差这一项，结果从「一声不出」翻成「重载成功」。
+    <span class="from">test_dropping_the_dotfile_rule_makes_it_work</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>躲过筛子不等于会重载：watcher 报出的路径从不做 realpath，<code>loadCache</code> 的 key 永远是 realpath，两者不是同一个字符串。</b><code>root</code> 直接填 junction 路径本身时，chokidar 确实报了变化（<code>hmr-change</code>），但 <code>Map.has()</code> 判等失败，代码热重载没有发生。
+    <span class="from">test_watching_the_junction_path</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>这条规律不分「你手填链接路径」还是「chokidar 自己爬进去」。</b>profile 里建一条 junction 指向外部源码、hmr 全默认配置，chokidar 确实跟着 <code>followSymlinks</code> 爬了进去、报了变化，但报的还是链接路径，同样对不上 <code>loadCache</code>。
+    <span class="from">test_junction_inside_profile_pointing_out</span>
+  </p></div>
+  <div class="read"><span class="n">⑤</span><p>
+    <b>把源码搬进 profile 目录，两条规则都不用改。</b>相对路径不再以 <code>..</code> 开头（躲开隐藏文件规则），也不含 <code>node_modules</code> 一段——默认配置直接热重载。
+    <span class="from">test_source_nested_under_profile_needs_no_hmr_change</span>
+  </p></div>
+</div>
+<p class="note">五条用例共同钉死一个充要条件：watcher 报出的路径经 <code>pathToFileURL</code> 之后要跟 <code>loadCache</code> 的 key 字节相同，watch 的入口必须本身就是真实路径——不是「junction 不行」，是「junction 报的字符串对不上」。</p>
+<p class="note">⚠️ <code>root</code>／<code>ignored</code> 两个键要「一起动」这件事，本项只验了一个方向——只扩 <code>root</code> 不改 <code>ignored</code>（上表 <b>source</b> 那行：watcher 一声不出）。另外两个方向——只清空 <code>ignored</code>（不只是去掉 <code>**/.*</code> 那一条）、只改 <code>ignored</code> 不扩 <code>root</code>——目前只有源码依据，没有用例覆盖，本项不展开。</p>
+
+<footer>
+判定与证据出处在 <code>test_ignore_rules.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151116/</code>（<code>summary.md</code>、5 份 <code>events-*.jsonl</code> 与 <code>profiles/</code> 下 5 个 profile 的 15 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li class="shut"><button class="tw">source/</button>
+                <ul>
+                  <li><button class="fl" data-k="src-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="src-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="src-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>hmr-linked →  运行时拷贝，起点等于 fixtures/hmr-linked/</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">nodot/</button>
+                <ul>
+                  <li><button class="fl" data-k="nd-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="nd-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="nd-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>hmr-linked →  运行时拷贝，起点等于 fixtures/hmr-linked/</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">junction/</button>
+                <ul>
+                  <li><button class="fl" data-k="jc-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="jc-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="jc-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>hmr-linked →  运行时拷贝，起点等于 fixtures/hmr-linked/</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">nested/</button>
+                <ul>
+                  <li><button class="fl" data-k="ns-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ns-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ns-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">src/</button>
+                    <ul><li>hmr-linked/ →  运行时拷贝，起点等于 fixtures/hmr-linked/（物理落在 profile 目录里面）</li></ul></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>hmr-linked →  同一份拷贝，是上面 src/hmr-linked/ 的 junction</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">jin/</button>
+                <ul>
+                  <li><button class="fl" data-k="jn-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="jn-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="jn-pkg">package.json</button></li>
+                  <li>src/ →  运行时拷贝所在目录的父级（junction，chokidar 顺着它爬进去）</li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>hmr-linked →  同一份运行时拷贝（另一条 junction）</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">hmr-linked/</button>
+                <ul>
+                  <li><button class="fl" data-k="fx-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fx-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="fx-helper">helper.js</button></li>
+                  <li><button class="fl" data-k="fx-idx">index.js</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-src-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151116/profiles/source/cordis.patch.yml"
+         data-why="root 扩到源码真实目录（.. 开头的绝对路径），ignored 用默认名单——**/.* 会挡住它"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&quot;.&quot;, &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-source/hmr-linked&quot;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/events-source.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: greeter
+      name: hmr-linked</pre>
+    </div>
+    <div id="fc-src-yml" data-name="cordis.yml"
+         data-src="results/20260817-151116/profiles/source/cordis.yml"
+         data-why="profile 根文件：空条目列表，跟其余 4 个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-src-pkg" data-name="package.json"
+         data-src="results/20260817-151116/profiles/source/package.json"
+         data-why="bundles: []，只把 hmr-linked 当依赖 link 进来，没进 bundles 名单，条目由活层 insert"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-source&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;hmr-linked&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-source/hmr-linked&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-nd-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151116/profiles/nodot/cordis.patch.yml"
+         data-why="root 同 source，ignored 显式给了一份不含 **/.* 的名单"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&quot;.&quot;, &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-nodot/hmr-linked&quot;]
+        debounce: 100
+        ignored: [&quot;**/node_modules&quot;, &quot;cache&quot;, &quot;data&quot;]
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/events-nodot.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: greeter
+      name: hmr-linked</pre>
+    </div>
+    <div id="fc-nd-yml" data-name="cordis.yml"
+         data-src="results/20260817-151116/profiles/nodot/cordis.yml"
+         data-why="同一份空条目列表，逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-nd-pkg" data-name="package.json"
+         data-src="results/20260817-151116/profiles/nodot/package.json"
+         data-why="同 source 的结构，只是 link 目标换成这个 profile 自己的运行时拷贝"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-nodot&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;hmr-linked&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-nodot/hmr-linked&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-jc-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151116/profiles/junction/cordis.patch.yml"
+         data-why="root 直接填 node_modules 里那条 junction 的路径本身，不是它指向的真实目录"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&quot;.&quot;, &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/profiles/junction/node_modules/hmr-linked&quot;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/events-junction.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: greeter
+      name: hmr-linked</pre>
+    </div>
+    <div id="fc-jc-yml" data-name="cordis.yml"
+         data-src="results/20260817-151116/profiles/junction/cordis.yml"
+         data-why="同一份空条目列表，逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-jc-pkg" data-name="package.json"
+         data-src="results/20260817-151116/profiles/junction/package.json"
+         data-why="link 目标是这个 profile 自己的运行时拷贝"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-junction&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;hmr-linked&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-junction/hmr-linked&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-ns-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151116/profiles/nested/cordis.patch.yml"
+         data-why="root 只写 ['.']（默认值）——源码已经搬进 profile 目录里面，不用扩"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&quot;.&quot;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/events-nested.jsonl&quot;
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-ns-yml" data-name="cordis.yml"
+         data-src="results/20260817-151116/profiles/nested/cordis.yml"
+         data-why="同一份空条目列表，逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-ns-pkg" data-name="package.json"
+         data-src="results/20260817-151116/profiles/nested/package.json"
+         data-why="bundles 里带了 hmr-linked——条目由包自己那份 patch 生，活层没有 insert"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-nested&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;hmr-linked&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;hmr-linked&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/profiles/nested/src/hmr-linked&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-jn-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151116/profiles/jin/cordis.patch.yml"
+         data-why="root 同样只写 ['.']，全部默认——profile 里另建一条 junction 通向源码，hmr 一个字没改"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+      config:
+        root: [&quot;.&quot;]
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/events-jin.jsonl&quot;
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-jn-yml" data-name="cordis.yml"
+         data-src="results/20260817-151116/profiles/jin/cordis.yml"
+         data-why="同一份空条目列表，逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-jn-pkg" data-name="package.json"
+         data-src="results/20260817-151116/profiles/jin/package.json"
+         data-why="bundles 里也带了 hmr-linked，跟 nested 一样靠自注册"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-jin&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;hmr-linked&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;,
+    &quot;hmr-linked&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/ignore-rules/src-jin/hmr-linked&quot;
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fx-pkg" data-name="package.json"
+         data-src="experiments/05-reload/ignore-rules/fixtures/hmr-linked/package.json"
+         data-why="dsh.bundle.patch 声明这份包自带一条 patch——只在包名进了 profile 的 bundles 名单时才生效"><pre>{
+  &quot;name&quot;: &quot;hmr-linked&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;private&quot;: true,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;main&quot;: &quot;index.js&quot;,
+  &quot;dsh&quot;: {
+    &quot;bundle&quot;: {
+      &quot;patch&quot;: &quot;./cordis.patch.yml&quot;
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fx-patch" data-name="cordis.patch.yml"
+         data-src="experiments/05-reload/ignore-rules/fixtures/hmr-linked/cordis.patch.yml"
+         data-why="包自己的 patch：声明 greeter 这条条目，config.版本=配置第一版；只在 bundles 名单里才生效"><pre># 包自己那份 patch 文件（bundle 层）。
+#
+# 这个包一旦进了某个 profile 的 `dsh.profile.bundles` 名单，下面这个条目就自己
+# 上树——不用谁去活层手写 insert。
+#
+# ⚠️ 只在包名进了名单时才生效。没进名单的话这个包就是一个普通依赖，这份文件
+# 没人读——本项其余用例走的正是那条路（条目由用例写在活层）。
+- insert:
+    - id: greeter
+      name: hmr-linked
+      config:
+        版本: 配置第一版
+</pre>
+    </div>
+    <div id="fc-fx-helper" data-name="helper.js"
+         data-src="experiments/05-reload/ignore-rules/fixtures/hmr-linked/helper.js"
+         data-why="纯算法文件，用例从不改它——载入次数与算出来两个信号排除『整个模块被换了别的文件』的可能"><pre>/**
+ * 纯算法文件。它不导出插件、不碰 ctx、不注册任何东西——只是被 index.js
+ * `import` 进去的一个函数。本项用例不改它，只是 index.js 依赖它才能跑。
+ */
+
+export function compute() {
+  return &quot;算法第一版&quot;;
+}
+</pre>
+    </div>
+    <div id="fc-fx-idx" data-name="index.js"
+         data-src="experiments/05-reload/ignore-rules/fixtures/hmr-linked/index.js"
+         data-why="插件本体：报版本、模块 URL、baseUrl、loadCache 里跟自己有关的 key——四个信号反复被用来读判定"><pre>/**
+ * 教学插件——一个包，声明了 `dsh.bundle`，但那一段只在包名进了 profile 的
+ * `bundles` 名单时才生效，没进名单它就是个普通依赖。两种形态用同一个包。
+ *
+ * 它干四件事：
+ *
+ *   1. 报自己代码里写着的「版本」。这三个字就是它的代码，用例把「第一版」
+ *      改成「第二版」——于是它再跑一次时说的话不一样，一眼分得出重来过没有。
+ *   2. 报 `config` 里那个「版本」。跟上一条来路不同：那个改代码、这个改配方。
+ *   3. 报身份三件套：模块 URL、树的 baseUrl、loadCache 里跟自己有关的 key。
+ *      「junction 那头的代码算不算 node_modules 里的东西」，答案就藏在第一个里。
+ *   4. 报载入次数（模块顶层的计数器）和 `compute()` 的结果。
+ */
+
+import { compute } from &quot;./helper.js&quot;;
+
+let loads = 0;
+
+export const inject = [&quot;labObserver&quot;];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+  loads += 1;
+
+  say(&quot;我跑起来了&quot;, {
+    版本: &quot;第一版&quot;,
+    配置版本: config?.版本 ?? null,
+    载入次数: loads,
+    算出来: compute(),
+  });
+
+  // 我自己是从哪个 URL 被加载的。经 junction 装进来的包，这里报出的是链接
+  // 路径还是链接那头的真实路径，直接决定 hmr 那三处
+  // `url.includes(&#x27;/node_modules/&#x27;)` 命不命中。
+  say(&quot;我的模块 URL&quot;, { url: import.meta.url });
+
+  // hmr 的 baseDir 由 `config.base || &#x27;.&#x27;` 相对它解析，root 又相对 baseDir。
+  say(&quot;树的 baseUrl&quot;, { baseUrl: ctx.baseUrl ?? null });
+
+  const loader = ctx.get(&quot;loader&quot;);
+  const cache = loader?.internal?.loadCache;
+  if (!cache) {
+    say(&quot;loadCache&quot;, { 拿到了: false, 说明: &quot;loader.internal 不在（没开 --expose-internals？）&quot; });
+  } else {
+    const mine = [];
+    for (const key of cache.keys()) {
+      if (String(key).includes(&quot;hmr-linked&quot;)) mine.push(String(key));
+    }
+    say(&quot;loadCache 里跟我有关的 key&quot;, { 条数: mine.length, keys: mine });
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b><code>ignored</code> 筛子</b><br>hmr 的主 watcher 底层用 chokidar 监听 <code>root</code>（见
+   <code>05-reload/watch-root</code>）列出的目录，chokidar 拿 <code>ignored</code> 这份配置去过滤路径——
+   它是一份 picomatch（chokidar 内部用来匹配 glob 规则的库）glob 名单。<code>ignored</code> 不传就走 schema
+   默认值 <code>['**/node_modules', '**/.*', 'cache', 'data']</code>；本项五个 profile 只有 <b>nodot</b>
+   显式改过它，把 <code>**/.*</code> 那一条去掉了。<code>**/node_modules</code> 这一条只匹配路径最后一段恰好叫
+   <code>node_modules</code> 的情况，挡不住它下面更深的路径——<code>node_modules/hmr-linked/index.js</code>
+   这种多段路径不会被这条默认规则拦下。`,
+  `<b>先算相对路径：<code>relative(watchBaseDir, path)</code></b><br><code>root</code> 里每一条都会被
+   chokidar 解析成一个「watch base」；判断某个变化路径撞不撞 <code>ignored</code> 里的规则，用的是这个路径
+   相对 watch base 算出来的相对路径。如果改动的文件根本不在任何一个 watch base 目录以内（比如 <code>root</code>
+   只扩到源码目录本身，而默认的 watch base 仍然是 profile 目录），算出来的相对路径就会以 <code>..</code> 开头。`,
+  `<b class="b-blocked">Windows 反斜杠撞上「忽略隐藏文件」那条</b><br><code>relative()</code> 在 Windows 上
+   返回的是反斜杠分隔的路径字符串，picomatch 把这种字符串当成一整段来匹配 <code>**/.*</code>——一段以点开头
+   就算命中，而 <code>..</code> 本身就是「以点开头」的一段。所以任何以 <code>..</code> 起手的相对路径，不管
+   后面是不是真的隐藏文件，都会被这条规则挡住——这条规则本意是忽略 <code>.git</code> 这类隐藏目录，误伤的是
+   「源码根本不在 watch base 里面」这种情况。`,
+  `<b>躲过筛子之后：chokidar 报的是哪条路径</b><br>chokidar 默认开着 <code>followSymlinks</code>，会跟着
+   符号链接／junction 走进去继续监听里面的文件；它报出变化时用的是「你告诉它监视的那条路径」本身，
+   <b>从不对它做 realpath</b>（把符号链接／junction 解析到底之后的真实路径）——不管这条路径是不是一条链接、
+   链接那头的真实文件在哪。`,
+  `<b>能不能触发代码热重载：<code>loadCache.has(pathToFileURL(url))</code></b><br>chokidar 报出变化之后，
+   hmr 的主 watcher 按顺序判断这条变化归哪一类；这一项只关心其中两条：变化的文件是不是在 loader 内部的
+   <code>loadCache</code>（一张 Map，key 是每个真正被 import 过的模块的完整 URL）里——判断用
+   <code>pathToFileURL</code>（Node <code>url</code> 模块的函数，把文件系统路径包成 <code>file://</code> URL）
+   把 watcher 报的路径包成 URL 去查这张 Map，<code>Map.has()</code> 认字符串字面相等。命中就走代码热重载，发
+   一条 <code>hmr-reload</code>；不命中就只发一条没人处理的 <code>hmr-change</code>。<b><code>loadCache</code>
+   的 key 永远是 realpath</b>（模块真正被 import 时，Node 记的是它解析到的真实路径），<code>pathToFileURL</code>
+   只是把字符串包成 URL 对象，不会替你 realpath——两条路径除非从一开始就是同一个字符串，否则永远对不上。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

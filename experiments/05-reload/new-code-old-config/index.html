@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>new-code-old-config · 新代码配旧配方</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0d9488; --code:#2563eb; --cfg:#d97706;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#2dd4bf; --code:#60a5fa; --cfg:#fbbf24;
+}}
+:root[data-theme=dark]{
+ --bmhit:#2dd4bf; --code:#60a5fa; --cfg:#fbbf24;
+}
+.b-code{color:var(--code);font-weight:600}
+.b-cfg{color:var(--cfg);font-weight:600}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.b2.warn{color:var(--warn)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+.ccard .row b{color:var(--fg);font-weight:600}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:150px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
+.kv .v.b-code{color:var(--code)}
+.kv .v.b-cfg{color:var(--cfg)}
+
+.read.srconly{opacity:.72;border-style:dashed}
+.read.srconly .n{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">05-reload / new-code-old-config</div>
+<h1>新代码配旧配方</h1>
+<p class="sub">同一时刻改代码又改配方，代码热重载与配置各自的重载路径互不相通——拿到的是谁的新值。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 1 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，见 <code>00-base/minimal-profile</code>）挂载之后是一个活的 fiber——同一个插件实例这一次生命的载体。<code>apply(ctx, config)</code> 只在建它那一刻跑一次，<code>config</code> 参数是这个 fiber 出生时收到的那份快照，代码想再看到新值只能等自己被重新实例化。改一个条目，有两条互不相通的路：改它背后的代码文件——归 <b>hmr</b>（<code>cordis-plugin-hmr</code> 提供的服务，热重载的执行者）管，它盯哪棵目录树见 <code>05-reload/watch-root</code>；或者改贡献它 <code>config</code> 的那份 patch（对条目列表的一次编辑指令，完整语义见 <code>02-recipe/insert-semantics</code>）——而贡献 <code>config</code> 的 patch 本身还分层：一个 npm 包如果在自己 <code>package.json</code> 的 <code>dsh.bundle.patch</code> 字段里指了一份 YAML，profile 只要在 <code>dsh.profile.bundles</code> 名单里点这个包的名字，这份 YAML 就作为 <b>bundle 层</b>参与组合；与它相对的是<b>活层</b>——profile 自己那份 <code>cordis.patch.yml</code> 与 <code>$DSH_HOME</code> 那份 <code>cordis.patch.yml</code>，用户随时会手改的两份文件。这一项讲的是：当同一个条目的代码文件和它 bundle 层的 config 文件在同一时刻各自被改，代码那条路和 config 那条路分别走到哪一步，新 fiber 最终用的是谁的新值。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍改动发生之后，代码那条路（hmr 的 root watcher）与 config 那条路（<code>registerConfig</code>）各自怎么处理：①②是 root watcher 自己的分支，③④是另一套专门盯 config 精确路径的独立机制。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">root watcher 三选一</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">部分重载：沿用旧 config</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">另一套：registerConfig</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">重新拼树，bundlePatches 不重读</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>同一时刻，两处各改一笔</h2>
+<p class="note">用例起手 1 秒后，在同一个时间点分别改了 <code>index.js</code> 里写死的 <span class="b-code">版本</span>字符串，和这个包自己那份 <code>cordis.patch.yml</code> 里 <span class="b-cfg">config.版本</span> 字段——一次改动，代码与 config 各挪一格。</p>
+
+<div class="kv">
+  <div class="r"><span class="k">起手第一次上报</span><span class="v"><span class="b-code">版本</span>=第一版 ／ <span class="b-cfg">配置版本</span>=配置第一版</span></div>
+  <div class="r"><span class="k">数据来源</span><span class="v">events-cfgcold-run1.jsonl · seq 12</span></div>
+</div>
+
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">watcher 报了什么</span><span class="b2 ok">✓ 各归各的分支</span></div>
+    <div class="row"><b>hmr-change</b> 命中 1 次——url 指向包自己那份 <code>cordis.patch.yml</code>（seq 23，ms 1396.8）</div>
+    <div class="row"><b>hmr-reload</b> 命中 1 次——files 指向 <code>index.js</code>（seq 28，ms 1501.7）</div>
+    <div class="row">整份 run1 事件流（32 条，seq 0–31）里，这是仅有的一条 hmr-change、仅有的一条 hmr-reload</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">插件下一次说了什么</span><span class="b2 warn">新代码配旧配方</span></div>
+    <div class="row"><span class="b-code">版本</span> = <b>第二版</b>（新代码）</div>
+    <div class="row"><span class="b-cfg">配置版本</span> = <b>配置第一版</b>（还是旧值）</div>
+    <div class="row">算出来 = 算法第一版（<code>helper.js</code> 本项没改它）</div>
+    <div class="row">数据来源：events-cfgcold-run1.jsonl · seq 30</div>
+  </div>
+</div>
+
+<div class="kv">
+  <div class="r"><span class="k">重启之后（新进程）第一次上报</span><span class="v ok"><span class="b-code">版本</span>=第二版 ／ <span class="b-cfg">配置版本</span>=配置第二版</span></div>
+  <div class="r"><span class="k">数据来源</span><span class="v">events-cfgcold.jsonl · seq 12（同一次归档，重启后的新进程）</span></div>
+</div>
+<p class="note">两笔改动隔了一次进程重启，才第一次同时出现在同一次上报里。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>新代码配旧配方。</b>代码热重载走 <code>oldFiber.parent.registry.plugin(plugin, oldFiber._config, ...)</code>，沿用的是旧 fiber 已经在跑的那份 <code>_config</code>，不是重新读盘的新值。
+    <span class="from">test_code_reload_keeps_the_old_config</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>bundle 层的 config 是冷的，而且是「看见了没人管」，不是「没看见」。</b>watcher 确实报了一次 hmr-change 点名这份 patch 文件——它落在 hmr 的 root 范围里；但它既不是任何 <code>loader.entries()</code> 条目的 <code>Include.filename</code>，也没进 <code>loadCache</code>（YAML 不会被 <code>import()</code>），三条分支都接不住它。
+    <span class="from">同上</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>重启之后两笔改动才一起生效。</b>新进程重新走 <code>loadProfile()</code>/<code>composeProfile()</code>，这次两份文件都是第一次真正被读盘，代码与 config 一起翻到新值——坐实的是「冷」，不是「丢了」。
+    <span class="from">同上</span>
+  </p></div>
+  <div class="read srconly"><span class="n">·</span><p>
+    <b>补充（源码依据，未实测）：</b>全仓库只有两个 <code>registerConfig</code> 调用点——<code>&lt;profile&gt;/cordis.patch.yml</code> 与 <code>$DSH_HOME/cordis.patch.yml</code>，都不含 bundle 层。这个精确计数来自 grep <code>dsh-app-boot</code> 源码（<code>runProfile()</code> 里两次 <code>watchUserPatches()</code> 调用），没有对应的用例断言过「确实只有两个」——机制本身（bundle 层冷、活层两处热）已由上面三条坐实，缺的只是这句「仅此两处」的穷举断言。
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_new_code_old_config.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151125/</code>（<code>summary.md</code>、<code>events-cfgcold-run1.jsonl</code>、<code>events-cfgcold.jsonl</code> 与 <code>profiles/cfgcold/</code> 下 3 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">cfgcold/</button>
+                <ul>
+                  <li><button class="fl" data-k="prof-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="prof-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="prof-pkg">package.json</button></li>
+                  <li><button class="tw">src/</button>
+                    <ul>
+                      <li><button class="tw">hmr-linked/</button>
+                        <ul>
+                          <li><button class="fl" data-k="copy-pkg">package.json</button></li>
+                          <li><button class="fl" data-k="copy-patch">cordis.patch.yml</button></li>
+                          <li><button class="fl" data-k="copy-helper">helper.js</button></li>
+                          <li><button class="fl" data-k="copy-idx">index.js</button></li>
+                        </ul></li>
+                    </ul></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>hmr-linked → src/hmr-linked（同一份拷贝，不是 fixtures 原件）</li>
+                      <li>lab-recorder →</li>
+                    </ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">hmr-linked/</button>
+                <ul>
+                  <li><button class="fl" data-k="fx-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fx-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="fx-helper">helper.js</button></li>
+                  <li><button class="fl" data-k="fx-idx">index.js</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-prof-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151125/profiles/cfgcold/cordis.patch.yml"
+         data-why="profile 自己那份活层 patch——timer/hmr/lab-recorder 三条基础设施，hmr 的 root 用默认值 [&#39;.&#39;]（机制见 05-reload/watch-root）"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: ['.']
+        debounce: 100
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/new-code-old-config/events-cfgcold.jsonl"
+        flushMs: 100
+</pre>
+    </div>
+    <div id="fc-prof-yml" data-name="cordis.yml"
+         data-src="results/20260817-151125/profiles/cfgcold/cordis.yml"
+         data-why="profile 根文件，永远是空数组——真正的树全由 patch 叠出来（见 02-recipe/insert-semantics）"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-prof-pkg" data-name="package.json"
+         data-src="results/20260817-151125/profiles/cfgcold/package.json"
+         data-why="bundles 里只带了 hmr-linked 一个包；lab-recorder 与 hmr-linked 都以 link: 声明"><pre>{
+  "name": "dsh-profile-cfgcold",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "hmr-linked"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder",
+    "hmr-linked": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/new-code-old-config/profiles/cfgcold/src/hmr-linked"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-copy-pkg" data-name="package.json"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/package.json"
+         data-why="运行时拷贝——用例开始时由左侧 fixtures/hmr-linked 原样复制而来，起点内容逐字节相同，本项没有改它"><pre>{
+  "name": "hmr-linked",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-copy-patch" data-name="cordis.patch.yml"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/cordis.patch.yml"
+         data-why="运行时拷贝的起点——config.版本 从这里的「配置第一版」被原地改成「配置第二版」，改的是这份拷贝，不是 fixtures 原件"><pre># 包自己那份 patch 文件（bundle 层）。用例要改的就是这份文件里的 config.版本。
+- insert:
+    - id: greeter
+      name: hmr-linked
+      config:
+        版本: 配置第一版
+</pre>
+    </div>
+    <div id="fc-copy-helper" data-name="helper.js"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/helper.js"
+         data-why="运行时拷贝，起点内容与左侧 fixtures 同名文件逐字节相同，本项用例不改它"><pre>/**
+ * 纯算法文件，本项用例不改它，只是 index.js 依赖它才能跑。
+ */
+
+export function compute() {
+  return "算法第一版";
+}
+</pre>
+    </div>
+    <div id="fc-copy-idx" data-name="index.js"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/index.js"
+         data-why="运行时拷贝的起点——用例把这里的「第一版」原地改成「第二版」，改的是这份拷贝，不是 fixtures 原件"><pre>/**
+ * 教学插件——一个包，声明了 `dsh.bundle`，条目由包自己那份 patch 生。
+ *
+ * 报两个版本号，来路不同：
+ *   版本     —— 写死在这个文件里，改它是「改代码」
+ *   配置版本 —— 从条目的 config 来，改它是「改配方」
+ * 本项用例同一时刻改这两处，看重载之后拿到的是哪一头的新值。
+ */
+
+import { compute } from "./helper.js";
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", {
+    版本: "第一版",
+    配置版本: config?.版本 ?? null,
+    算出来: compute(),
+  });
+}
+</pre>
+    </div>
+    <div id="fc-fx-pkg" data-name="package.json"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/package.json"
+         data-why="dsh.bundle.patch 指到同目录的 cordis.patch.yml——这个包被哪个 profile 的 bundles 名单点到，这份 patch 就参与组合"><pre>{
+  "name": "hmr-linked",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fx-patch" data-name="cordis.patch.yml"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/cordis.patch.yml"
+         data-why="包自己那份 patch（bundle 层）：insert 出 greeter 条目，config.版本 起点是「配置第一版」"><pre># 包自己那份 patch 文件（bundle 层）。用例要改的就是这份文件里的 config.版本。
+- insert:
+    - id: greeter
+      name: hmr-linked
+      config:
+        版本: 配置第一版
+</pre>
+    </div>
+    <div id="fc-fx-helper" data-name="helper.js"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/helper.js"
+         data-why="纯算法文件，本项用例不改它，只是 index.js 依赖它才能跑"><pre>/**
+ * 纯算法文件，本项用例不改它，只是 index.js 依赖它才能跑。
+ */
+
+export function compute() {
+  return "算法第一版";
+}
+</pre>
+    </div>
+    <div id="fc-fx-idx" data-name="index.js"
+         data-src="experiments/05-reload/new-code-old-config/fixtures/hmr-linked/index.js"
+         data-why="报两个版本号，来路不同：版本写死在这个文件里（改代码），配置版本从条目 config 来（改配方）"><pre>/**
+ * 教学插件——一个包，声明了 `dsh.bundle`，条目由包自己那份 patch 生。
+ *
+ * 报两个版本号，来路不同：
+ *   版本     —— 写死在这个文件里，改它是「改代码」
+ *   配置版本 —— 从条目的 config 来，改它是「改配方」
+ * 本项用例同一时刻改这两处，看重载之后拿到的是哪一头的新值。
+ */
+
+import { compute } from "./helper.js";
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", {
+    版本: "第一版",
+    配置版本: config?.版本 ?? null,
+    算出来: compute(),
+  });
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>root watcher 三选一</b><br><code>cordis-plugin-hmr</code> 的 <code>onChange()</code> 处理每次改动，按顺序试三件事：
+   文件是不是某个已挂载条目的 <code>Include.filename</code>（<code>loader.entries()</code> 挨个比对）？是的话走「配置刷新」，
+   跟③④是完全独立的另一套；文件在不在 <code>internal.loadCache</code>（Node 内部记录「真被 <code>import()</code> 过的模块」的
+   表）里？在的话走②；两条都不中，就只 <code>ctx.emit('hmr/change', url)</code>，没有下游动作——bundle 层那份
+   <code>cordis.patch.yml</code> 走的正是这条：它从不是任何 <code>Include</code> 的 filename，YAML 也从不会被
+   <code>import()</code> 进 <code>loadCache</code>。`,
+  `<b>部分重载：沿用旧 config</b><br><code>analyzeChanges()</code> 顺着依赖图找出该重载的插件条目，对每个受影响的旧
+   fiber——fiber 是一次插件实例的生命载体——先 <code>ctx.registry.delete(plugin)</code> 卸载，重新 <code>import()</code>
+   拿新代码，再用 <code>oldFiber.parent.registry.plugin(plugin, oldFiber._config, ...)</code> 建新 fiber：这次调用把
+   旧 fiber 已经在用的那份 <code>_config</code> 原样传给了新代码。`,
+  `<b>另一套：<code>registerConfig</code></b><br>config 真正会热的两处走的是另一条链路。<code>dsh</code>
+   自己（<code>dsh-app-boot</code> 的 <code>runProfile()</code>）在 boot 时调一次 <code>composeProfile()</code>，把各
+   bundle 贡献的 patch 收进 <code>composed.bundlePatches</code>——这是一份此后不再重读的静态数组；随后各对
+   <code>&lt;profile&gt;/cordis.patch.yml</code> 与 <code>$DSH_HOME/cordis.patch.yml</code> 调一次
+   <code>watchUserPatches()</code>，各自内部调 <code>hmr.registerConfig(filename, refresh)</code>——这是跟①的 root
+   watcher 完全独立的另一个 chokidar 实例，精确盯这一个文件路径，不受 <code>ignored</code> 名单限制。`,
+  `<b>命中变化：重新拼树，<code>bundlePatches</code> 不重读</b><br><code>refresh</code> 调
+   <code>composeLive()</code>：重新读盘拿这两份文件的最新内容，跟原封不动的 <code>composed.bundlePatches</code> 拼起来，
+   整体喂给根 <code>cordis:include</code> 条目的 <code>config.patches</code>，触发 <code>entry.update()</code> 重新协调
+   组合树。<code>composeLive()</code> 每次都重读这两份「活层」文件，唯独 <code>bundlePatches</code> 从不重读——这正是
+   bundle 层 config 冷在字面上的出处。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>
