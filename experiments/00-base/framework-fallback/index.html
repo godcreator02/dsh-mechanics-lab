@@ -35,15 +35,17 @@ main{min-width:0;max-width:820px}
 .tree-pane{flex:1 1 auto}
 .ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
   font-family:var(--mono);font-size:11.5px;line-height:1.6}
-.ft ul{list-style:none;margin:0;padding-left:13px;border-left:1px solid var(--line)}
-.ft button{display:block;width:100%;text-align:left;border:0;background:none;
-  color:inherit;font:inherit;padding:1px 5px;border-radius:4px;cursor:pointer}
+.ft ul{list-style:none;margin:0;padding:0}
+.ft button,.ft .txt,.ft .flabel{display:block;width:100%;text-align:left;border:0;
+  background:none;color:inherit;font:inherit;padding:1px 5px;border-radius:4px;
+  white-space:pre}
+.ft button{cursor:pointer}
 .ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft .tw::before{content:"▾ ";color:var(--dim)}
-.ft li.shut > .tw::before{content:"▸ "}
+.ft .pf,.ft .cv{color:var(--dim)}
 .ft li.shut > ul{display:none}
 .ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
   color:var(--bmhit);font-weight:600}
+.ft .fl.on .pf,.ft .fl.on .cv{color:inherit}
 
 /* 文件窗 */
 .view-pane{flex:none}
@@ -543,9 +545,47 @@ const vhint = document.getElementById('vhint'), vmeta = document.getElementById(
 const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');
 const vwhy = document.getElementById('vwhy'), vcode = document.getElementById('vcode');
 
-document.querySelectorAll('.ft .tw').forEach(b => {
-  b.addEventListener('click', () => b.parentElement.classList.toggle('shut'));
-});
+/* 树：ASCII 连接线从嵌套结构算出来。每行前缀只取决于各级祖先「是不是最后一个兄弟」，
+   是静态的——折叠只隐藏子树、不改前缀，所以连接线和折叠并存不冲突。 */
+(() => {
+  const rowOf = li => {
+    let r = li.querySelector(':scope > button, :scope > .flabel');
+    if (r) return r;
+    r = document.createElement('span');
+    r.className = 'txt';
+    while (li.firstChild && li.firstChild.nodeName !== 'UL') r.appendChild(li.firstChild);
+    li.insertBefore(r, li.firstChild);
+    return r;
+  };
+  const paint = (ul, pad, root) => {
+    const items = [...ul.children].filter(e => e.tagName === 'LI');
+    items.forEach((li, i) => {
+      const last = i === items.length - 1;
+      const sub = li.querySelector(':scope > ul');
+      const row = rowOf(li);
+      const cv = document.createElement('span');
+      cv.className = 'cv';
+      // 箭头单独占两列：没有子树的留两个空格，名字列才对得齐
+      cv.textContent = sub ? (li.classList.contains('shut') ? '▸ ' : '▾ ') : '  ';
+      const pf = document.createElement('span');
+      pf.className = 'pf';
+      pf.textContent = root ? '' : pad + (last ? '└─ ' : '├─ ');
+      row.insertBefore(cv, row.firstChild);
+      row.insertBefore(pf, row.firstChild);
+      if (sub) paint(sub, root ? '' : pad + (last ? '   ' : '│  '), false);
+    });
+  };
+  document.querySelectorAll('.ft').forEach(ft => paint(ft, '', true));
+
+  document.querySelectorAll('.ft .tw').forEach(b => {
+    b.addEventListener('click', () => {
+      const li = b.parentElement;
+      li.classList.toggle('shut');
+      const cv = b.querySelector('.cv');
+      if (cv) cv.textContent = li.classList.contains('shut') ? '▸ ' : '▾ ';
+    });
+  });
+})();
 
 document.querySelectorAll('.ft .fl').forEach(b => {
   b.addEventListener('click', () => {
