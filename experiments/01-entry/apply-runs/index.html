@@ -16,8 +16,7 @@
  --bmhit:#a78bfa;
 }
 /* ── 机制：四步链条，纯陈述，不用分步控件——内容短，跳读比按序点更省事 ── */
-.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
-  padding:16px 18px}
+.stage{padding:16px 18px}
 .chain{margin:0;padding-left:20px;display:grid;gap:11px}
 .chain li{font-size:13.5px;line-height:1.65}
 .chain code{font-family:var(--mono);font-size:12px}
@@ -38,9 +37,10 @@ table.dt td:first-child{font-family:var(--mono);font-size:12px;white-space:nowra
 .oc.hit .oc-h{color:var(--ok)}
 .oc.miss .oc-h{color:var(--miss)}
 .oc-body{padding:11px 14px}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px}
-.kv span{color:var(--dim)}
-.kv code{font-family:var(--mono);font-size:12px}
+/* 本页专有：两端对齐的单行键值，跟 lab.css 的 .kv 卡片是两回事，别同名 */
+.kvline{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px}
+.kvline span{color:var(--dim)}
+.kvline code{font-family:var(--mono);font-size:12px}
 @media (max-width:640px){.oc-grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -118,16 +118,16 @@ table.dt td:first-child{font-family:var(--mono);font-size:12px;white-space:nowra
   <div class="oc hit">
     <div class="oc-h">run · witness-run.json 出现了</div>
     <div class="oc-body">
-      <div class="kv"><span>marker</span><code>apply-runs-v1</code></div>
-      <div class="kv"><span>moduleLoadedAt</span><code>2026-08-17T07:10:39.157Z</code></div>
-      <div class="kv"><span>appliedAt</span><code>2026-08-17T07:10:39.157Z</code></div>
+      <div class="kvline"><span>marker</span><code>apply-runs-v1</code></div>
+      <div class="kvline"><span>moduleLoadedAt</span><code>2026-08-17T07:10:39.157Z</code></div>
+      <div class="kvline"><span>appliedAt</span><code>2026-08-17T07:10:39.157Z</code></div>
     </div>
   </div>
   <div class="oc miss">
     <div class="oc-h">unmounted · 见证文件没有出现</div>
     <div class="oc-body">
-      <div class="kv"><span>实例还活着？</span><code>True</code></div>
-      <div class="kv"><span>见证文件出现了吗？</span><code>False</code></div>
+      <div class="kvline"><span>实例还活着？</span><code>True</code></div>
+      <div class="kvline"><span>见证文件出现了吗？</span><code>False</code></div>
     </div>
   </div>
 </div>

@@ -170,6 +170,14 @@ button:disabled{opacity:.35;cursor:default}
 .from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);
   font-family:var(--mono)}
 
+/* 矫正型判定：文档写了但边界不同的那条，用警示色跟普通结论分开 */
+.read.match{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));
+  background:var(--warnbg)}
+
+.read.match .n{color:var(--warn)}
+
+.read.match p b{color:var(--warn)}
+
 footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
   font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
 
@@ -221,4 +229,49 @@ footer a{color:inherit}
 
 .pickbody code{font-family:var(--mono);font-size:12px}
 
-footer a{color:inherit}
+.pickbody b{font-weight:600}
+
+/* 舞台：装 picker 与它的详情面板。各页只在需要不同内边距时覆盖 padding */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+
+/* ── 并排对照卡：几个变体摆一排，同一组字段逐个对着看 ── */
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+
+.b2.ok{color:var(--ok)}
+
+.b2.warn{color:var(--warn)}
+
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+
+.ccard .row b{color:var(--fg);font-weight:600}
+
+.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:11px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
+
+/* ── 键值块：一列键名 ＋ 一列取值，键名列宽随本页最长的键走 ── */
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+
+/* 150px 装得下多数键名；键名更长的页在页内覆盖 min-width，别改这里 */
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:150px}
+
+.kv .v{font-family:var(--mono);word-break:break-all}
+
+.kv .v.ok{color:var(--ok)}
