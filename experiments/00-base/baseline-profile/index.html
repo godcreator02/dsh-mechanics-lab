@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>baseline-profile · 基线 profile 的形状与它保证了什么</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --pkg:#3b82f6; --yml:#f59e0b; --infra:#22c55e; --caller:#ec4899;
+  --dflt:#06b6d4; --rooted:#a855f7; --ok:#22c55e; --warn:#b45309; --warnbg:#fffbeb;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+/* ── 头 ── */
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+h2{font-size:15px;margin:38px 0 4px}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+.testref{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+
+/* ── 主图：三件套 → 树 ── */
+.diagram{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.files{display:flex;flex-direction:column;gap:9px}
+.file{border:1px solid var(--line);border-left:3px solid var(--c);border-radius:8px;
+  padding:9px 11px;cursor:default;transition:opacity .22s,box-shadow .22s;background:var(--bg)}
+.file.dim{opacity:.3}
+.file.cur{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent)}
+.file .fn{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--c);
+  display:flex;justify-content:space-between}
+.file pre{margin:6px 0 0;font-family:var(--mono);font-size:11px;white-space:pre-wrap;
+  word-break:break-all;color:var(--fg);line-height:1.55}
+.file .cm{color:var(--dim)}
+
+.tree{display:flex;flex-direction:column;align-items:center;gap:0}
+.node{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);
+  transition:opacity .22s,box-shadow .22s,border-color .22s;width:100%}
+.node.dim{opacity:.3}
+.node.hit{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent);
+  border-color:color-mix(in srgb,var(--c) 55%,transparent)}
+.node .id{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--c)}
+.node .nm{font-size:11px;color:var(--dim);margin-left:6px}
+.node .badge{float:right;font-family:var(--mono);font-size:10px;color:var(--ok)}
+.node .inj{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px}
+.stem{width:1px;height:12px;background:var(--line);margin:0 auto}
+.children{border-left:2px solid var(--line);margin-left:12px;padding-left:12px;
+  display:flex;flex-direction:column;gap:7px;margin-top:2px}
+
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:12px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--caller)}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;
+  margin-right:3px;vertical-align:middle}
+
+/* ── 变体对比 ── */
+.variant{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.vrow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.vcard{border:1px solid var(--line);border-left:3px solid var(--c);border-radius:8px;
+  padding:10px 12px;transition:opacity .22s,box-shadow .22s}
+.vcard.dim{opacity:.32}
+.vcard.cur{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent)}
+.vcard .vt{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--c)}
+.vcard .vv{font-family:var(--mono);font-size:12px;margin-top:6px}
+.vcard .vv b{color:var(--fg);background:color-mix(in srgb,var(--c) 16%,transparent);
+  padding:1px 3px;border-radius:3px}
+.vcard .vshape{margin-top:6px;font-size:11px;color:var(--dim)}
+
+/* ── reads / 覆盖边界 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+.read.warn{border-color:color-mix(in srgb,var(--warn) 45%,transparent);
+  background:color-mix(in srgb,var(--warn) 9%,var(--card))}
+.read.warn .n{color:var(--warn)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+
+@media (max-width:620px){
+  .diagram{grid-template-columns:1fr}
+  .vrow{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">00-base / baseline-profile</div>
+<h1>基线 profile 的形状与它保证了什么</h1>
+<p class="sub">后面所有实验都从这里出发——三件套喂进去，四个 id 长出来。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 1 条用例（2 变体）</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>三件套怎么长成这棵树</h2>
+<p class="note"><b>鼠标停在任意一个文件卡片上</b>，右边高亮它实际造出了树上的哪个条目。
+四个文件按读的顺序摆着，不是执行时序，所以这里是查关系，不是放过程。
+<span class="testref">test_baseline_profile</span></p>
+
+<div class="diagram">
+  <div class="files" id="files">
+    <div class="file" data-i="0" data-hit="" style="--c:var(--pkg)">
+      <div class="fn">package.json<span>①</span></div>
+      <pre><span class="cm">"bundles": []</span>
+"dependencies": {
+  "base-census": "link:…/fixtures/base-census"
+}</pre>
+    </div>
+    <div class="file" data-i="1" data-hit="include" style="--c:var(--yml)">
+      <div class="fn">cordis.yml<span>②</span></div>
+      <pre><span class="cm"># dsh profile root — an empty entry list.
+# The tree is composed as patches.</span>
+[]</pre>
+    </div>
+    <div class="file" data-i="2" data-hit="timer,hmr" style="--c:var(--infra)">
+      <div class="fn">cordis.patch.yml · 基础设施块<span>③</span></div>
+      <pre>- insert:
+    - id: timer
+    - id: hmr
+      config: {root: […], debounce: 100}</pre>
+    </div>
+    <div class="file" data-i="3" data-hit="census" style="--c:var(--caller)">
+      <div class="fn">cordis.patch.yml · 调用方块<span>④</span></div>
+      <pre>- insert:
+    - id: census
+      name: base-census</pre>
+    </div>
+  </div>
+
+  <div class="tree" id="tree">
+    <div class="node" data-id="include" style="--c:var(--yml)">
+      <span class="id">include</span><span class="nm">cordis:include</span>
+      <span class="badge">ACTIVE</span>
+    </div>
+    <div class="stem"></div>
+    <div class="children">
+      <div class="node" data-id="timer" style="--c:var(--infra)">
+        <span class="id">timer</span><span class="nm">cordis-plugin-timer</span>
+        <span class="badge">ACTIVE</span>
+      </div>
+      <div class="node" data-id="hmr" style="--c:var(--infra)">
+        <span class="id">hmr</span><span class="nm">cordis-plugin-hmr</span>
+        <span class="badge">ACTIVE</span>
+        <div class="inj">inject: loader, timer</div>
+      </div>
+      <div class="node" data-id="census" style="--c:var(--caller)">
+        <span class="id">census</span><span class="nm">base-census</span>
+        <span class="badge">ACTIVE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
+<div class="ctl">
+  <button id="prev">← 上一步</button>
+  <span class="pos" id="pos"></span>
+  <button id="next">下一步 →</button>
+  <span class="hint">← → 键也行，或直接把鼠标停在某张卡片上</span>
+</div>
+
+<h2>两个变体，唯一的差别在哪一行</h2>
+<p class="note">基线带 <code>hmr_root</code> 参数，默认 <code>[]</code>，也可以显式传
+<code>["."]</code>。树的形状（四个 id）在两个变体下完全一致——差别只落在 hmr 那一行 config。
+<span class="testref">test_baseline_profile</span></p>
+
+<div class="variant">
+  <div class="vrow" id="variant">
+    <div class="vcard" data-v="0" style="--c:var(--dflt)">
+      <div class="vt">① 默认 root []</div>
+      <div class="vv">root: <b>[]</b></div>
+      <div class="vshape">树形状：include + timer + hmr + census</div>
+    </div>
+    <div class="vcard" data-v="1" style="--c:var(--rooted)">
+      <div class="vt">② 指定 watch root</div>
+      <div class="vv">root: <b>["."]</b></div>
+      <div class="vshape">树形状：include + timer + hmr + census</div>
+    </div>
+  </div>
+  <div class="cap"><span class="t" id="vcap-t"></span><span class="d" id="vcap-d"></span></div>
+  <div class="ctl">
+    <button id="vprev">← 上一步</button>
+    <span class="pos" id="vpos"></span>
+    <button id="vnext">下一步 →</button>
+    <span class="hint">← → 键也行</span>
+  </div>
+</div>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>树的形状完全可预测。</b>四个 id 全是我们给的（<code>census</code> / <code>hmr</code> /
+    <code>include</code> / <code>timer</code>），不会混进框架 fallback 那种随机 id
+    ——对照见 <code>framework-fallback</code>。
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>多个 <code>- insert:</code> 块能在同一份活层里共存。</b>基础设施块（timer / hmr）
+    与调用方块（census）各自生效，互不覆盖——两块拼接方案成立。
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>基线声明的 timer / hmr 落在 <code>include</code> 的子树里</b>（⊂include）。
+    因为它们来自 patch 文件，整份 patch 就装在 <code>include</code> 的 config 里。
+  </p></div>
+  <div class="read warn"><span class="n">⚠</span><p>
+    <b>没覆盖到：</b><code>hmr_root</code> 确实把值写进了 <code>config.root</code>
+    （源码走查成立），但本项没有单独断言去读那个值，也没验证「代码热重载真的可用」
+    ——这里只验证了两个变体下树的<b>形状</b>一致。完整证据链在
+    <code>05-reload / watch-root</code>。
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_baseline_profile.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+文件与树数据取自归档 <code>results/20260817-151120/</code>（<code>summary.md</code>、
+<code>census-baseline-dflt.json</code>、<code>census-baseline-rooted.json</code>、
+<code>profiles/dflt/*</code>、<code>profiles/rooted/*</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+/* ── 主图：三件套 → 树，静态关系 + hover/分步联动高亮 ── */
+const FILES = [...document.querySelectorAll('.file')];
+const NODES = [...document.querySelectorAll('.node')];
+const LAST = FILES.length - 1;
+
+const STEP_T = ['① package.json', '② cordis.yml', '③ 基础设施块', '④ 调用方块'];
+const CAP = [
+  '<code>bundles</code> 留空——不叠 <code>dsh-base</code>，78 个条目里只有 timer 和 hmr 两个跟插件系统本身有关。<code>base-census</code> 走 <code>dependencies</code> 的 <code>link:</code> 协议进 <code>node_modules</code>，但那只让模块<b>可解析</b>；真正让 census 在树上现身的是下面那个 <code>insert</code> 块。',
+  '<code>cordis.yml</code> 恒为空数组——树的内容全部来自 patch。<code>include</code> 是唯一不来自 patch 文件的条目，是整棵树的根。',
+  '基础设施块显式带上 <code>timer</code> 与 <code>hmr</code>，不依赖框架 fallback——两条 id 都是我们给的，落在 <code>include</code> 子树里（⊂include）。',
+  '调用方追加的 <code>census</code> 块拼在基础设施块<b>之后</b>——两个 <code>insert:</code> 块各自生效，互不覆盖。',
+];
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let cur = 0;
+
+/** 渲染第 i 张文件卡片对应的高亮——hover 与分步共用，hover 只做临时预览，不碰 cur。 */
+function render(i){
+  const hitIds = (FILES[i].dataset.hit || '').split(',').filter(Boolean);
+  FILES.forEach((f, k) => {
+    f.classList.toggle('dim', k !== i);
+    f.classList.toggle('cur', k === i);
+  });
+  NODES.forEach(n => {
+    const hit = hitIds.includes(n.dataset.id);
+    n.classList.toggle('hit', hit);
+    n.classList.toggle('dim', hitIds.length > 0 && !hit);
+    if (hit) n.style.setProperty('--c', getComputedStyle(FILES[i]).getPropertyValue('--c'));
+  });
+  capT.textContent = STEP_T[i];
+  capD.innerHTML = CAP[i];
+  // 计数器读的是 cur 不是 i：hover 预览别的卡片时指针没动，数字跟着动会让
+  // 读者分不清「现在钉在哪一步」和「正在预览哪一张」。
+  posEl.textContent = `${cur + 1} / ${FILES.length}`;
+}
+
+function gotoStep(i){
+  cur = Math.max(0, Math.min(LAST, i));
+  render(cur);
+  prev.disabled = cur === 0;
+  next.disabled = cur === LAST;
+}
+
+FILES.forEach((f, i) => {
+  f.addEventListener('mouseenter', () => render(i));
+  f.addEventListener('focus', () => render(i));
+  f.tabIndex = 0;
+});
+document.getElementById('files').addEventListener('mouseleave', () => render(cur));
+
+prev.addEventListener('click', () => gotoStep(cur - 1));
+next.addEventListener('click', () => gotoStep(cur + 1));
+
+/* ── 变体对比：两步，独立的分步序列 ── */
+const VCARDS = [...document.querySelectorAll('.vcard')];
+const VLAST = VCARDS.length - 1;
+const VCAP = [
+  '<code>hmr_root</code> 不传时默认 <code>[]</code>——够监听 patch 文件本身（按精确路径注册，与 root 无关），但<b>不监听代码文件</b>。',
+  '显式传 <code>["."]</code>——树的形状（四个 id）跟默认变体完全一样，<b>唯一的差别就是 hmr 这一行 config</b>。',
+];
+const vpos = document.getElementById('vpos');
+const vcapT = document.getElementById('vcap-t'), vcapD = document.getElementById('vcap-d');
+const vprev = document.getElementById('vprev'), vnext = document.getElementById('vnext');
+let vcur = 0;
+
+function vrender(i){
+  VCARDS.forEach((c, k) => {
+    c.classList.toggle('dim', k !== i);
+    c.classList.toggle('cur', k === i);
+  });
+  vcapT.textContent = VCARDS[i].querySelector('.vt').textContent;
+  vcapT.style.color = getComputedStyle(VCARDS[i]).getPropertyValue('--c');
+  vcapD.innerHTML = VCAP[i];
+  vpos.textContent = `${vcur + 1} / ${VCARDS.length}`;
+}
+
+function vgoto(i){
+  vcur = Math.max(0, Math.min(VLAST, i));
+  vrender(vcur);
+  vprev.disabled = vcur === 0;
+  vnext.disabled = vcur === VLAST;
+}
+
+VCARDS.forEach((c, i) => {
+  c.addEventListener('mouseenter', () => vrender(i));
+  c.addEventListener('focus', () => vrender(i));
+  c.tabIndex = 0;
+});
+document.getElementById('variant').addEventListener('mouseleave', () => vrender(vcur));
+
+vprev.addEventListener('click', () => vgoto(vcur - 1));
+vnext.addEventListener('click', () => vgoto(vcur + 1));
+
+/* ── 键盘方向键按鼠标所在舞台分派：页面上有两条独立分步序列 ── */
+let activeStage = 'main';
+document.querySelector('.diagram').addEventListener('mouseenter', () => activeStage = 'main');
+document.getElementById('variant').addEventListener('mouseenter', () => activeStage = 'variant');
+
+addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const dir = e.key === 'ArrowLeft' ? -1 : 1;
+  if (activeStage === 'variant') vgoto(vcur + dir);
+  else gotoStep(cur + dir);
+  e.preventDefault();
+});
+
+gotoStep(0);
+vgoto(0);
+</script>
+</body>
+</html>

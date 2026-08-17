@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>framework-fallback · 兜底补 timer/hmr</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --active:#22c55e; --judge:#f59e0b; --fallback:#06b6d4;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+/* ── 头 ── */
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.part{color:var(--judge);border-color:color-mix(in srgb,var(--judge) 45%,transparent)}
+
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+.note code{font-family:var(--mono);font-size:12px}
+
+/* ── 舞台 ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 14px}
+
+#patchview .zone-label{margin-bottom:8px}
+#patchcode{margin:0;font-family:var(--mono);font-size:12px;line-height:1.7;
+  white-space:pre-wrap;word-break:break-all;background:color-mix(in srgb,var(--fg) 4%,transparent);
+  border-radius:8px;padding:12px 14px;color:var(--fg)}
+
+.zone{margin-bottom:14px}
+.zone-label{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:7px}
+.entry{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border:1px solid var(--line);border-radius:8px;background:var(--bg);
+  opacity:.16;transition:opacity .3s,box-shadow .3s;margin-bottom:6px}
+.entry.on{opacity:1}
+.entry.new{box-shadow:0 0 0 2px color-mix(in srgb,var(--fallback) 55%,transparent)}
+.entry.indent{margin-left:28px}
+.entry .id{font-family:var(--mono);font-size:11.5px;color:var(--dim);width:76px;flex:none}
+.entry .name{font-size:12.5px}
+.entry .inj{display:block;font-family:var(--mono);font-size:10.5px;color:var(--fallback);margin-top:2px}
+
+.svc{display:flex;gap:8px;margin-top:4px;padding-top:14px;border-top:1px dashed var(--line)}
+.pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;
+  padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--dim);
+  transition:box-shadow .25s,color .25s}
+.pill i{width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--dim)}
+.pill.true{color:var(--active)} .pill.true i{background:var(--active)}
+.pill.pending{color:var(--judge)} .pill.pending i{background:var(--judge)}
+.pill.judge{box-shadow:0 0 0 2px color-mix(in srgb,var(--judge) 50%,transparent)}
+
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:16px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--judge)}
+.cap .d code{font-family:var(--mono);font-size:11.5px}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:3px;vertical-align:middle}
+
+.aside{font-size:12.5px;color:var(--dim);margin-top:10px;padding:10px 13px;
+  background:var(--card);border:1px solid var(--line);border-radius:8px}
+.aside code{font-family:var(--mono);font-size:11.5px}
+
+/* ── 读出来的 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11.5px;
+  color:var(--dim);font-family:var(--mono)}
+.badge{font-size:10px;padding:1.5px 8px;border-radius:99px;font-family:var(--mono);
+  white-space:nowrap;border:1px solid color-mix(in srgb,var(--judge) 45%,transparent);
+  color:var(--judge)}
+.read.ghost{border-style:dashed;background:color-mix(in srgb,var(--dim) 6%,var(--card))}
+.read.ghost .badge{border-color:color-mix(in srgb,var(--dim) 45%,transparent);color:var(--dim)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">00-base / framework-fallback</div>
+<h1>兜底补 timer/hmr：判服务不判条目</h1>
+<p class="sub">patch 里一个字都不提，<code>boot()</code> 收尾时框架照样把两样服务焊上——而且没有开关能拦。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag part">⚠️ 部分覆盖 · 1 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>boot() 收尾那一刻，树上发生了什么</h2>
+<p class="note">用例 <code>test_neither_declared_gets_both_supplied_at_root</code>。
+这条判定眼下只有这一条用例撑着，docstring 里把它标成「待验」——下面按这个成色来看，
+别当成跟满覆盖的项一样确凿。</p>
+
+<div class="stage">
+  <div id="patchview">
+    <div class="zone-label">no-infra profile 的 patch</div>
+    <pre id="patchcode"># 完全不声明 timer/hmr，只有普查员自己
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: "…/census-fallback.json"
+        delayMs: 3000</pre>
+  </div>
+  <div id="treeview" style="display:none">
+    <div class="zone">
+      <div class="zone-label">include 子树</div>
+      <div class="entry" id="e-include"><span class="id">include</span><span class="name">cordis:include（根）</span></div>
+      <div class="entry indent" id="e-census"><span class="id">census</span><span class="name">base-census</span></div>
+    </div>
+    <div class="zone">
+      <div class="zone-label">根组 —— 跟 include 平级，不在它下面</div>
+      <div class="entry" id="e-timer"><span class="id">ce36c687</span><span class="name">@deepseek-ai/cordis-plugin-timer</span></div>
+      <div class="entry" id="e-hmr"><span class="id">39fca8df</span><span class="name">@deepseek-ai/cordis-plugin-hmr<span class="inj">inject: loader, timer</span></span></div>
+    </div>
+    <div class="svc">
+      <span class="pill true" id="svc-loader"><i></i>loader</span>
+      <span class="pill" id="svc-timer"><i></i>timer</span>
+      <span class="pill" id="svc-hmr"><i></i>hmr</span>
+    </div>
+  </div>
+
+  <div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
+  <div class="ctl">
+    <button id="prev">← 上一步</button>
+    <span class="pos" id="pos"></span>
+    <button id="next">下一步 →</button>
+    <span class="hint">← → 键也行</span>
+    <div class="legend">
+      <span><i style="background:var(--active)"></i>服务已就绪</span>
+      <span><i style="background:var(--judge)"></i>判据 / 未知</span>
+      <span><i style="background:var(--fallback);box-shadow:0 0 0 1px var(--fallback)"></i>框架补的条目</span>
+    </div>
+  </div>
+</div>
+
+<p class="aside">
+  对照 <code>00-base/baseline-profile</code>：那边手写的条目全落在 include 子树里；
+  这里补的两条却落在根组——形态不一样，这也是「判据是服务、不是条目」的另一层证据。
+</p>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>判据是服务在不在，不是条目写没写。</b>源码在 <code>boot()</code> 返回之后、
+    <code>watchUserPatches()</code> 之前查 <code>ctx.get("hmr")</code>——undefined 才补，
+    跟 patch 里写没写一个叫 hmr 的条目无关。
+    <span class="from">test_neither_declared_gets_both_supplied_at_root<span class="badge">⚠️ 待验</span></span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>补的条目跟手写的不一样：id 随机、落在根组。</b><code>ctx.loader.create()</code>
+    不传 id 时按 <code>EntryTree.ensureId()</code> 生成随机字符串，<code>parent</code>
+    默认 <code>null</code>——跟 include 子树平级，不在它下面。
+    <span class="from">test_neither_declared_gets_both_supplied_at_root<span class="badge">⚠️ 待验</span></span>
+  </p></div>
+  <div class="read ghost"><span class="n">③</span><p>
+    <b>没有开关能关掉。</b>整段逻辑无条件执行，判据只有 <code>ctx.get("hmr")</code>
+    一个条件，源码里找不到任何可以传参禁用的分支。
+    <span class="from">仅源码引用<span class="badge">无用例覆盖</span></span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_framework_fallback.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+树与服务快照取自归档 <code>results/20260817-151139/census-fallback.json</code>，
+用例耗时与树状输出取自同一次归档的 <code>summary.md</code>，是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+// 6 步：真实数据只有 boot / settle 两张快照（census-fallback.json），
+// 中间三步（判据 / 补 timer / 补 hmr）是源码引用——没有对应的单独拍照，
+// 所以那几步里的服务状态标"未知"，不编造中间值。
+const STEPS = [
+  { view:'patch', t:'patch',
+    cap:'no-infra profile 的 patch 只挂了普查员一条，完全不提 timer/hmr——这是触发兜底的前提。' },
+
+  { view:'tree', t:'boot 收尾',
+    on:{include:1,census:1,timer:0,hmr:0}, neu:null,
+    svc:{loader:'true',timer:'false',hmr:'false'}, judge:false,
+    cap:'<b>boot() 收尾那一刻的真实快照：</b>树上只有 include 和它下面的 census；服务对象里 timer / hmr 都是 false。' },
+
+  { view:'tree', t:'判据',
+    on:{include:1,census:1,timer:0,hmr:0}, neu:null,
+    svc:{loader:'true',timer:'false',hmr:'false'}, judge:true,
+    cap:'框架接着检查 <code>ctx.get("hmr")</code>——查的是 hmr <b>服务</b>在不在，不是有没有一个叫 hmr 的<b>条目</b>。此刻是 undefined，走进兜底分支。' },
+
+  { view:'tree', t:'补 timer',
+    on:{include:1,census:1,timer:1,hmr:0}, neu:'timer',
+    svc:{loader:'true',timer:'pending',hmr:'false'}, judge:false,
+    cap:'先补 timer：<code>ctx.loader.create({ name: "…cordis-plugin-timer" })</code> 没传 id，落到随机字符串；<code>parent</code> 默认 null，落在根组，不进 include 子树。这一步没有单独拍照，服务状态未知。' },
+
+  { view:'tree', t:'补 hmr',
+    on:{include:1,census:1,timer:1,hmr:1}, neu:'hmr',
+    svc:{loader:'true',timer:'pending',hmr:'pending'}, judge:false,
+    cap:'再补 hmr：<code>config: { root: [] }</code>，同样随机 id、同样落在根组。它的 inject 里已经声明了 timer——顺序是先 timer 后 hmr。' },
+
+  { view:'tree', t:'settle · +3.012s',
+    on:{include:1,census:1,timer:1,hmr:1}, neu:null,
+    svc:{loader:'true',timer:'true',hmr:'true'}, judge:false,
+    cap:'<b>3.012 秒后的 settle 快照：</b>树上四条，补的两条跟 include 平级、不在它下面；服务对象里 timer / hmr 都变成 true。' },
+];
+const LAST = STEPS.length - 1;
+
+const patchview = document.getElementById('patchview');
+const treeview = document.getElementById('treeview');
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+
+const ENTRY_KEYS = ['include','census','timer','hmr'];
+const SVC_KEYS = ['loader','timer','hmr'];
+
+/** 纯函数：树与服务面板只由 i 决定，跳步直接渲染目标状态，不做增量动画。 */
+function render(i){
+  const s = STEPS[i];
+  patchview.style.display = s.view === 'patch' ? '' : 'none';
+  treeview.style.display = s.view === 'tree' ? '' : 'none';
+
+  if (s.view === 'tree'){
+    ENTRY_KEYS.forEach(k => {
+      const el = document.getElementById('e-' + k);
+      el.classList.toggle('on', !!s.on[k]);
+      el.classList.toggle('new', s.neu === k);
+    });
+    SVC_KEYS.forEach(k => {
+      const el = document.getElementById('svc-' + k);
+      const v = s.svc[k]; // 'true' | 'false' | 'pending'
+      el.classList.toggle('true', v === 'true');
+      el.classList.toggle('pending', v === 'pending');
+      el.classList.toggle('judge', s.judge && k === 'hmr');
+    });
+  }
+
+  posEl.textContent = `${i + 1} / ${STEPS.length}`;
+  capT.textContent = s.t;
+  capD.innerHTML = s.cap;
+  prev.disabled = i === 0;
+  next.disabled = i === LAST;
+}
+
+let cur = 0;
+function goto(i){
+  cur = Math.max(0, Math.min(LAST, i));
+  render(cur);
+}
+prev.addEventListener('click', () => goto(cur - 1));
+next.addEventListener('click', () => goto(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ goto(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
+});
+goto(0);
+</script>
+</body>
+</html>

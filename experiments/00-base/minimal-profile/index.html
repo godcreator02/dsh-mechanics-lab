@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>minimal-profile · 一个实例最少需要什么</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e; --failed:#ef4444;
+  --warn:#b45309; --warnbg:#fffbeb;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+/* ── 头 ── */
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
+
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 卡片：五个 profile 并置 ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+  gap:10px;margin-bottom:14px}
+.pcard{background:var(--card);border:2px solid var(--line);border-radius:10px;
+  padding:12px 12px 10px;cursor:pointer;transition:border-color .2s,transform .15s}
+.pcard:hover{border-color:var(--dim);transform:translateY(-2px)}
+.pcard.sel{border-color:var(--fg)}
+.pcard .nm{font-weight:700;font-size:13.5px;font-family:var(--mono)}
+.pcard .bd{font-size:10.5px;color:var(--dim);margin-top:4px;font-family:var(--mono)}
+.pcard .chips{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.chip{font-size:10px;font-family:var(--mono);padding:1.5px 6px;border-radius:99px;
+  border:1px solid color-mix(in srgb,var(--active) 40%,transparent);
+  color:var(--active);background:color-mix(in srgb,var(--active) 8%,transparent)}
+.outcome{margin-top:9px;font-size:11px;font-family:var(--mono);
+  display:flex;align-items:center;gap:5px}
+.outcome i{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+.outcome.ok{color:var(--active)} .outcome.ok i{background:var(--active)}
+.outcome.bad{color:var(--failed)} .outcome.bad i{background:var(--failed)}
+
+/* ── 详情面板：hover 预览 / 分步落定共用一个渲染目标 ── */
+.detail{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;margin-bottom:4px}
+.detail h3{margin:0 0 10px;font-size:14.5px;font-family:var(--mono)}
+.detail h3 .test{font-weight:400;color:var(--dim);font-size:11.5px;margin-left:8px}
+.detail .row{display:flex;gap:10px;margin:8px 0;font-size:13px;align-items:flex-start}
+.detail .row .k{flex:none;width:70px;color:var(--dim);font-family:var(--mono);
+  font-size:11px;padding-top:2px}
+.detail .row .v{flex:1}
+.detail pre{margin:5px 0 0;padding:8px 10px;background:color-mix(in srgb,var(--fg) 4.5%,transparent);
+  border-radius:7px;font-family:var(--mono);font-size:11px;line-height:1.6;
+  overflow-x:auto;white-space:pre}
+.detail b{color:var(--fg)}
+.detail .bad-note{color:var(--failed);font-weight:600}
+
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:3px;vertical-align:middle}
+
+/* ── 时序舞台：timer → hmr 的硬依赖 ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:22px 18px 16px}
+.pair{display:flex;align-items:center;justify-content:center;gap:22px;
+  height:130px;flex-wrap:wrap}
+.tentry{width:148px;text-align:center;padding:14px 10px;border-radius:10px;
+  border:2px solid var(--line);background:var(--bg);
+  transition:border-color .3s,background .3s}
+.tentry .st{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.tentry .nm{font-weight:700;margin-top:4px;font-size:14px}
+.tentry.loading{border-color:var(--loading)} .tentry.loading .st{color:var(--loading)}
+.tentry.active{border-color:var(--active);background:color-mix(in srgb,var(--active) 8%,var(--bg))}
+.tentry.active .st{color:var(--active)}
+.arrow{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:center;
+  min-width:120px}
+.arrow .ar{font-size:22px;display:block;margin-bottom:3px;transition:color .3s}
+.arrow.open{color:var(--active)}
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:14px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--warn)}
+
+/* ── 读出来的 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">00-base / minimal-profile</div>
+<h1>一个实例最少需要什么</h1>
+<p class="sub">两个文件、一个空 bundle 列表，能撑起多少东西——以及哪根线剪了实例就死。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 5 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>五个 profile，同一个问题</h2>
+<p class="note">bundles 都写到几乎空，差别全在 <code>cordis.patch.yml</code> 里插了什么。
+把鼠标放到卡片上看细节；下面的按钮 / ← → 键把「当前选中」钉在某一张上。</p>
+
+<div class="cards" id="cards"></div>
+<div class="detail" id="detail"></div>
+<div class="ctl">
+  <button id="prev1">← 上一个</button>
+  <span class="pos" id="pos1"></span>
+  <button id="next1">下一个 →</button>
+  <span class="hint">← → 键也行，hover 是临时预览</span>
+</div>
+
+<h2>两条硬性捆绑，怎么体现在时序上</h2>
+<p class="note">hmr 包级声明 <code>services.required:["timer"]</code>——这条依赖在最小环境
+里直接观测到的效果，就是下面四步。毫秒数取自 <code>timing</code> 这个 profile 的真实归档。</p>
+
+<div class="stage">
+  <div class="pair">
+    <div class="tentry" id="te"><div class="st">PENDING</div><div class="nm">timer</div></div>
+    <div class="arrow" id="arrow"><span class="ar">⇢</span><span id="arrow-txt">🔒 等 timer 到 ACTIVE</span></div>
+    <div class="tentry" id="he"><div class="st">PENDING</div><div class="nm">hmr</div></div>
+  </div>
+  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
+  <div class="ctl">
+    <button id="prev2">← 上一步</button>
+    <span class="pos" id="pos2"></span>
+    <button id="next2">下一步 →</button>
+    <span class="hint">← → 键也行</span>
+    <div class="legend">
+      <span><i style="background:var(--pending)"></i>PENDING</span>
+      <span><i style="background:var(--loading)"></i>LOADING</span>
+      <span><i style="background:var(--active)"></i>ACTIVE</span>
+    </div>
+  </div>
+</div>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>捆绑体现为时序，不是「两个都在树上」那种弱判定。</b>hmr 开始 LOADING 的那一刻
+    （1.4311ms）晚于 timer 到 ACTIVE 的那一刻（1.2985ms）——加载顺序由服务就位驱动，
+    不由 patch 里的书写顺序驱动。
+    <span class="from">test_hmr_loading_waits_for_timer_active · events-timing.jsonl</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>只差一个 timer，从活着到退出码 1。</b>only-hmr 卡片和别的四张唯一的区别就是
+    没写 timer；日志判词点名 <code>waiting for service: timer</code>，进程当场收场，
+    不是「跑一会儿才垮」。
+    <span class="from">test_hmr_without_timer_wont_start</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_minimal_profile.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+卡片与时间线数据取自归档 <code>results/20260817-151026/</code>
+（<code>summary.md</code> · <code>census-alive.json</code> · <code>census-empty.json</code> ·
+<code>events-timing.jsonl</code> · 各 <code>profiles/*/package.json</code> ·
+<code>profiles/*/cordis.patch.yml</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+// ── 五个 profile 卡片（查询型：hover 预览 + 分步落定） ──────────────────────
+const PROFILES = [
+  {
+    id: 'minimal', bundles: 'dsh-base', chips: ['census'], outcome: 'ok',
+    outcomeText: '进程活着', test: 'test_profile_needs_only_two_files',
+    detail: `
+      <div class="row"><span class="k">需要文件</span><span class="v">
+        <code>package.json</code>（<code>bundles: ["@deepseek-ai/dsh-base"]</code>）+
+        <code>cordis.patch.yml</code>。<b>没手写 cordis.yml</b>。</span></div>
+      <div class="row"><span class="k">patch 内容</span><span class="v"><pre># 只挂普查员
+- insert:
+    - id: census
+      name: base-census</pre></span></div>
+      <div class="row"><span class="k">启动前后</span><span class="v">
+        启动前 cordis.yml 存在？<b>False</b>。启动后 <b>True</b>，内容自动补成：
+        <pre># dsh profile root — an empty entry list. …
+[]</pre></span></div>
+      <div class="row"><span class="k">结果</span><span class="v">
+        进程还活着？<b>True</b>（退出码 None）</span></div>`,
+  },
+  {
+    id: 'empty', bundles: '（空）', chips: ['timer', 'hmr', 'census'], outcome: 'ok',
+    outcomeText: '进程活着', test: 'test_empty_bundle_list_boots',
+    detail: `
+      <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
+      <div class="row"><span class="k">patch 内容</span><span class="v">
+        显式插入 timer + hmr（作为基础设施，不依赖框架 fallback）+ census。</span></div>
+      <div class="row"><span class="k">--dump-config</span><span class="v">
+        算出 <b>3 个条目</b>：timer / hmr / census。</span></div>
+      <div class="row"><span class="k">settle 快照</span><span class="v">
+        服务：<code>loader, timer, hmr</code>——都到位了。</span></div>
+      <div class="row"><span class="k">结果</span><span class="v">
+        进程还活着？<b>True</b></span></div>`,
+  },
+  {
+    id: 'only-hmr', bundles: '（空）', chips: ['hmr'], outcome: 'bad',
+    outcomeText: '启动失败，退出码 1', test: 'test_hmr_without_timer_wont_start',
+    detail: `
+      <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
+      <div class="row"><span class="k">patch 内容</span><span class="v">
+        只插入 hmr，<span class="bad-note">没有 timer</span>——hmr 包级声明
+        <code>services.required:["timer"]</code>。</span></div>
+      <div class="row"><span class="k">结果</span><span class="v">
+        进程还活着？<span class="bad-note">False</span>（退出码 1）</span></div>
+      <div class="row"><span class="k">日志判词</span><span class="v">
+        <pre>@deepseek-ai/cordis-plugin-hmr: pending (waiting for service: timer)</pre></span></div>`,
+  },
+  {
+    id: 'timing', bundles: '（空）', chips: ['timer', 'hmr', 'lab-recorder'], outcome: 'ok',
+    outcomeText: '进程活着，用来看时序', test: 'test_hmr_loading_waits_for_timer_active',
+    detail: `
+      <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
+      <div class="row"><span class="k">patch 内容</span><span class="v">
+        timer + hmr + <code>lab-recorder</code>——换成能记时序的采集器，不用普查员，
+        因为普查员只拍两张静态快照，看不出谁先谁后。</span></div>
+      <div class="row"><span class="k">时序读数</span><span class="v">
+        timer 变 ACTIVE：<b>1.2985ms</b>　hmr 才开始 LOADING：<b>1.4311ms</b>。
+        细节见下方时间线。</span></div>`,
+  },
+  {
+    id: 'alive', bundles: '（空）', chips: ['timer', 'hmr', 'census'], outcome: 'ok',
+    outcomeText: '看了 15 秒仍活着', test: 'test_who_keeps_process_alive',
+    detail: `
+      <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
+      <div class="row"><span class="k">patch 内容</span><span class="v">
+        timer + hmr + census（<code>delayMs: 1000</code>）。</span></div>
+      <div class="row"><span class="k">结果</span><span class="v">
+        看了 15 秒，进程还活着？<b>True</b>。settle 快照 服务：<code>loader, timer, hmr</code>。</span></div>
+      <div class="row"><span class="k">意味着</span><span class="v">
+        树上只有 <code>include + timer + hmr + census</code>——没有 web 服务、没有业务插件，
+        这就是保活的基线：这两个基础设施的句柄就够撑住进程。</span></div>`,
+  },
+];
+
+const cardsEl = document.getElementById('cards');
+PROFILES.forEach((p, i) => {
+  const el = document.createElement('div');
+  el.className = 'pcard';
+  el.dataset.idx = i;
+  el.innerHTML = `
+    <div class="nm">${p.id}</div>
+    <div class="bd">bundles: ${p.bundles}</div>
+    <div class="chips">${p.chips.map(c => `<span class="chip">${c}</span>`).join('')}</div>
+    <div class="outcome ${p.outcome}"><i></i>${p.outcomeText}</div>`;
+  cardsEl.appendChild(el);
+});
+const cardNodes = [...cardsEl.children];
+const detailEl = document.getElementById('detail');
+const pos1 = document.getElementById('pos1');
+const prev1 = document.getElementById('prev1'), next1 = document.getElementById('next1');
+
+function renderDetail(i){
+  const p = PROFILES[i];
+  detailEl.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
+}
+let cur1 = 0;
+function markSel(i){
+  cardNodes.forEach((n, k) => n.classList.toggle('sel', k === i));
+}
+function goto1(i){
+  cur1 = Math.max(0, Math.min(PROFILES.length - 1, i));
+  markSel(cur1);
+  renderDetail(cur1);
+  pos1.textContent = `${cur1 + 1} / ${PROFILES.length}`;
+  prev1.disabled = cur1 === 0;
+  next1.disabled = cur1 === PROFILES.length - 1;
+}
+cardNodes.forEach((n, i) => {
+  n.addEventListener('click', () => { activeStage = 1; goto1(i); });
+  // hover 只是临时预览，不移动分步指针；移开鼠标回到指针那一张
+  n.addEventListener('mouseenter', () => renderDetail(i));
+  n.addEventListener('mouseleave', () => renderDetail(cur1));
+});
+prev1.addEventListener('click', () => { activeStage = 1; goto1(cur1 - 1); });
+next1.addEventListener('click', () => { activeStage = 1; goto1(cur1 + 1); });
+
+// ── 时序舞台（过程型：分步，真实事件取自 events-timing.jsonl） ──────────────
+const te = document.getElementById('te'), he = document.getElementById('he');
+const arrowEl = document.getElementById('arrow'), arrowTxt = document.getElementById('arrow-txt');
+const cap2t = document.getElementById('cap2-t'), cap2d = document.getElementById('cap2-d');
+const pos2 = document.getElementById('pos2');
+const prev2 = document.getElementById('prev2'), next2 = document.getElementById('next2');
+
+function setTentry(el, state){
+  el.className = 'tentry ' + state;
+  el.querySelector('.st').textContent = state.toUpperCase();
+}
+const BEATS2 = [
+  {ms: 0.98, cap: 'timer PENDING → LOADING', fn: () => setTentry(te, 'loading')},
+  {ms: 1.30, cap: 'timer LOADING → ACTIVE —— 服务 timer 出现，此刻起 hmr 才被放行',
+    fn: () => { setTentry(te, 'active'); arrowEl.classList.add('open'); arrowTxt.textContent = '✓ 放行'; }},
+  {ms: 1.43, cap: '<b>hmr PENDING → LOADING —— 只比 timer ACTIVE 晚了 0.13ms</b>',
+    fn: () => setTentry(he, 'loading')},
+  {ms: 4.34, cap: 'hmr LOADING → ACTIVE —— 服务 hmr 出现，整棵树随后到 ACTIVE（include 4.56ms）',
+    fn: () => setTentry(he, 'active')},
+];
+let cur2 = 0;
+function resetVisuals2(){
+  setTentry(te, 'pending'); setTentry(he, 'pending');
+  arrowEl.classList.remove('open'); arrowTxt.textContent = '🔒 等 timer 到 ACTIVE';
+}
+function goto2(i){
+  cur2 = Math.max(0, Math.min(BEATS2.length - 1, i));
+  resetVisuals2();
+  for (let k = 0; k <= cur2; k++) BEATS2[k].fn();
+  const b = BEATS2[cur2];
+  cap2t.textContent = b.ms.toFixed(2) + 'ms';
+  cap2t.style.color = 'var(--dim)';
+  cap2d.innerHTML = b.cap;
+  pos2.textContent = `${cur2 + 1} / ${BEATS2.length}`;
+  prev2.disabled = cur2 === 0;
+  next2.disabled = cur2 === BEATS2.length - 1;
+}
+prev2.addEventListener('click', () => { activeStage = 2; goto2(cur2 - 1); });
+next2.addEventListener('click', () => { activeStage = 2; goto2(cur2 + 1); });
+
+// 两组分步各自独立，方向键作用于最近交互（或悬停）的那一组
+let activeStage = 1;
+document.getElementById('cards').addEventListener('mouseenter', () => activeStage = 1);
+document.querySelector('.stage').addEventListener('mouseenter', () => activeStage = 2);
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){
+    if (activeStage === 1) goto1(cur1 - 1); else goto2(cur2 - 1);
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowRight'){
+    if (activeStage === 1) goto1(cur1 + 1); else goto2(cur2 + 1);
+    e.preventDefault();
+  }
+});
+
+goto1(0);
+goto2(0);
+</script>
+</body>
+</html>

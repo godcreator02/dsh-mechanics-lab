@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>recorder-reach · 采集器自己看得见什么</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e; --miss:#ef4444; --say:#a855f7;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+/* ── 头 ── */
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
+
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+.usecase{font-size:12px;color:var(--dim);font-family:var(--mono);margin:10px 0 0}
+.usecase code{color:var(--fg)}
+
+/* ── 板块一：听见了谁（hover + 分步辅助）── */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 20px 16px}
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.stat{flex:1;min-width:110px;text-align:center;padding:10px 8px;border-radius:9px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.stat b{display:block;font-size:20px;font-family:var(--mono)}
+.stat span{font-size:11px;color:var(--dim)}
+
+.stepbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.step-btn{font:inherit;font-size:12px;padding:5px 12px;border-radius:99px;
+  border:1px solid var(--line);background:var(--bg);color:var(--dim);cursor:pointer;
+  font-family:var(--mono)}
+.step-btn.on{color:var(--fg);border-color:var(--fg)}
+
+.zones{display:grid;gap:12px}
+.zone{border:1px dashed var(--line);border-radius:10px;padding:12px 14px;
+  transition:opacity .3s}
+.zone.dim{opacity:.28}
+.zone-label{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:9px}
+.chip-grid{display:flex;gap:7px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:11.5px;padding:4px 10px;border-radius:99px;
+  border:1px solid var(--line);background:var(--bg);cursor:default;
+  transition:border-color .2s,transform .2s}
+.chip:hover{transform:translateY(-1px)}
+.chip.mine{border-color:color-mix(in srgb,var(--active) 45%,transparent);color:var(--active)}
+.chip.mine:hover{border-color:var(--active)}
+.chip.fw:hover{border-color:var(--loading);color:var(--loading)}
+.chip.more{color:var(--dim);border-style:dashed}
+
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:14px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--say)}
+
+.quote{margin-top:12px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:8px}
+.quote i{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.quote b{color:var(--fg);font-weight:600}
+.qstate{font-family:var(--mono);font-size:11px;margin-left:auto}
+
+/* ── 板块二：睁眼那一刻（分步时间线）── */
+.tl{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 14px}
+.seg-label{font-family:var(--mono);font-size:11px;color:var(--dim);
+  margin:0 0 8px;display:flex;justify-content:space-between}
+.track{position:relative;height:206px;margin:10px 0 4px}
+.lane{position:absolute;left:0;right:0;height:24px;border-radius:6px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent);z-index:1}
+.lane.a{top:30px} .lane.b{top:120px}
+.lane-tag{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  font-size:11px;color:var(--dim);font-family:var(--mono);pointer-events:none}
+.ev{position:absolute;transform:translateX(-50%);text-align:center;
+  opacity:.16;transition:opacity .3s;z-index:2;width:100px}
+.ev.on{opacity:1}
+.dot{width:11px;height:11px;border-radius:50%;margin:0 auto;
+  box-shadow:0 0 0 3.5px var(--card)}
+.ev .nm{font-size:11px;white-space:nowrap;margin-top:7px;font-weight:600}
+.ev .ms{font-family:var(--mono);font-size:10px;color:var(--dim);
+  margin-top:1px;white-space:nowrap}
+.ev.a{top:36.5px} .ev.b{top:126.5px}
+
+.marker{position:absolute;top:22px;bottom:14px;border-left:1px dashed var(--say);
+  z-index:1;opacity:0;transition:opacity .3s}
+.marker.on{opacity:1}
+.marker span{position:absolute;top:-16px;left:6px;font-size:10.5px;color:var(--say);
+  font-family:var(--mono);white-space:nowrap}
+
+/* 看不见的历史：只盖住 a 泳道左侧那一段 */
+.blind{position:absolute;top:26px;height:24px;left:0;border-radius:6px;z-index:1;
+  background:repeating-linear-gradient(135deg,
+    color-mix(in srgb,var(--fg) 8%,transparent) 0 6px,
+    transparent 6px 12px);
+  opacity:0;transition:opacity .35s}
+.blind.on{opacity:1}
+.blind b{position:absolute;top:-18px;left:0;font-size:10px;color:var(--dim);
+  font-family:var(--mono);white-space:nowrap;font-weight:600}
+
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:3px;vertical-align:middle}
+
+/* ── 读出来的两条 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);
+  flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);
+  font-family:var(--mono)}
+
+/* ── 表 ── */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:11.5px;color:var(--dim);font-weight:500;font-family:var(--mono)}
+td code{font-family:var(--mono);font-size:12px}
+.win{color:var(--active);font-weight:600} .lose{color:var(--miss)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">00-base / recorder-reach</div>
+<h1>采集器自己看得见什么</h1>
+<p class="sub">lab-recorder 是后面每一项实验的地基——先看清它自己的观测边界：
+听得多远，以及睁眼之前的世界它够不着。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>它听见了谁</h2>
+<p class="note">同一次真实运行：一台仪器 <code>lab-recorder</code> + 一个陪衬插件
+<code>neighbor</code>，跑在真实 DSH 实例里。数字来自这次归档。
+点下面的按钮切换视角，或把鼠标停在任意一个方块上。</p>
+
+<div class="panel">
+  <div class="stat-row">
+    <div class="stat"><b>431</b><span>事件总数</span></div>
+    <div class="stat"><b>81</b><span>涉及条目</span></div>
+    <div class="stat"><b>2</b><span>我们写的</span></div>
+    <div class="stat"><b>79</b><span>没写却被听见</span></div>
+  </div>
+
+  <div class="stepbar" id="stepbar">
+    <button class="step-btn on" data-step="0">全部一起看</button>
+    <button class="step-btn" data-step="1">我们写的 2 条</button>
+    <button class="step-btn" data-step="2">没写却被听见的 79 条</button>
+  </div>
+
+  <div class="zones">
+    <div class="zone" id="zoneMine">
+      <div class="zone-label">我们写进 patch 文件的</div>
+      <div class="chip-grid" id="chipsMine"></div>
+    </div>
+    <div class="zone" id="zoneFrame">
+      <div class="zone-label">没写却被听见的 79 条（框架自带，样本前 20 + 其余 59）</div>
+      <div class="chip-grid" id="chipsFrame"></div>
+    </div>
+  </div>
+
+  <div class="cap"><span class="d" id="hearcap-d"></span></div>
+
+  <div class="quote"><i style="background:var(--say)"></i>
+    陪衬插件说：<b>“我跑起来了”</b><span class="qstate">LOADING → ACTIVE</span></div>
+</div>
+<p class="usecase">用例 <code>test_it_hears_everyone_not_just_itself</code></p>
+
+<h2>睁眼那一刻</h2>
+<p class="note">毫秒数取自真实归档。<b>横轴按事件顺序等距摊开，不按时间比例</b>——
+六个事件全挤在头 8 毫秒里，按比例画会叠成一团。</p>
+
+<div class="tl">
+  <div class="seg-label"><span>它睁眼之前是黑的</span><span>它睁眼之后才有记录</span></div>
+  <div class="track" id="track2">
+    <div class="lane a"><span class="lane-tag">lab-recorder（自己）</span></div>
+    <div class="lane b"><span class="lane-tag">neighbor（陪衬，对照组）</span></div>
+    <div class="blind" id="blind"><b>它进 LOADING 那一跳，发生在这片黑暗里，没人看见</b></div>
+    <div class="marker" id="marker"><span>睁眼 · 0.34ms</span></div>
+  </div>
+  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
+  <div class="ctl">
+    <button id="prev2">← 上一步</button>
+    <span class="pos" id="pos2"></span>
+    <button id="next2">下一步 →</button>
+    <span class="hint">← → 键也行</span>
+    <div class="legend">
+      <span><i style="background:var(--pending)"></i>PENDING</span>
+      <span><i style="background:var(--loading)"></i>LOADING</span>
+      <span><i style="background:var(--active)"></i>ACTIVE</span>
+    </div>
+  </div>
+</div>
+
+<table>
+  <tr><th>快照那一刻的状态</th><th>数量</th><th>例子</th><th>事件流里剩下什么</th></tr>
+  <tr><td>已在半路上（LOADING）</td><td>2</td>
+      <td><code>include</code> · <code>lab-recorder</code>（自己）</td>
+      <td class="lose">只剩最后一跳 → ACTIVE，进 LOADING 那一跳没人看见</td></tr>
+  <tr><td>还没建起来</td><td>77</td>
+      <td><code>neighbor</code> 等</td>
+      <td class="win">整条链一跳不缺</td></tr>
+</table>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>它自己不是特权条目。</b>起点快照拍下它自己那一刻，它跟别的条目一样是
+    <code>LOADING</code>；这一跳之后它自己走到 <code>ACTIVE</code>，同样被自己记了下来。
+    <span class="from">events.jsonl · seq 80 快照 LOADING → seq 121 状态迁移 ACTIVE</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>丢掉的历史不是没发生，是没被看见。</b>它进 LOADING 的那一跳，和
+    <code>include</code> 一样，发生在它自己睁眼之前；陪衬插件从 <code>PENDING</code>
+    起整条链都在，形成对照。
+    <span class="from">events.jsonl · seq 1 include 快照 · seq 80/81 起点快照 · seq 122/203 neighbor 状态迁移</span>
+  </p></div>
+</div>
+<p class="usecase">用例 <code>test_it_is_an_ordinary_entry</code> ·
+<code>test_it_cannot_see_anything_before_it_opened_its_eyes</code></p>
+
+<h2>三条用例，一张表</h2>
+<table>
+  <tr><th>判定</th><th>证据</th><th>用例</th></tr>
+  <tr>
+    <td>它听得见别人，不止自己</td>
+    <td>431 事件 · 81 条目，79 条我们没写过</td>
+    <td><code>test_it_hears_everyone_not_just_itself</code></td>
+  </tr>
+  <tr>
+    <td>它自己也是普通条目，没有特权</td>
+    <td>快照时自己是 LOADING，随后自己记下自己 ACTIVE</td>
+    <td><code>test_it_is_an_ordinary_entry</code></td>
+  </tr>
+  <tr>
+    <td>睁眼之前的历史是丢的，不是没发生</td>
+    <td>已在半路上的 2 条只剩最后一跳；对照组 77 条整链不缺</td>
+    <td><code>test_it_cannot_see_anything_before_it_opened_its_eyes</code></td>
+  </tr>
+</table>
+
+<footer>
+判定与证据出处在 <code>test_recorder_reach.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与时间线取自归档 <code>results/20260817-151019/</code>
+（<code>summary.md</code> 三条用例的打印输出 · <code>events.jsonl</code> 里
+<code>lab-recorder</code> / <code>neighbor</code> / <code>include</code> 各自的
+snapshot 与 status 记录），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+// ══ 板块一：它听见了谁 ══════════════════════════════════════
+// 名字取自归档 results/20260817-151019/summary.md 里
+// test_it_hears_everyone_not_just_itself 打印的「样本（前20条）」，逐字照抄。
+const FRAMEWORK_SAMPLE_20 = [
+  'agent','agent-default-model','agent-instructions','agent-loop','approval',
+  'attachment-local','bash-sandbox','command-compact','command-feedback','command-goal',
+  'commands','compaction-basic','credentials','fs-observation-policy','fs-sandbox',
+  'goal','goal-round-driver','hmr','include','jobs',
+];
+
+const chipsMine = document.getElementById('chipsMine');
+const chipsFrame = document.getElementById('chipsFrame');
+const hearcapd = document.getElementById('hearcap-d');
+
+function makeChip(text, cls, note){
+  const s = document.createElement('span');
+  s.className = 'chip ' + cls;
+  s.textContent = text;
+  s.dataset.note = note;
+  s.addEventListener('mouseenter', () => { hearcapd.textContent = note; });
+  s.addEventListener('mouseleave', () => applyStep(curStep));
+  return s;
+}
+
+chipsMine.appendChild(makeChip('lab-recorder', 'mine', 'lab-recorder —— 仪器自己，patch 文件里写下的第一条'));
+chipsMine.appendChild(makeChip('neighbor', 'mine', 'neighbor —— 陪衬插件，patch 文件里写下的第二条，专门用来给仪器一个「别人」可看'));
+FRAMEWORK_SAMPLE_20.forEach(id => {
+  chipsFrame.appendChild(makeChip(id, 'fw', id + ' —— patch 文件里一个字都没写过，框架自带'));
+});
+chipsFrame.appendChild(makeChip('+59 更多', 'fw more', '样本之外还有 59 条，同样是框架自带、同样没人写过'));
+
+const STEPS = [
+  { focus: null, cap: '431 条事件、81 个条目——这些数字都来自同一次真实运行的归档。' },
+  { focus: 'mine', cap: 'patch 文件里唯一写下的两条：仪器自己，和一个给它看的陪衬。' },
+  { focus: 'fw', cap: '剩下 79 条，从 agent 到 workflow-engine，没有一条是我们写的——都是 DSH 自带的框架条目。' },
+];
+let curStep = 0;
+const zoneMine = document.getElementById('zoneMine');
+const zoneFrame = document.getElementById('zoneFrame');
+const stepBtns = document.querySelectorAll('#stepbar .step-btn');
+
+function applyStep(i){
+  curStep = i;
+  stepBtns.forEach(b => b.classList.toggle('on', Number(b.dataset.step) === i));
+  zoneMine.classList.toggle('dim', STEPS[i].focus === 'fw');
+  zoneFrame.classList.toggle('dim', STEPS[i].focus === 'mine');
+  hearcapd.textContent = STEPS[i].cap;
+}
+stepBtns.forEach(b => b.addEventListener('click', () => applyStep(Number(b.dataset.step))));
+applyStep(0);
+
+// ══ 板块二：睁眼那一刻 ══════════════════════════════════════
+// 真实事件，ms 与 seq 取自归档 events.jsonl。lane: a=lab-recorder 自己 b=neighbor 陪衬
+const EV2 = [
+  { ms: 0.34, kind: 'marker', seq: 0,
+    cap: '（这不是它的第一个动作，是它睁眼的那一刻。）从这一行起，事件流才开始有记录。' },
+  { ms: 0.97, lane: 'a', nm: 'LOADING', c: '--loading', seq: 80,
+    cap: '起点快照按下快门：它自己也在这份名单里——此刻是 <b>LOADING</b>。它没有特权，跟树上其他条目受同样的规则约束。' },
+  { ms: 0.98, lane: 'b', nm: 'PENDING', c: '--pending', seq: 81,
+    cap: '陪衬插件这时也被拍进快照，此刻还是 <b>PENDING</b>——它的整条链会被完整记录。' },
+  { ms: 2.56, lane: 'a', nm: 'ACTIVE', c: '--active', seq: 121,
+    cap: '<b>这一跳，它是自己把自己记下来的：</b>LOADING → ACTIVE。' },
+  { ms: 2.62, lane: 'b', nm: 'LOADING', c: '--loading', seq: 122,
+    cap: '陪衬插件走出第一跳：PENDING → LOADING，从被造出来那一刻就没漏过。' },
+  { ms: 8.24, lane: 'b', nm: 'ACTIVE', c: '--active', seq: 203,
+    cap: '陪衬插件走完全程——<b>PENDING → LOADING → ACTIVE，一跳不缺</b>。这是对照组：它没有像 lab-recorder 自己那样，被截掉开头那一跳。' },
+];
+const track2 = document.getElementById('track2');
+const X0 = 8, X1 = 92;
+const step = (X1 - X0) / (EV2.length - 1);
+const pos2x = EV2.map((_, i) => X0 + step * i);
+
+const marker = document.getElementById('marker');
+marker.style.left = pos2x[0] + '%';
+
+const blind = document.getElementById('blind');
+blind.style.left = '0%';
+blind.style.width = pos2x[1] + '%';
+blind.querySelector('b').style.left = (pos2x[1] - 2) + '%';
+blind.querySelector('b').style.transform = 'translateX(-100%)';
+
+const nodes2 = [];
+EV2.forEach((e, i) => {
+  if (e.kind === 'marker') { nodes2.push(marker); return; }
+  const d = document.createElement('div');
+  d.className = 'ev ' + e.lane;
+  d.style.left = pos2x[i] + '%';
+  d.innerHTML = `<div class="dot" style="background:var(${e.c})"></div>`
+              + `<div class="nm" style="color:var(${e.c})">${e.nm}</div>`
+              + `<div class="ms">${e.ms.toFixed(2)}ms</div>`;
+  track2.appendChild(d);
+  nodes2.push(d);
+});
+
+const pos2 = document.getElementById('pos2');
+const cap2t = document.getElementById('cap2-t'), cap2d = document.getElementById('cap2-d');
+const prev2 = document.getElementById('prev2'), next2 = document.getElementById('next2');
+let cur2 = 0;
+
+function goto2(i){
+  cur2 = Math.max(0, Math.min(EV2.length - 1, i));
+  nodes2.forEach((n, k) => n.classList.toggle('on', k <= cur2));
+  blind.classList.toggle('on', cur2 >= 1);
+  const e = EV2[cur2];
+  pos2.textContent = `${cur2 + 1} / ${EV2.length}`;
+  cap2t.textContent = e.ms.toFixed(2) + 'ms';
+  cap2t.style.color = e.kind === 'marker' ? 'var(--say)' : `var(${e.c})`;
+  cap2d.innerHTML = e.cap;
+  prev2.disabled = cur2 === 0;
+  next2.disabled = cur2 === EV2.length - 1;
+}
+prev2.addEventListener('click', () => goto2(cur2 - 1));
+next2.addEventListener('click', () => goto2(cur2 + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ goto2(cur2 - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto2(cur2 + 1); e.preventDefault(); }
+});
+goto2(0);
+</script>
+</body>
+</html>

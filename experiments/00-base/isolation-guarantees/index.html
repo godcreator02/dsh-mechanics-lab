@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>isolation-guarantees · 实验台自己的隔离，缺口在哪</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --gap:#b45309; --gapbg:#fffbeb;
+  --m1:#8b5cf6; --m2:#0ea5e9; --m3:#e11d48; --m4:#d97706;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --gap:#fbbf24; --gapbg:#241c08;
+  --m1:#a78bfa; --m2:#38bdf8; --m3:#fb7185; --m4:#fbbf24;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --gap:#fbbf24; --gapbg:#241c08;
+  --m1:#a78bfa; --m2:#38bdf8; --m3:#fb7185; --m4:#fbbf24;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+/* ── 头 ── */
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.todo{color:var(--gap);border:1px dashed color-mix(in srgb,var(--gap) 55%,transparent);
+  font-weight:600}
+
+/* ── 顶部横幅：这页没有证据 ── */
+.banner{display:flex;gap:10px;align-items:flex-start;padding:13px 16px;
+  margin-bottom:22px;border:1px dashed color-mix(in srgb,var(--gap) 55%,transparent);
+  border-radius:10px;background:var(--gapbg);color:var(--gap);font-size:13px;
+  line-height:1.65}
+.banner b{font-weight:700}
+.banner code{font-family:var(--mono);font-size:12px;opacity:.9}
+
+/* ── 全内容区虚线框：跟已验项在视觉上分开 ── */
+.gapwrap{border:1.5px dashed var(--line);border-radius:14px;padding:6px 22px 20px}
+
+h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 机制卡片 ── */
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0 6px}
+@media (max-width:560px){.cards{grid-template-columns:1fr}}
+.card{position:relative;text-align:left;cursor:pointer;padding:12px 13px 11px;
+  border-radius:11px;border:1px solid var(--line);background:var(--card);
+  font:inherit;color:var(--fg);transition:opacity .25s,border-color .2s,transform .15s}
+.card:hover{transform:translateY(-1px)}
+.card .top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.card .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.card .nm{font-weight:600;font-size:13.5px}
+.card .one{font-size:12px;color:var(--dim);margin:0 0 8px;min-height:32px}
+.card .st{display:inline-block;font-size:10.5px;font-family:var(--mono);
+  color:var(--dim);border:1px dashed var(--line);border-radius:99px;padding:1.5px 8px}
+.card.sel{border-color:var(--accent);border-width:1.5px;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.card.dim{opacity:.4}
+
+/* ── 详情面板：联动高亮 ── */
+.detail{margin-top:14px;border-radius:12px;background:var(--card);
+  border:1px solid var(--line);border-left:4px solid var(--accent);
+  padding:16px 18px;transition:border-color .25s}
+.detail .hd{display:flex;align-items:baseline;gap:9px;margin-bottom:10px}
+.detail .hd .nm{font-weight:700;font-size:14.5px}
+.detail .hd .st{font-size:11px;font-family:var(--mono);color:var(--gap)}
+.drow{display:flex;gap:11px;padding:9px 0;border-top:1px solid var(--line)}
+.drow:first-of-type{border-top:none}
+.drow .k{flex:none;width:112px;font-size:11px;color:var(--dim);
+  font-family:var(--mono);padding-top:2px}
+.drow .v{font-size:13px;line-height:1.65}
+.drow .v code{font-family:var(--mono);font-size:12px;
+  background:color-mix(in srgb,var(--fg) 6%,transparent);
+  padding:1px 5px;border-radius:4px}
+
+/* ── 控件 ── */
+.ctl{display:flex;gap:8px;align-items:center;margin-top:13px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:120px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
+
+/* ── 三态小结 ── */
+.legend3{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 4px;
+  font-size:11.5px;color:var(--dim)}
+.legend3 span{display:inline-flex;align-items:center;gap:5px}
+.legend3 i{width:8px;height:8px;border-radius:50%;border:1.5px dashed var(--dim)}
+
+footer{margin-top:38px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">00-base / isolation-guarantees</div>
+<h1>实验台自己怎么隔离，缺口在哪</h1>
+<p class="sub">这一项验的不是 DSH 框架，是实验台自己站的地基——目前只有设计与源码依据。</p>
+<div class="tags">
+  <span class="tag">档次 ②</span>
+  <span class="tag todo">⬜ 0 条用例</span>
+  <span class="tag todo">未覆盖</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<div class="banner">
+  <span>⬜</span>
+  <span><b>这一页没有归档数据，下面画的是缺口，不是证据。</b>
+  四条隔离机制目前全靠设计与源码撑着，没有一条被用例验证过。
+  判定的唯一正本是 <code>test_isolation_guarantees.py</code> 的模块 docstring——它现在只有
+  docstring、没有用例函数。</span>
+</div>
+
+<div class="gapwrap">
+
+<h2>四条机制，点一条看谁实现、缺什么</h2>
+<p class="note">卡片是并发跑各组用例时依赖的四条隔离；点一条，下面联动出「谁实现」「没验证什么」
+「补上要造什么」。四条现状相近——都是<b>有源码机制，没有用例</b>，差别在缺口的形状。</p>
+
+<div class="cards" id="cards"></div>
+
+<div class="detail" id="detail"></div>
+
+<div class="ctl">
+  <button id="prev">← 上一条</button>
+  <span class="pos" id="pos"></span>
+  <button id="next">下一条 →</button>
+  <span class="hint">← → 键也行，也可以直接点卡片</span>
+</div>
+
+<div class="legend3">
+  <span><i></i>状态词只是这条缺口的形状，不是严重程度排名——四条都还没人验过</span>
+</div>
+
+</div>
+
+<footer>
+判定正本在 <code>test_isolation_guarantees.py</code> 的模块 docstring，此页只负责让你看懂缺口。<br>
+本项 0 用例，<code>results/</code> 为空，页面没有任何观测数字。
+四条机制的描述取自源码：<code>experiments/conftest.py</code>
+（<code>_label_of</code> / <code>_my_ports</code> / <code>pytest_configure</code> /
+<code>pytest_unconfigure</code> / <code>_archive</code>）、
+<code>experiments/lab/core.py</code>（<code>TESTHOME_ROOT</code> / <code>LAB_PORT_RANGE</code> /
+<code>LabHome.clean</code>）、<code>experiments/lab/instance.py</code>
+（<code>acquire_lock</code> / <code>release_lock</code>），会话锁的历史事故写在
+<code>conftest.py</code> 模块 docstring 里。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+const M = [
+  {
+    key:'home', accent:'--m1', nm:'假 home 按项分',
+    one:'每个实验一个独立目录，物理隔离，不靠纪律。',
+    st:'机制 ＋ 人工纪律并存',
+    impl:'<code>conftest.py · _label_of()</code> —— 用测试文件所在目录名当标签；'
+        +'<code>lab/core.py · LabHome.clean()</code> —— 删除前护栏判「是否 '
+        +'<code>TESTHOME_ROOT</code> 真子目录」。',
+    unproven:'两个项算出同一个标签时是否真的会互相踩踏。唯一性目前只靠「目录名'
+        +'全局唯一」这条人工约定加文件系统天然保证，没有用例故意造重名场景断言后果。',
+    need:'故意让两个 fixture 算出同一个标签，断言要么被拒绝、要么两边的 profile '
+        +'互不覆盖——需要一个能伪造 <code>request.path.parent.name</code> 冲突的 fixture。',
+  },
+  {
+    key:'port', accent:'--m2', nm:'端口按 worker 静态分段',
+    one:'把 3090–3099 按 xdist worker 数切段，各扫各的。',
+    st:'机制成立，没压边界',
+    impl:'<code>conftest.py · _my_ports()</code> —— 按 <code>workerid</code> 切'
+        +'<code>LAB_PORT_RANGE</code>；<code>lab/core.py · LAB_PORT_RANGE = range(3090, 3100)</code>。',
+    unproven:'「检查空闲到真正起进程」之间那个窗口，在高并发下是否真的不会让两个 '
+        +'worker 拿到同一端口——目前只在设计评审里被排除，没有构造高并发场景实测过。',
+    need:'把 worker 数推到端口段上限（10），并发起实例压边界，断言全程没有端口冲突错误。',
+  },
+  {
+    key:'lock', accent:'--m3', nm:'会话锁只挡会话级',
+    one:'整个 session 只在主进程拿一次锁，worker 之间不需要锁。',
+    st:'机制存在，曾经没管住',
+    impl:'<code>conftest.py · pytest_configure()</code> / <code>pytest_unconfigure()</code>；'
+        +'<code>lab/instance.py · acquire_lock()</code> / <code>release_lock()</code>。',
+    unproven:'两个真实会话同时起跑时，后来者是否真的排队而不是互踩 patch 文件——'
+        +'conftest.py 自己的 docstring 记着 v1 时的真实事故（两会话并发覆盖对方 patch 文件，'
+        +'靠人眼发现），但事故本身没留下回归用例。',
+    need:'起两个真实 pytest 会话进程，卡在锁的争抢窗口上，断言后来者阻塞、而不是并发写'
+        +'同一份 patch 文件。',
+  },
+  {
+    key:'archive', accent:'--m4', nm:'产物归档不误伤失败现场',
+    one:'成败都归档，归档失败也不能盖掉用例本身的结果。',
+    st:'机制存在，兜底没验',
+    impl:'<code>conftest.py · _archive()</code> —— 在 <code>lab_home</code> fixture 的 '
+        +'<code>finally</code> 块里跑，外层 <code>except Exception</code> 兜底并打印警告。',
+    unproven:'归档过程本身抛异常时，用例原本的失败结果是否仍被如实报告，而不是被兜底'
+        +'悄悄吞掉——代码里有兜底，但没有用例故意让归档失败去验证这条兜底真的不会让'
+        +'失败变绿。',
+    need:'把归档要用的复制动作换成必定抛错的假实现，断言 pytest 的用例结果仍然是失败，'
+        +'只是多打一行归档警告。',
+  },
+];
+
+const cardsEl = document.getElementById('cards');
+const detailEl = document.getElementById('detail');
+const posEl = document.getElementById('pos');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+const cardNodes = [];
+
+M.forEach((m, i) => {
+  const b = document.createElement('button');
+  b.className = 'card';
+  b.style.setProperty('--accent', `var(${m.accent})`);
+  b.innerHTML = `<div class="top"><span class="dot" style="background:var(${m.accent})"></span>`
+              + `<span class="nm">${m.nm}</span></div>`
+              + `<p class="one">${m.one}</p>`
+              + `<span class="st">${m.st}</span>`;
+  b.addEventListener('click', () => goto(i));
+  cardsEl.appendChild(b);
+  cardNodes.push(b);
+});
+
+let cur = 0;
+
+function goto(i){
+  cur = Math.max(0, Math.min(M.length - 1, i));
+  const m = M[cur];
+  cardNodes.forEach((n, k) => {
+    n.classList.toggle('sel', k === cur);
+    n.classList.toggle('dim', k !== cur);
+  });
+  detailEl.style.setProperty('--accent', `var(${m.accent})`);
+  detailEl.innerHTML = `
+    <div class="hd"><span class="nm">${m.nm}</span><span class="st">${m.st}</span></div>
+    <div class="drow"><span class="k">谁实现</span><span class="v">${m.impl}</span></div>
+    <div class="drow"><span class="k">没验证什么</span><span class="v">${m.unproven}</span></div>
+    <div class="drow"><span class="k">补上要造什么</span><span class="v">${m.need}</span></div>
+  `;
+  posEl.textContent = `${cur + 1} / ${M.length} · ${m.nm}`;
+  prevBtn.disabled = cur === 0;
+  nextBtn.disabled = cur === M.length - 1;
+}
+prevBtn.addEventListener('click', () => goto(cur - 1));
+nextBtn.addEventListener('click', () => goto(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ goto(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
+});
+goto(0);
+</script>
+</body>
+</html>
