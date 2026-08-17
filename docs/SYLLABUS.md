@@ -154,6 +154,34 @@ cordis 的运行时内核。写插件的人用它的产物，造框架件的人�
 | `loader-self-deadlock` | ③ | ⬜ |
 | `externals-exit` | ③ | ⬜ |
 
+## 10 preset · agent 平面的组合
+
+profile 装配出进程唯一那棵树，agent preset 是长在树上的枝：同一进程里多根并存，
+一个会话选一根。跟前面九组的分界很清楚——**前九组问「这棵树怎么来的」，本组问
+「这个会话看见树的哪一部分、外加什么」**。
+
+官方 `docs/` 没有对应篇目，主要出处是四个 shipped preset 自己的注释与
+`dsh-agent-presets` 的源码；而那四份注释**互相矛盾**，`standing-mount` 与
+`isolate-realm` 就是同一场矛盾的两个侧面。
+
+| 项 | 档 | 状态 |
+|---|---|---|
+| `preset-discovery` | ① | ✅ |
+| `composition-shape` | ① | ✅ |
+| `module-resolution` | ① | ✅ |
+| `preset-vs-host-plane` | ① | ⬜ |
+| `install-to-preset` | ① | ⬜ |
+| `standing-mount` | ② | ⬜ |
+| `mount-guards` | ② | ⬜ |
+| `isolate-realm` | ③ | ⬜ |
+| `write-back` | ③ | ⬜ |
+
+两个 ⬜ 的一档项卡在同一处：**缺一个能读到「某个 agent 看见哪些工具」的观测面**。
+思路记在 `preset-vs-host-plane` 的 docstring 里。
+
+已覆盖那三项都用 `standingKeyFor()` 触发真 mount 来观测，绕开了建会话——
+它的契约就是「组合插件但不起 agent」。
+
 ---
 
 ## 一档往前排的代价

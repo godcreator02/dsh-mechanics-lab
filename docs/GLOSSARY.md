@@ -358,13 +358,24 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 | 2 | profile 活层 | `profiles/<名>/cordis.patch.yml` | ✅ 热 |
 | 3 | **home 级层** | `$DSH_HOME/cordis.patch.yml` | ✅ 热 |
 | 4 | overlay | `--patch <路径>`，按 argv 顺序 | ✅ 冷 |
-| 5 | 内置 overlay | agent-presets 根、telemetry 开关 | ⚠️ 待验 · 冷 |
+| 5 | 内置 overlay | agent-presets 根、telemetry 开关 | ✅ 冷 · **只在 boot 存在** |
 
-⚠️ **第 5 层只有源码依据，没有用例。** 它是框架自己追加的两条补丁，**追加在 argv
-overlay 之后，所以优先级压过全部四层**：`agent-presets` 只在树里已有该 id 时才强改
-它的 `roots`；telemetry 只在已有 `session-telemetry-otel` 条目且 `DSH_TELEMETRY_DISABLED`
-非空时追加 `disabled: true`——**任意非空值都算禁用，包括字符串 `'0'`**。
-源码在 `dsh/lib/profile-boot-*.js` 的 `composeProfile()` 与 `allPatches()`。
+第 5 层是框架自己追加的两条补丁，**追加在 argv overlay 之后，所以优先级压过全部
+四层**：`agent-presets` 只在树里已有该 id 时才动它，动法是把整个 `roots` 键**整份
+替换**成只含随发行版交付那一个根的数组——四层里配的 `roots` 全部作废，
+只有 `includeUserRoot` 因为在 `...config` 展开里而活下来；telemetry 只在已有
+`session-telemetry-otel` 条目且 `DSH_TELEMETRY_DISABLED` 非空时追加
+`disabled: true`——**任意非空值都算禁用，包括字符串 `'0'`**。
+源码在 `dsh/lib/profile-boot-*.js` 的 `composeProfile()`。
+
+🔴 **这一层只存在于 boot，`--dump-config` 里没有它。** 两个入口各拼各的：
+`runDumpConfig()` 自己按前四层拼完就交给 `renderConfigDump()`，全程不碰
+`composeProfile()`，而那条内置 overlay 是 `composeProfile()` 追加的——
+后者**只有 boot 路径 `runProfile()` 调**。由此得出一条硬纪律：
+**凡涉及 `agent-presets.roots` 或 telemetry 开关的判定，`--dump-config` 不能作为
+证据**，而那两条恰好是这一层的全部内容。✅ 实测见 `10-preset/preset-discovery`
+（agent-presets 那半；telemetry 那半仍只有源码依据）。
+
 ⚠️ 官方 `zh/user/develop/basic/publish.md:112-119` 只讲了前四层，那是简化。
 
 ⚠️ ✅ **第 3 层很多文档都漏了**，但它真实存在，**优先级压过 profile 自己的活层**，
