@@ -5,6 +5,8 @@
 - **页面自身**：不引外部资源、双主题齐全、引用的 `test_xxx` 真实存在、
   不自动播放、骨架只来自 `lab.css` / `lab.js`、footer 标的归档目录真实存在
 - **内联原文**：`data-src` 块与磁盘文件逐字相等
+- **样式没漂**（扫全仓时才查）：页内不重写 `lab.css` 已有的规则，也不让同一条
+  规则在多页各写一份
 
 查不到的仍要人看：数字有没有出处、版面有没有挤坏、术语有没有在定义前先用。
 
@@ -35,6 +37,70 @@ TURN = re.compile(r"但是|其实|反直觉|然而|可是|意外的是")
 # 空格、零宽与方向控制字符、BOM。行尾符差异是排版，这些是内容——逐个数出现次数。
 # 写成转义形式，不写字符本身：源码里放不可见字符，下一个人连改都改不动。
 INVISIBLE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\xa0\u200b-\u200f\u202a-\u202e\ufeff]")
+
+
+SHARED_AT = 3  # 同一条规则在这么多页出现过，就该住进 lab.css
+# 页面在 :root 里加本页图用色是扩展、不是重写，这几个选择器不算重复
+PALETTE = {":root", ":root[data-theme=dark]", "@media (prefers-color-scheme:dark)"}
+
+
+def css_rules(css: str) -> dict[str, str]:
+    """顶层规则：选择器 → 归一化后的声明块。@media 整块算一条，键是它的前导。"""
+    out: dict[str, str] = {}
+    i, n = 0, len(css)
+    while i < n:
+        b = css.find("{", i)
+        if b < 0:
+            break
+        sel = css[i:b].strip()
+        depth, j = 1, b + 1
+        while j < n and depth:
+            depth += (css[j] == "{") - (css[j] == "}")
+            j += 1
+        if sel and not sel.startswith("/*"):
+            out[re.sub(r"\s+", " ", sel)] = re.sub(r"\s+", "", css[b + 1 : j - 1])
+        i = j
+    return out
+
+
+def page_style(full: str) -> dict[str, str]:
+    blocks = re.findall(r"(?s)<style[^>]*>(.*?)</style>", full)
+    return css_rules(re.sub(r"/\*.*?\*/", "", "\n".join(blocks), flags=re.S))
+
+
+def check_drift(pages: list[Path]) -> list[str]:
+    """样式有没有从 lab.css 漂回页内。只在扫全仓时查——它要跨页视野。
+
+    两条都不列类名清单：lab.css 自己就是那份权威，一条规则在不在里面、内容一不
+    一样，直接比就知道。手抄一份清单必然跟着 lab.css 漂。
+    """
+    lab = css_rules(re.sub(r"/\*.*?\*/", "", (EXP / "lab.css").read_text(encoding="utf-8"), flags=re.S))
+    seen: dict[str, list[str]] = {}
+    bad: list[str] = []
+
+    for page in pages:
+        full = page.read_bytes().decode("utf-8")
+        if "lab.css" not in full:
+            continue  # 旧规格页自带整套样式，不在这条检查的射程内
+        rel = f"{page.parent.parent.name}/{page.parent.name}"
+        for sel, body in page_style(full).items():
+            if sel in PALETTE:
+                continue
+            if sel in lab:
+                # 选择器在 lab.css 里有，页内这条就是「只写不同的那半句」。
+                # 逐字相同才是冗余；几页恰好覆盖成同一个值不算重复——lab.css 已经
+                # 有默认值了，把哪个覆盖值收上去，都会让另一批页变成新的差异。
+                if lab[sel] == body:
+                    bad.append(f"{rel}：`{sel}` 跟 lab.css 逐字相同，删掉页内这条")
+                continue
+            seen.setdefault(f"{sel}{{{body}}}", []).append(rel)
+
+    for rule, where in seen.items():
+        if len(where) >= SHARED_AT:
+            sel = rule.split("{", 1)[0]
+            bad.append(f"`{sel}` 在 {len(where)} 页各写了一份，该收进 lab.css：{', '.join(where)}")
+
+    return bad
 
 
 def check_page(page: Path, full: str) -> list[str]:
@@ -225,8 +291,15 @@ def main() -> int:
             print(f"ok    {rel}  （内联核过 {ok} 份）")
         for n in look(full):
             print(f"      ? {n}")
-    print(f"\n{len(pages)} 页，{fail} 页有问题（`?` 是提示，不计失败）")
-    return 1 if fail else 0
+
+    drift = check_drift(pages) if not args else []
+    if drift:
+        print("\n样式漂了：")
+        for d in drift:
+            print(f"  - {d}")
+
+    print(f"\n{len(pages)} 页，{fail} 页有问题，{len(drift)} 条样式漂移（`?` 是提示，不计失败）")
+    return 1 if fail or drift else 0
 
 
 if __name__ == "__main__":
