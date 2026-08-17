@@ -42,9 +42,10 @@
 - **`AgentPreset` 实测带六个字段**：`id` / `name` / `description` / `order` /
   `path` / `trust`。`path` 是 `agent.cordis.yml` 的绝对路径。`order` 来自
   `preset.yml`，没写就整个键缺席（自建 preset 那行只有五个键）。
-  ⚠️ 官方 `dsh-client-ui-agent-preset` 的 README 提到名单行携带 `broken` 与
-  `hasDocument`——这两个字段**不在服务返回的行上**，应当是 `agentPreset.list`
-  这个 RPC 加工出来的。`broken` 归 `composition-shape` 项验。
+  行**坏掉时会多带一个 `broken`**（本项四个样本都是好的，所以这里看不到它）——
+  同组 `composition-shape` 项坐实了那个字段就长在服务返回的行上。官方
+  `dsh-client-ui-agent-preset` 的 README 还提到名单行携带 `hasDocument`，
+  那个字段两项都没见到，应当是 `agentPreset.list` 这个 RPC 加工出来的。
 
 ## 观测方法
 
