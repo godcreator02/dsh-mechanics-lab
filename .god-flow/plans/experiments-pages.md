@@ -4,19 +4,19 @@
 
 **先把 ① 档「天天碰」的页全部画完，②③ 档与未覆盖页一律推后。**
 
-① 档 23 项，12 项已有页，**11 项待画**：
+① 档 23 项。11 项新页已画完（`02-recipe` 的 `insert-semantics` / `override-semantics`，
+`03-supply` 的 `four-ways` / `self-registration` / `pinned-worktree`，`04-replay` 的
+`replay-mechanism` / `cold-surfaces`，`05-reload` 的 `ignore-rules` / `reload-unit` /
+`new-code-old-config`，`06-inject` 的 `inject-hard-dependency`），全部有用例，
+未覆盖页形态一次都没用上。
 
-| 组 | 待画 | 用例数 |
-|---|---|---|
-| `02-recipe` | `insert-semantics` / `override-semantics` | 3 / 6 |
-| `03-supply` | `four-ways` / `self-registration` / `pinned-worktree` | 2 / 2 / 3 |
-| `04-replay` | `replay-mechanism` / `cold-surfaces` | 2 / 3 |
-| `05-reload` | `ignore-rules` / `reload-unit` / `new-code-old-config` | 5 / 2 / 1 |
-| `06-inject` | `inject-hard-dependency` | 3 |
+剩下 12 项此前有页，其中 3 项是旧规格、缺原理层，正在翻新：`02-recipe/layer-stack`、
+`05-reload/watch-root`、`06-inject/activation-order`。
 
-十一项全部有用例，**这一轮不碰未覆盖页形态**。
-
-分两批：一批 `02`×2 ＋ `04`×2 ＋ `06`×1，二批 `03`×3 ＋ `05`×3。验完一批再派下一批。
+⚠️ **`h2` 数量少不等于缺层。** `baseline-profile` 的第一层完整写在 `h1` 与第一个
+`h2` 之间、不戴标题帽子；`framework-fallback` / `apply-runs` / `config-delivery` /
+`inject-field` 的判定卡不另立 `h2`。这几页四层都齐。真正缺层的是 `h2` 只有 1–2 个
+那几张——门禁的 `?` 提示用来挑出该人读的页，不是判据。
 
 ## 全局账目
 
