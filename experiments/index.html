@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DSH 插件系统 · 实验台</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --ok:#22c55e; --part:#f59e0b; --none:#94a3b8;
+  --t1:#3b82f6; --t2:#a855f7; --t3:#ef4444;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:940px;margin:0 auto;padding:40px 20px 80px}
+
+h1{font-size:26px;margin:0 0 .25em;letter-spacing:-.015em}
+.sub{color:var(--dim);margin:0 0 28px;font-size:14px}
+
+/* ── 总览条 ── */
+.stat{display:flex;gap:26px;flex-wrap:wrap;align-items:baseline;
+  padding:16px 18px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;margin-bottom:10px}
+.stat b{font-size:23px;font-weight:600;font-family:var(--mono);letter-spacing:-.02em}
+.stat span{font-size:12px;color:var(--dim);margin-left:5px}
+.bar{display:flex;height:7px;border-radius:99px;overflow:hidden;margin-bottom:30px}
+.bar i{display:block}
+
+/* ── 筛选 ── */
+.filter{display:flex;gap:7px;margin-bottom:22px;flex-wrap:wrap}
+.filter button{font:inherit;font-size:12.5px;padding:4px 13px;border-radius:99px;
+  border:1px solid var(--line);background:var(--card);color:var(--dim);cursor:pointer}
+.filter button:hover{border-color:var(--dim)}
+.filter button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+/* ── 组 ── */
+.grp{margin-bottom:30px}
+.ghead{display:flex;align-items:baseline;gap:10px;margin-bottom:3px}
+.gno{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.gname{font-size:16px;font-weight:600}
+.gbar{display:flex;height:4px;border-radius:99px;overflow:hidden;
+  width:76px;margin-left:auto;align-self:center}
+.gbar i{display:block}
+.gdesc{color:var(--dim);font-size:12.5px;margin:0 0 11px}
+
+.items{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:10px;overflow:hidden}
+.it{display:flex;align-items:center;gap:11px;padding:9px 13px;background:var(--card);
+  text-decoration:none;color:inherit}
+a.it:hover{background:color-mix(in srgb,var(--t1) 7%,var(--card))}
+.it .nm{font-family:var(--mono);font-size:12.5px;flex:none;min-width:172px}
+.it .ds{color:var(--dim);font-size:12.5px;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.tier{font-family:var(--mono);font-size:10.5px;flex:none;width:13px;text-align:center}
+.pg{font-size:10px;flex:none;opacity:.5}
+.it.no{opacity:.62}
+
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--dim);line-height:2}
+footer code{font-family:var(--mono);font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>DSH 插件系统 · 实验台</h1>
+<p class="sub">每条判定都配一个能复跑的实验。判定写在各项 <code>test_*.py</code> 的模块 docstring 里，此处只做索引。</p>
+
+<div class="stat">
+  <div><b>10</b><span>组</span></div>
+  <div><b>58</b><span>项</span></div>
+  <div><b>141</b><span>条用例</span></div>
+  <div><b style="color:var(--ok)">40</b><span>已验</span></div>
+  <div><b style="color:var(--part)">4</b><span>部分</span></div>
+  <div><b style="color:var(--none)">14</b><span>未覆盖</span></div>
+</div>
+<div class="bar">
+  <i style="background:var(--ok);width:69%"></i>
+  <i style="background:var(--part);width:6.9%"></i>
+  <i style="background:var(--none);width:24.1%"></i>
+</div>
+
+<div class="filter">
+  <button data-f="all" class="on">全部</button>
+  <button data-f="1">① 天天碰</button>
+  <button data-f="2">② 要懂才用得好</button>
+  <button data-f="3">③ 深水区</button>
+  <button data-f="none">⬜ 还没验的</button>
+</div>
+
+<div id="groups"></div>
+
+<footer>
+组 = 机制的归属面，编号只提供稳定排序，不表示依赖。<br>
+档 = 什么时候做它，标在项上不标在组上——所以一个组里会同时有 ① 和 ③。<br>
+覆盖清单另有一份文字版：<code>docs/SYLLABUS.md</code>。术语见 <code>docs/GLOSSARY.md</code>。
+</footer>
+
+</div>
+
+<script>
+const G = [
+ ["00","base","底座：被观测的最小环境是什么形状，观测它的仪器能信到什么程度",[
+  ["recorder-reach","采集器自己是什么、能看见什么",1,"ok",3],
+  ["minimal-profile","一个实例最少需要什么",1,"ok",5],
+  ["framework-fallback","兜底补 timer/hmr：判服务不判条目，而且关不掉",1,"part",1],
+  ["baseline-profile","基线 profile 的形状与它保证了什么",1,"ok",1],
+  ["isolation-guarantees","实验台自己的隔离靠机制，不靠纪律",2,"none",0]]],
+ ["01","entry","条目：你写在 patch 里的那一行，各个字段管什么",[
+  ["field-vocabulary","条目能写哪些字段",1,"ok",3],
+  ["config-delivery","config 原样送达 apply",1,"ok",4],
+  ["disabled","不挂载，不是删除",1,"ok",6],
+  ["name-resolution","name 怎么变成一个真的模块",1,"ok",11],
+  ["apply-runs","怎么从外部证明 apply 真的执行了",1,"ok",2],
+  ["inject-field","条目级 inject 与代码级声明的关系",2,"ok",1]]],
+ ["02","recipe","配方：几层 patch 怎么叠成一份生效配置",[
+  ["layer-stack","四层 patch 怎么叠出生效配置",1,"ok",8],
+  ["insert-semantics","- insert: 是新增条目的唯一姿势",1,"ok",3],
+  ["override-semantics","裸 - id: 覆盖是整键赋值，不是深度合并",1,"ok",6],
+  ["cross-layer-targeting","后面的 patch 能改前面刚插进来的行",2,"ok",1],
+  ["dump-fidelity","静态算出来的配方与运行时挂载是同一套逻辑",2,"part",0]]],
+ ["03","supply","供给：插件从哪来，怎么送到 profile 里",[
+  ["four-ways","同一个插件，四种挂法挂出来的条目有没有区别",1,"ok",3],
+  ["self-registration","包自注册要两样齐备",1,"ok",2],
+  ["pinned-worktree","依赖指向钉住的 git 工作副本，换 tag 即换版本",1,"ok",3],
+  ["supply-x-activation","供给 / 激活 / 版本钉法，三条正交轴",2,"ok",3],
+  ["install-command","官方安装命令改写了 profile 的什么",2,"part",1],
+  ["client-side","带浏览器端的包怎么被认出来",3,"none",0]]],
+ ["04","replay","配方热重放：活层一改，树上发生了什么",[
+  ["replay-mechanism","配方热重放改的是哪一个条目",1,"ok",2],
+  ["cold-surfaces","哪些面够不着热重放这条路",1,"ok",3],
+  ["replay-granularity","条目级 diff 到底 diff 在哪一层",2,"none",0]]],
+ ["05","reload","代码热重载：改代码之后，谁被重新加载了",[
+  ["watch-root","hmr 主 watcher 的 root 语义",1,"ok",9],
+  ["ignore-rules","ignored 名单与 realpath 不对等",1,"ok",5],
+  ["reload-unit","重载的单位是插件入口",1,"ok",2],
+  ["new-code-old-config","代码路径与配置路径互不相通",1,"ok",1],
+  ["reload-debounce","一次 checkout 只重新加载一次",2,"ok",1],
+  ["reload-while-busy","重载撞上一件正干着的活儿",2,"ok",3],
+  ["cold-reads","插件 apply 期主动读的文件是冷的",2,"none",0],
+  ["client-swap","浏览器端产物变了之后的热换链路",3,"none",0],
+  ["hmr-self","hmr 自己也住在自己触发的重放射程里",3,"none",0]]],
+ ["06","inject","用别人的服务：写插件天天写的那一半",[
+  ["inject-hard-dependency","inject 是硬依赖，不是软等待",1,"ok",3],
+  ["activation-order","书写顺序不决定加载顺序",1,"ok",2],
+  ["dependency-chain","依赖怎么在链上传递",2,"ok",2],
+  ["teardown-chain","服务消失时依赖方的下场",2,"none",0]]],
+ ["07","tree","运行时的树：配方算出来之后，进程里长成什么样",[
+  ["recipe-vs-tree","配方 ≠ 运行时的树",2,"ok",1],
+  ["hierarchy","归属由 config 的嵌套结构决定",2,"ok",1],
+  ["disabled-propagation","禁用沿父链向下传播，group 自己免疫",2,"ok",2],
+  ["entries-order","entries() 的列表顺序不能当树用",2,"none",0]]],
+ ["08","service-core","自己造服务与副作用：cordis 的运行时内核",[
+  ["provide","第一次站到另一侧：自己提供一个服务",3,"ok",2],
+  ["one-owner","一个名字一个主人",3,"ok",3],
+  ["registry","想让多个实现并存，那就别让它们争名字",3,"ok",3],
+  ["availability-contract","使用方能不能跑起来，谁说了算",3,"ok",3],
+  ["isolate","隔离组各自持有同名服务的不同实例",3,"part",1],
+  ["leak-on-reload","清理写漏，重载之后两份并存",3,"ok",1],
+  ["module-state-reset","重载是卸载 + 重装，不是换掉一个函数",3,"ok",1],
+  ["effect-vs-raw","包不包 ctx.effect，卸载之后的差别",3,"none",0],
+  ["disposer-order","处置器逆序调用，但异步的并发跑、不保证跑完",3,"none",0],
+  ["effect-inventory","直接读 fiber 上的 effect 清单",3,"none",0]]],
+ ["09","boot-vs-runtime","同一件事，两个时机两种下场——「致不致命」先问「什么时候」",[
+  ["boot-audit","boot 末尾的普查",3,"ok",3],
+  ["boot-failure-shapes","启动失败的形态学",3,"ok",8],
+  ["duplicate-id-timing","同一个 id 撞三种撞法，两个时机两种下场",3,"ok",4],
+  ["pending-timing","等不到的依赖，boot 期与运行期的两种待法",3,"none",0],
+  ["loader-self-deadlock","依赖 loader 服务，等成死结",3,"none",0],
+  ["externals-exit","入口依赖树一变，整个进程退出",3,"none",0]]],
+];
+
+// 已经有页面的项（其余先只列不链）
+const HAS_PAGE = new Set(["watch-root"]);
+const COLOR = {ok:"var(--ok)", part:"var(--part)", none:"var(--none)"};
+const TIERC = {1:"var(--t1)", 2:"var(--t2)", 3:"var(--t3)"};
+
+const box = document.getElementById("groups");
+G.forEach(([no, name, desc, items]) => {
+  const g = document.createElement("section");
+  g.className = "grp";
+  const cnt = {ok:0, part:0, none:0};
+  items.forEach(it => cnt[it[3]]++);
+  const seg = s => cnt[s] ? `<i style="background:${COLOR[s]};flex:${cnt[s]}"></i>` : "";
+
+  g.innerHTML =
+    `<div class="ghead"><span class="gno">${no}</span>`
+    + `<span class="gname">${name}</span>`
+    + `<span class="gbar">${seg("ok")}${seg("part")}${seg("none")}</span></div>`
+    + `<p class="gdesc">${desc}</p>`
+    + `<div class="items">` + items.map(([nm, ds, tier, st, n]) => {
+        const dir = `${no}-${name}/${nm}/`;
+        const link = HAS_PAGE.has(nm);
+        const tag = link ? "a" : "div";
+        const href = link ? ` href="${dir}index.html"` : "";
+        return `<${tag} class="it${link ? "" : " no"}"${href} data-t="${tier}" data-s="${st}">`
+          + `<span class="dot" style="background:${COLOR[st]}"></span>`
+          + `<span class="tier" style="color:${TIERC[tier]}">${"①②③"[tier-1]}</span>`
+          + `<span class="nm">${nm}</span>`
+          + `<span class="ds">${ds}</span>`
+          + `<span class="n">${n || "—"}</span>`
+          + `<span class="pg">${link ? "▸" : ""}</span>`
+          + `</${tag}>`;
+      }).join("") + `</div>`;
+  box.appendChild(g);
+});
+
+document.querySelectorAll(".filter button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".filter button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    const f = b.dataset.f;
+    document.querySelectorAll(".it").forEach(it => {
+      const hit = f === "all" || (f === "none" ? it.dataset.s === "none" : it.dataset.t === f);
+      it.style.display = hit ? "" : "none";
+    });
+    document.querySelectorAll(".grp").forEach(g => {
+      const any = [...g.querySelectorAll(".it")].some(i => i.style.display !== "none");
+      g.style.display = any ? "" : "none";
+    });
+  });
+});
+</script>
+</body>
+</html>

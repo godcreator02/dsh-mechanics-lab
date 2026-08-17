@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>watch-root · 热重载的时序</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e;
+  --unloading:#f59e0b; --disposed:#ef4444; --say:#a855f7; --hmr:#06b6d4;
+  --warn:#b45309; --warnbg:#fffbeb;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+/* ── 头 ── */
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
+
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 时间线 ── */
+.tl{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 14px}
+.seg-label{font-family:var(--mono);font-size:11px;color:var(--dim);
+  margin:0 0 8px;display:flex;justify-content:space-between}
+.track{position:relative;height:118px;margin-bottom:6px}
+.lane{position:absolute;left:0;right:0;height:26px;border-radius:6px;
+  border:1px dashed var(--line)}
+.lane.a{top:16px} .lane.b{top:60px}
+.lane-tag{position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  font-size:11px;color:var(--dim);font-family:var(--mono);pointer-events:none}
+.ev{position:absolute;transform:translate(-50%,0);text-align:center;
+  opacity:.18;transition:opacity .25s}
+.ev.on{opacity:1}
+.dot{width:11px;height:11px;border-radius:50%;margin:0 auto;
+  box-shadow:0 0 0 3px var(--card)}
+.ev .ms{font-family:var(--mono);font-size:10px;color:var(--dim);
+  margin-top:3px;white-space:nowrap}
+.ev .nm{font-size:11px;white-space:nowrap;margin-top:1px;font-weight:600}
+.ev.up{bottom:auto} .ev.up .dot{order:-1}
+.gap{position:absolute;top:8px;bottom:8px;border-left:1px dashed var(--line)}
+.gap span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:var(--card);padding:2px 8px;font-size:10.5px;color:var(--dim);
+  font-family:var(--mono);white-space:nowrap}
+
+/* 重叠窗口高亮 */
+.overlap{position:absolute;top:10px;height:98px;border-radius:6px;
+  background:color-mix(in srgb,var(--warn) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);
+  opacity:0;transition:opacity .35s}
+.overlap.on{opacity:1}
+.overlap b{position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  background:var(--bg);padding:0 7px;font-size:10.5px;color:var(--warn);
+  font-family:var(--mono);white-space:nowrap;font-weight:600}
+
+.ctl{display:flex;gap:10px;align-items:center;margin-top:14px;
+  padding-top:13px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--dim)}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:3px;vertical-align:middle}
+
+/* ── 读出来的两条 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);
+  flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);
+  font-family:var(--mono)}
+
+/* ── root 取值表 ── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:11.5px;color:var(--dim);font-weight:500;font-family:var(--mono)}
+td code{font-family:var(--mono);font-size:12px}
+.hot{color:var(--active);font-weight:600} .cold{color:var(--dim)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">05-reload / watch-root</div>
+<h1>hmr 主 watcher 的 <code>root</code> 语义</h1>
+<p class="sub">它盯哪些目录，以及盯到之后那一瞬间发生了什么。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 9 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>改一行代码，那一瞬间</h2>
+<p class="note">时间轴按真实归档数据画。两段之间省略了 1.3 秒的静置。</p>
+
+<div class="tl">
+  <div class="seg-label"><span>启动</span><span>改文件之后</span></div>
+  <div class="track" id="track">
+    <div class="lane a"><span class="lane-tag">第一版</span></div>
+    <div class="lane b"><span class="lane-tag">第二版</span></div>
+    <div class="overlap" id="ov"><b>重叠 0.3ms · 旧的还没拆完，新的已经在建</b></div>
+    <div class="gap" id="gap"><span>⋯ 1.3s ⋯</span></div>
+  </div>
+  <div class="ctl">
+    <button id="play">▶ 播放</button>
+    <div class="legend">
+      <span><i style="background:var(--pending)"></i>PENDING</span>
+      <span><i style="background:var(--loading)"></i>LOADING</span>
+      <span><i style="background:var(--active)"></i>ACTIVE</span>
+      <span><i style="background:var(--unloading)"></i>UNLOADING</span>
+      <span><i style="background:var(--disposed)"></i>DISPOSED</span>
+      <span><i style="background:var(--say)"></i>说话</span>
+    </div>
+  </div>
+</div>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>说话在 ACTIVE 之前。</b><code>apply</code> 跑在「加载中」，不是「加载完」——
+    插件在自己的 <code>apply</code> 里看不到自己是 ACTIVE。
+    <span class="from">2.2ms 说话 ／ 2.7ms 才 ACTIVE</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>「拆干净再建」是错觉。</b>旧的进 UNLOADING 之后、真正 DISPOSED 之前，
+    新的已经开始 LOADING 了；hmr 报「重新加载了」时旧的还活着。
+    <span class="from">1322.1 UNLOADING → 1322.6 新的 LOADING → 1322.9 旧的 DISPOSED</span>
+  </p></div>
+</div>
+
+<h2>root 填什么，热还是冷</h2>
+<table>
+  <tr><th>root</th><th>代码在哪</th><th>改代码</th><th>用例</th></tr>
+  <tr><td><code>['.']</code> 或不写</td><td>profile 目录里</td>
+      <td class="hot">热</td><td><code>test_root_dot_reloads_the_plugin</code></td></tr>
+  <tr><td>profile 的绝对路径</td><td>同上</td>
+      <td class="hot">热</td><td><code>test_absolute_root_works_too</code></td></tr>
+  <tr><td><code>['.']</code></td><td>junction 那头</td>
+      <td class="cold">冷</td><td><code>test_linked_package_default_root_notices_nothing</code></td></tr>
+  <tr><td>指着别处</td><td>profile 目录里</td>
+      <td class="cold">冷</td><td><code>test_root_pointing_elsewhere_notices_nothing</code></td></tr>
+  <tr><td><code>[]</code></td><td>任意</td>
+      <td class="cold">冷</td><td><code>test_empty_root_watches_nothing</code></td></tr>
+</table>
+<p class="note" style="margin-top:12px">
+  junction 那头够不着，是因为 profile 目录通往它的唯一路径要穿过
+  <code>node_modules</code>——hmr 默认 <code>ignored</code> 名单第一项。
+  完整证据链在 <code>05-reload/ignore-rules</code>。
+</p>
+
+<footer>
+判定与证据出处在 <code>test_watch_root.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+时间线数据取自归档 <code>results/20260817-151128/events-rooted.jsonl</code>，是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+// 真实事件（ms 取自上述归档）。lane: a=第一版 b=第二版
+const EV = [
+  {ms:1.2,  seg:0, lane:'a', nm:'PENDING',   c:'--pending'},
+  {ms:1.7,  seg:0, lane:'a', nm:'LOADING',   c:'--loading'},
+  {ms:2.2,  seg:0, lane:'a', nm:'说话',      c:'--say'},
+  {ms:2.7,  seg:0, lane:'a', nm:'ACTIVE',    c:'--active'},
+  {ms:1322.1, seg:1, lane:'a', nm:'UNLOADING', c:'--unloading'},
+  {ms:1322.6, seg:1, lane:'b', nm:'LOADING',   c:'--loading'},
+  {ms:1322.8, seg:1, lane:'b', nm:'hmr 报重载', c:'--hmr'},
+  {ms:1322.9, seg:1, lane:'a', nm:'DISPOSED',  c:'--disposed'},
+  {ms:1323.0, seg:1, lane:'b', nm:'说话+ACTIVE', c:'--active'},
+];
+// 两段各占一半宽度，段内按 ms 线性铺开
+const SEG = [{lo:1.0, hi:3.0, x0:6, x1:42}, {lo:1321.9, hi:1323.2, x0:56, x1:95}];
+const track = document.getElementById('track');
+const nodes = [];
+
+EV.forEach((e,i) => {
+  const s = SEG[e.seg];
+  const pct = s.x0 + (e.ms - s.lo) / (s.hi - s.lo) * (s.x1 - s.x0);
+  const d = document.createElement('div');
+  d.className = 'ev';
+  d.style.left = pct + '%';
+  d.style.top = (e.lane === 'a' ? 46 : 90) + 'px';
+  d.innerHTML = `<div class="dot" style="background:var(${e.c})"></div>`
+              + `<div class="nm" style="color:var(${e.c})">${e.nm}</div>`
+              + `<div class="ms">${e.ms.toFixed(1)}</div>`;
+  track.appendChild(d);
+  nodes.push(d);
+});
+
+// 断轴标记落在两段之间
+const gap = document.getElementById('gap');
+gap.style.left = ((SEG[0].x1 + SEG[1].x0) / 2) + '%';
+
+// 重叠窗口：1322.1(UNLOADING) → 1322.9(DISPOSED)
+const ov = document.getElementById('ov');
+{
+  const s = SEG[1];
+  const px = m => s.x0 + (m - s.lo) / (s.hi - s.lo) * (s.x1 - s.x0);
+  ov.style.left = px(1322.05) + '%';
+  ov.style.width = (px(1322.95) - px(1322.05)) + '%';
+}
+
+let timers = [];
+function play(){
+  timers.forEach(clearTimeout); timers = [];
+  nodes.forEach(n => n.classList.remove('on'));
+  ov.classList.remove('on');
+  // 段内按真实间隔铺开（放慢到看得清），跨段之间固定停顿
+  let t = 250;
+  EV.forEach((e,i) => {
+    if (i > 0) {
+      const p = EV[i-1];
+      t += (e.seg !== p.seg) ? 900 : Math.max(160, (e.ms - p.ms) * 700);
+    }
+    timers.push(setTimeout(() => {
+      nodes[i].classList.add('on');
+      if (e.nm === 'DISPOSED') ov.classList.add('on');
+    }, t));
+  });
+}
+document.getElementById('play').addEventListener('click', play);
+play();
+</script>
+</body>
+</html>
