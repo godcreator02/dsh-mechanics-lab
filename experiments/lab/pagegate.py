@@ -30,6 +30,7 @@ FETCH_URL = re.compile(r"""["'](https?://[^"']+)["']""")
 TESTNAME = re.compile(r"\btest_[a-z0-9_]+\b")
 RESULTS_DIR = re.compile(r"results/(\d{8}-\d{6})")
 INLINE = re.compile(r'data-src="([^"]+)"(.*?)<pre[^>]*>(.*?)</pre>', re.S)
+TURN = re.compile(r"但是|其实|反直觉|然而|可是|意外的是")
 # 照抄工具展示出来的文本时会悄悄丢掉的字符：C0 控制符（\t \n \r 除外）、不换行
 # 空格、零宽与方向控制字符、BOM。行尾符差异是排版，这些是内容——逐个数出现次数。
 # 写成转义形式，不写字符本身：源码里放不可见字符，下一个人连改都改不动。
@@ -103,6 +104,30 @@ def check_page(page: Path, full: str) -> list[str]:
         bad.append("有归档却没在页面里标出处")
 
     return bad
+
+
+def look(full: str) -> list[str]:
+    """结构提示：不判失败，只把值得人看一眼的地方指出来。
+
+    这两条都有正当的例外，机器判不了，所以不进失败列表：四层可以合并小节，
+    「其实」也可能修饰的是机制陈述而不是抛盲区。它们的用处是把 47 页里该人读的
+    那几页挑出来——旧规格页的 h2 只有 1–2 个，一扫就现形。
+    """
+    body = re.sub(r"<pre\b[^>]*>.*?</pre>", "", full, flags=re.S)
+    notes: list[str] = []
+
+    h2 = [m.start() for m in re.finditer(r"<h2\b", body)]
+    if len(h2) < 4:
+        notes.append(f"只有 {len(h2)} 个 h2——page-writing 的四层可能没铺开")
+
+    # 正向在前：机制讲完（第 3 个 h2）之前不该有转折。之后是观测与判定，允许。
+    if len(h2) >= 3:
+        head = re.sub(r"<[^>]+>", "", body[h2[0] : h2[2]])
+        for m in TURN.finditer(head):
+            s = max(0, m.start() - 24)
+            notes.append(f"机制讲完前出现「{m.group()}」：…{head[s : m.end() + 24].strip()}…")
+
+    return notes
 
 
 def resolve(rel: str, item: Path) -> Path | None:
@@ -198,7 +223,9 @@ def main() -> int:
                 print(f"        - {b}")
         else:
             print(f"ok    {rel}  （内联核过 {ok} 份）")
-    print(f"\n{len(pages)} 页，{fail} 页有问题")
+        for n in look(full):
+            print(f"      ? {n}")
+    print(f"\n{len(pages)} 页，{fail} 页有问题（`?` 是提示，不计失败）")
     return 1 if fail else 0
 
 
