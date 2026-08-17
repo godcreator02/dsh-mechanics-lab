@@ -22,7 +22,35 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+/* ── 布局：正文 + 常驻侧边文件树 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
+  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
+.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
+.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
+  font-size:11.5px;line-height:1.5}
+.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
+.ft li.br{color:var(--dim);margin-top:7px}
+.ft li.f{cursor:pointer}
+.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft li.f::after{content:" ·";color:var(--dim)}
+.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+  color:var(--bmhit);font-weight:600}
+.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
+  border-left:2px solid var(--bmhit);white-space:normal}
+.fc.on{display:block}
+.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
+.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
+.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
+  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
+@media (max-width:1040px){
+  .layout{grid-template-columns:1fr;max-width:860px}
+  .side{position:static;max-height:none;order:-1}
+}
 
 /* ── 头 ── */
 .crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
@@ -35,25 +63,6 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 
 h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
-
-/* ── 底座参考块：这一节在动哪个文件 ── */
-.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;
-  padding:14px 16px;margin:0 0 14px}
-.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
-  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
-.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
-  border-radius:5px;transition:background .2s,opacity .2s}
-.bm-tree li .bm-n{white-space:pre;flex:none}
-.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
-  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.bm-tree li.dim{opacity:.35}
-.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
-  box-shadow:inset 2px 0 0 var(--bmhit)}
-.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
-.bm-tree li.hit .bm-c{color:var(--fg)}
-@media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
 /* ── 开篇立机制的一段话 ── */
 .lead{font-size:14px;line-height:1.85;margin:0 0 8px}
@@ -161,7 +170,8 @@ footer a{color:inherit}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">00-base / minimal-profile</div>
 <h1>一个实例最少需要什么</h1>
@@ -188,27 +198,6 @@ footer a{color:inherit}
 <p class="note">跟着 1 → 5 走一遍，每一步点亮底座里对应的位置；下面的按钮 / ← → 键把
 「当前讲到哪」钉在某一环上。</p>
 
-<div class="basemap" id="bm0">
-  <div>
-    <div class="bm-h">profile 树 · 这个 profile 自己的目录</div>
-    <ul class="bm-tree">
-      <li data-f="prof"><span class="bm-n">$DSH_HOME/profiles/&lt;名&gt;/</span><span class="bm-c">一个目录，同时是一个 Node 包</span></li>
-      <li data-f="pkg"><span class="bm-n">├─ package.json</span><span class="bm-c">dsh.profile.bundles 名单 —— 配方第一层从这里来</span></li>
-      <li data-f="yml"><span class="bm-n">├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被重写，不用手建</span></li>
-      <li data-f="patch"><span class="bm-n">├─ cordis.patch.yml</span><span class="bm-c">活层 —— 配方第二层，insert 等 patch 指令写在这里</span></li>
-      <li data-f="nm"><span class="bm-n">└─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">     └─ &lt;自己 link 的插件&gt; →</span><span class="bm-c">junction（目录符号链接），指向插件源码</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">再往上一层 · timer / hmr 从哪解析出来</div>
-    <ul class="bm-tree">
-      <li data-f="farm"><span class="bm-n">$DSH_HOME/profiles/node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护</span></li>
-      <li data-f="farmjunction"><span class="bm-n">└─ @deepseek-ai/cordis-plugin-timer →</span><span class="bm-c">junction，指向 npx 缓存 —— hmr 同理，两者都不必 link 进每个 profile</span></li>
-    </ul>
-  </div>
-</div>
-
 <div class="stage" id="stage0">
   <div class="chain" id="chain0">
     <div class="cnode"><div class="k">1</div><div class="nm">profile 目录</div></div>
@@ -234,32 +223,6 @@ footer a{color:inherit}
 <p class="note">bundles 都写到几乎空，差别全在 <code>cordis.patch.yml</code> 里插了什么。
 把鼠标放到卡片上看细节；下面的按钮 / ← → 键把「当前选中」钉在某一张上。</p>
 
-<div class="basemap" id="bm1">
-  <div>
-    <div class="bm-h">profile 树 · 当前卡片在假 home 里的位置</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ <span id="bm1-prof">minimal</span>/</span><span class="bm-c">当前这张卡片对应的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles 名单 ＋ dependencies（link: 供给）</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 卡片「patch 内容」那行改的就是这个文件</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树（只有用到 census 的 profile 才有这条）</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 本项用的教学插件</div>
-    <ul class="bm-tree">
-      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
-      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
-      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-    </ul>
-  </div>
-</div>
-
 <div class="cards" id="cards"></div>
 <div class="detail" id="detail"></div>
 <div class="ctl">
@@ -272,32 +235,6 @@ footer a{color:inherit}
 <h2>两条硬性捆绑，怎么体现在时序上</h2>
 <p class="note">hmr 包级声明 <code>services.required:["timer"]</code>——这条依赖在最小环境
 里直接观测到的效果，就是下面四步。毫秒数取自 <code>timing</code> 这个 profile 的真实归档。</p>
-
-<div class="basemap" id="bm2">
-  <div>
-    <div class="bm-h">profile 树 · timing 这个 profile</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场——timer / hmr 这两个裸包名就是从这里被 Node parent-walk 解析出来的</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ timing/</span><span class="bm-c">这一节用的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dependencies 里是 lab-recorder（link:），不是 census</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">timer / hmr 两条 insert 就写在这里——下面的时间线量的就是这两条谁先谁后</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ lab-recorder →</span><span class="bm-c">junction，指向 observatory/lab-recorder（不是本项 fixtures，这一节的采集器不一样）</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 本项用的教学插件</div>
-    <ul class="bm-tree">
-      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用（timing 这节没用它）</span></li>
-      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
-      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-    </ul>
-  </div>
-</div>
 
 <div class="stage" id="stage2">
   <div class="pair">
@@ -343,6 +280,756 @@ footer a{color:inherit}
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <h3>实验现场的文件</h3>
+<ul class="ft">
+  <li class="br">$DSH_HOME/</li>
+  <li>├─ logs/</li>
+  <li>└─ profiles/</li>
+  <li>   ├─ minimal/</li>
+  <li class="f" data-k="minimal-pkg">   │  ├─ package.json</li>
+  <li class="fc" id="fc-minimal-pkg">
+    <div class="why">bundles 只挂 dsh-base，dependencies 把 base-census link 进来</div>
+    <div class="src">results/20260817-151026/profiles/minimal/package.json</div>
+    <pre>{
+  "name": "dsh-profile-minimal",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base"
+      ]
+    }
+  },
+  "dependencies": {
+    "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/minimal-profile/fixtures/base-census"
+  }
+}
+</pre>
+  </li>
+  <li class="f" data-k="minimal-yml">   │  ├─ cordis.yml</li>
+  <li class="fc" id="fc-minimal-yml">
+    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
+    <div class="src">results/20260817-151026/profiles/minimal/cordis.yml</div>
+    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+  </li>
+  <li class="f" data-k="minimal-patch">   │  ├─ cordis.patch.yml</li>
+  <li class="fc" id="fc-minimal-patch">
+    <div class="why">活层：只插入普查员一条，靠 dsh-base 这个 bundle 供给 timer/hmr</div>
+    <div class="src">results/20260817-151026/profiles/minimal/cordis.patch.yml</div>
+    <pre># 只挂普查员
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/census-minimal.json"
+        delayMs: 2000
+</pre>
+  </li>
+  <li>   │  └─ node_modules/</li>
+  <li>   │     └─ base-census →</li>
+  <li>   ├─ empty/</li>
+  <li class="f" data-k="empty-pkg">   │  ├─ package.json</li>
+  <li class="fc" id="fc-empty-pkg">
+    <div class="why">bundles 是空数组，靠 patch 自己把 timer/hmr/census 全插起来</div>
+    <div class="src">results/20260817-151026/profiles/empty/package.json</div>
+    <pre>{
+  "name": "dsh-profile-empty",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/minimal-profile/fixtures/base-census"
+  }
+}
+</pre>
+  </li>
+  <li class="f" data-k="empty-yml">   │  ├─ cordis.yml</li>
+  <li class="fc" id="fc-empty-yml">
+    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
+    <div class="src">results/20260817-151026/profiles/empty/cordis.yml</div>
+    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+  </li>
+  <li class="f" data-k="empty-patch">   │  ├─ cordis.patch.yml</li>
+  <li class="fc" id="fc-empty-patch">
+    <div class="why">两段 insert：先插基础设施 timer+hmr，再插普查员</div>
+    <div class="src">results/20260817-151026/profiles/empty/cordis.patch.yml</div>
+    <pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# 只挂普查员
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/census-empty.json"
+        delayMs: 2000
+</pre>
+  </li>
+  <li>   │  └─ node_modules/</li>
+  <li>   │     └─ base-census →</li>
+  <li>   ├─ only-hmr/</li>
+  <li class="f" data-k="only-hmr-pkg">   │  ├─ package.json</li>
+  <li class="fc" id="fc-only-hmr-pkg">
+    <div class="why">bundles 是空数组，没有 dependencies —— 这一个没用到 census</div>
+    <div class="src">results/20260817-151026/profiles/only-hmr/package.json</div>
+    <pre>{
+  "name": "dsh-profile-only-hmr",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}
+</pre>
+  </li>
+  <li class="f" data-k="only-hmr-yml">   │  ├─ cordis.yml</li>
+  <li class="fc" id="fc-only-hmr-yml">
+    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
+    <div class="src">results/20260817-151026/profiles/only-hmr/cordis.yml</div>
+    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+  </li>
+  <li class="f" data-k="only-hmr-patch">   │  └─ cordis.patch.yml</li>
+  <li class="fc" id="fc-only-hmr-patch">
+    <div class="why">只插入 hmr，没插 timer —— 缺的正是这一条</div>
+    <div class="src">results/20260817-151026/profiles/only-hmr/cordis.patch.yml</div>
+    <pre># 只声明 hmr，不声明 timer
+- insert:
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+</pre>
+  </li>
+  <li>   ├─ timing/</li>
+  <li class="f" data-k="timing-pkg">   │  ├─ package.json</li>
+  <li class="fc" id="fc-timing-pkg">
+    <div class="why">dependencies 是 lab-recorder，不是 census —— 这一节换了台采集器</div>
+    <div class="src">results/20260817-151026/profiles/timing/package.json</div>
+    <pre>{
+  "name": "dsh-profile-timing",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre>
+  </li>
+  <li class="f" data-k="timing-yml">   │  ├─ cordis.yml</li>
+  <li class="fc" id="fc-timing-yml">
+    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
+    <div class="src">results/20260817-151026/profiles/timing/cordis.yml</div>
+    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+  </li>
+  <li class="f" data-k="timing-patch">   │  ├─ cordis.patch.yml</li>
+  <li class="fc" id="fc-timing-patch">
+    <div class="why">timer + hmr + lab-recorder 三条 insert，看的是谁先谁后</div>
+    <div class="src">results/20260817-151026/profiles/timing/cordis.patch.yml</div>
+    <pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# 挂一台采集器，看 timer 与 hmr 谁先谁后
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/events-timing.jsonl"
+        flushMs: 100
+</pre>
+  </li>
+  <li>   │  └─ node_modules/</li>
+  <li>   │     └─ lab-recorder →</li>
+  <li>   └─ alive/</li>
+  <li class="f" data-k="alive-pkg">      ├─ package.json</li>
+  <li class="fc" id="fc-alive-pkg">
+    <div class="why">跟 minimal/empty 一样用 census，只是 delayMs 不同</div>
+    <div class="src">results/20260817-151026/profiles/alive/package.json</div>
+    <pre>{
+  "name": "dsh-profile-alive",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/minimal-profile/fixtures/base-census"
+  }
+}
+</pre>
+  </li>
+  <li class="f" data-k="alive-yml">      ├─ cordis.yml</li>
+  <li class="fc" id="fc-alive-yml">
+    <div class="why">启动前不存在，启动后被重写成空数组，内容跟别的 profile 一样</div>
+    <div class="src">results/20260817-151026/profiles/alive/cordis.yml</div>
+    <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+  </li>
+  <li class="f" data-k="alive-patch">      ├─ cordis.patch.yml</li>
+  <li class="fc" id="fc-alive-patch">
+    <div class="why">timer + hmr + census（delayMs:1000），这是保活基线</div>
+    <div class="src">results/20260817-151026/profiles/alive/cordis.patch.yml</div>
+    <pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# 只挂普查员
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/minimal-profile/census-alive.json"
+        delayMs: 1000
+</pre>
+  </li>
+  <li>      └─ node_modules/</li>
+  <li>         └─ base-census →</li>
+  <li class="br">插件源码</li>
+  <li>├─ fixtures/base-census/</li>
+  <li class="f" data-k="bc-pkg">│  ├─ package.json</li>
+  <li class="fc" id="fc-bc-pkg">
+    <div class="why">包型插件：有名字有 exports，靠包名被 link 进 profile 的 node_modules</div>
+    <div class="src">experiments/00-base/minimal-profile/fixtures/base-census/package.json</div>
+    <pre>{
+  "name": "base-census",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+  </li>
+  <li class="f" data-k="bc-idx">│  └─ index.js</li>
+  <li class="fc" id="fc-bc-idx">
+    <div class="why">普查员本体：apply 里拍两张快照，boot 一张、settle 延后一张</div>
+    <div class="src">experiments/00-base/minimal-profile/fixtures/base-census/index.js</div>
+    <pre>/**
+ * 树的普查员：从进程内部给 loader 上的整棵条目树拍快照。
+ *
+ * 存在的理由：`--dump-config` 只能告诉你「配方算出来是什么」，看不到框架在
+ * boot 结束之后才补上的条目（那些条目不在任何 patch 文件里）。要看见它们，
+ * 只能从进程内部往外看。
+ *
+ * 拍两张快照，这是本插件全部的设计：
+ *
+ *   boot   —— apply 被调用的当下。这时 boot() 还没返回，框架的补丁还没打。
+ *   settle —— 延后 delayMs 之后。这时 boot() 早已返回，补的条目都到位了。
+ *
+ * 延后用 Node 原生 setTimeout，不用 `ctx.setTimeout` —— 后者是 timer 服务提供的，
+ * 而 timer 在不在正是这一组要测的东西之一，拿被测对象当测量工具就是循环论证。
+ */
+
+import { writeFileSync } from "node:fs";
+
+/** 代码版本指纹。 */
+const MARKER = "base-census-v1";
+
+/** 关心的服务名。DSH 的服务表很长，只探跟「最小环境」有关的这几个。 */
+const WATCHED_SERVICES = ["loader", "timer", "hmr", "logger", "webServer"];
+
+/**
+ * 找一个条目的**父条目**。
+ *
+ * 条目树是分层的，但 `loader.entries()` 是扁平遍历（自己 + 所有嵌套子树），
+ * 光看那个列表分不出谁在谁下面。取法照抄 loader 源码里 `getOuterStack` 的走法：
+ * `entry.parent` 是它所属的 EntryGroup，那个组的 `ctx.fiber.entry` 就是拥有
+ * 这棵子树的条目；根组没有拥有者，返回 null。
+ */
+function parentIdOf(entry) {
+  try {
+    return entry.parent?.ctx?.fiber?.entry?.options?.id ?? null;
+  } catch {
+    return null; // 观测点绝不抛错
+  }
+}
+
+function censusEntry(entry) {
+  const fiber = entry.fiber;
+  return {
+    id: entry.options?.id ?? null,
+    name: entry.options?.name ?? null,
+    parent: parentIdOf(entry),
+    disabled: entry.options?.disabled === true,
+    hasFiber: fiber !== undefined,
+    fiberState: fiber === undefined ? null : fiber.state,
+    // inject 是「这个条目在等哪些服务」。PENDING 卡住时这里就是原因。
+    inject: fiber === undefined ? null : Object.keys(fiber.inject ?? {}),
+  };
+}
+
+function takeSnapshot(ctx, phase) {
+  const loader = ctx.get("loader");
+  const services = {};
+  for (const name of WATCHED_SERVICES) {
+    services[name] = ctx.get(name) !== undefined;
+  }
+  return {
+    phase,
+    at: new Date().toISOString(),
+    services,
+    // loader 拿不到就如实记 null，绝不 throw —— 观测点抛错会把
+    // 「根本没跑到这」和「跑到了但没拿到」混成同一个结果。
+    entries: loader === undefined ? null : [...loader.entries()].map(censusEntry),
+  };
+}
+
+/**
+ * 历次 apply 的记录，**模块级**。
+ *
+ * 为什么必须是模块级 —— 普查员会被重挂。挂在 apply 局部变量里，重挂会从零
+ * 开始并把文件整个覆盖掉，settle 快照就可能凭空消失（定时器被 dispose 清掉，
+ * 新的一轮又只写了 boot 快照）——工具会把自己被重挂这件事藏住。
+ *
+ * 挪到模块级之后，重挂会往数组里多加一条，文件里因此看得见「这个条目被挂了
+ * 几次」，从缺陷变成了一个有用的观测量。模块级变量只在**模块被重新 import**
+ * 时才清空（代码热重载），条目重挂不清。
+ */
+const records = [];
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("base-census: config.out 是必需的");
+  const delayMs = config?.delayMs ?? 1500;
+
+  const record = {
+    marker: MARKER,
+    applyIndex: records.length,
+    delayMs,
+    snapshots: [takeSnapshot(ctx, "boot")],
+  };
+  records.push(record);
+
+  // 写整个数组：读的一方永远看得到全部历史，不用担心被后一次覆盖
+  const flush = () =&gt; writeFileSync(out, JSON.stringify(records, null, 2), "utf8");
+  flush();
+
+  const handle = setTimeout(() =&gt; {
+    record.snapshots.push(takeSnapshot(ctx, "settle"));
+    flush();
+  }, delayMs);
+  // 不 unref：这个定时器要能撑住事件循环——本组有一问就是「谁保持进程活着」，
+  // 而普查员自己必须**不**成为那个答案，所以它在 flush 完就把定时器清掉，
+  // 之后进程还活不活着，就完全是别人的事了。
+  ctx.on("dispose", () =&gt; clearTimeout(handle));
+}
+</pre>
+  </li>
+  <li>└─ observatory/lab-recorder/</li>
+  <li class="f" data-k="lr-pkg">   ├─ package.json</li>
+  <li class="fc" id="fc-lr-pkg">
+    <div class="why">观测台采集器：订阅 Cordis 生命周期事件，写 jsonl</div>
+    <div class="src">observatory/lab-recorder/package.json</div>
+    <pre>{
+  "name": "lab-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "观测台的采集器：订阅 Cordis 生命周期事件，追加写 jsonl。无 UI、零 inject。",
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+  </li>
+  <li class="f" data-k="lr-idx">   └─ index.js</li>
+  <li class="fc" id="fc-lr-idx">
+    <div class="why">采集器本体：零 inject，事件按流水/关系/链路三类分流记录</div>
+    <div class="src">observatory/lab-recorder/index.js</div>
+    <pre>/**
+ * lab-recorder — 观测台的采集器。
+ *
+ * 唯一必须住在被观测进程里的东西：订阅 Cordis 与 loader 的生命周期事件，
+ * 追加写 jsonl。看板是独立的 Python 服务，读这些文件。
+ *
+ * ── 事件分三类处理，依据是**是不是 waterfall**，不是"量大不大" ──────────
+ *
+ *   流水型  低频、有时序意义 → 全量记进 events.jsonl，时间线展示
+ *   关系型  价值在去重后的集合 → 聚合进 relations.json，不进时间线
+ *   链路型  waterfall：监听器**必须调 next()**，否则阻断整条执行链。
+ *           订阅它等于插进执行路径，不再是只读观测 → **默认关**
+ *
+ * 为什么关系型要去重：`internal/get` 每次服务访问都触发，热路径上每秒几千次。
+ * 记流水的话一次运行几万条、几十 MB，而"webServer 被读了 8000 次"毫无价值；
+ * 去重成「谁读过什么服务」之后只剩几十条，还直接画得出服务依赖图。
+ *
+ * 为什么 waterfall 默认关：L10 / L13 测的就是时序。订阅 waterfall 会让每次
+ * config 更新、每次服务读写都多走一层回调，next() 返回 Promise 时还会改变异步
+ * 调度。仪器插在执行链里会让那两课的结论可疑。平时想看依赖细节再打开。
+ *
+ * ── 三条设计约束 ────────────────────────────────────────────────────────
+ *
+ * 1. **零 inject**。订阅只要 apply 的 ctx，写文件只要 node:fs。没有依赖就没有
+ *    等待，它会在很早的批次挂上，漏掉的早期事件最少。
+ *    （反面教材：lab-inspector 因为 inject 了 loader，被 loader 的 await 语义
+ *    锁死在 PENDING —— 见 demo/README.md。）
+ * 2. **内存缓冲 + 定时 flush**。逐个同步写盘会明显改变时序，而我们测的是
+ *    "什么变了什么没变"这类定性结论，宁可丢掉最后 250ms 也不污染时序。
+ * 3. **只记录，不判断**。事件原样落盘，过滤/聚合/解释全在看板做。
+ *    采集器越笨越好 —— 它是唯一会影响被观测系统的部分。
+ */
+
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+/**
+ * FiberState 的数字 → 名字。
+ *
+ * 必须自己写：`FiberState` 在 cordis 里是 TypeScript 的 `const enum`，
+ * 编译后被内联成数字字面量，**运行时不存在这个对象**，import 不到。
+ */
+const FIBER_STATE = ["PENDING", "LOADING", "ACTIVE", "FAILED", "DISPOSED", "UNLOADING"];
+
+const MARKER = "lab-recorder-v2";
+
+/** config 之类的任意值记进日志前先压扁，防止一条事件撑爆整个文件。 */
+function brief(value, max = 400) {
+  if (value === undefined) return undefined;
+  try {
+    const text = JSON.stringify(value);
+    if (text === undefined) return String(value);
+    return text.length &gt; max ? text.slice(0, max) + `…(共${text.length}字符)` : JSON.parse(text);
+  } catch {
+    return String(value);
+  }
+}
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("lab-recorder: config.out（事件日志路径）是必需的");
+
+  const relOut = config?.relationsOut ?? out.replace(/\.jsonl$/, "") + ".relations.json";
+  const flushMs = config?.flushMs ?? 250;
+  /** 是否订阅 waterfall 事件。**默认关** —— 理由见文件头。 */
+  const waterfall = config?.waterfall === true;
+
+  mkdirSync(dirname(out), { recursive: true });
+  // 每次挂载重开：一次运行一份日志，避免跨运行串味
+  writeFileSync(out, "", "utf8");
+
+  const t0 = process.hrtime.bigint();
+  const buffer = [];
+  let seq = 0;
+
+  const push = (kind, payload) =&gt; {
+    buffer.push({
+      seq: seq++,
+      // 相对采集器挂载时刻的毫秒数，三位小数 —— 看得出几毫秒的窄窗口
+      ms: Number(process.hrtime.bigint() - t0) / 1e6,
+      at: new Date().toISOString(),
+      kind,
+      ...payload,
+    });
+  };
+
+  /** 记录时绝不能抛：采集器把被观测系统搞崩是最坏的结果。 */
+  const safely = (fn) =&gt; {
+    try {
+      fn();
+    } catch {
+      /* 观测失败就观测失败，绝不影响被观测者 */
+    }
+  };
+
+  // ── 关系表（去重聚合，不进时间线）────────────────────────────────────
+  /** key = "谁\0什么"，value = {who, what, count} */
+  const serviceReads = new Map();
+  const listeners = new Map();
+  /** 当前存在的服务：name → 最近一次绑定是否有值 */
+  const services = new Map();
+
+  const bump = (map, who, what) =&gt; {
+    const key = who + " " + what;
+    const hit = map.get(key);
+    if (hit) hit.count += 1;
+    else map.set(key, { who, what, count: 1 });
+  };
+
+  /** 从一个 Context 反查它属于哪个条目 —— 关系表的「谁」。 */
+  const whoOf = (someCtx) =&gt; {
+    const entry = someCtx?.fiber?.entry;
+    return entry?.options?.id ?? entry?.options?.name ?? "(无条目)";
+  };
+
+  /** 从 fiber 反查条目。不是所有 fiber 都对应条目（插件内部 ctx.plugin() 起的没有）。 */
+  const describeFiber = (fiber) =&gt; {
+    const entry = fiber?.entry;
+    if (entry?.options) {
+      return { scope: "entry", id: entry.options.id ?? null, name: entry.options.name ?? null };
+    }
+    return { scope: "inner", id: null, name: fiber?.runtime?.name ?? null };
+  };
+
+  const describeEntry = (entry) =&gt; ({
+    scope: "entry",
+    id: entry?.options?.id ?? null,
+    name: entry?.options?.name ?? null,
+  });
+
+  // ══ 对外服务：让被观测的插件自己说话 ══════════════════════════════════
+  //
+  // 采集器订阅的那些事件回答的是「框架对这个条目做了什么」，回答不了
+  // 「这个插件自己拿到了什么、干了什么」—— 那些只有插件自己知道。
+  //
+  // 所以再开一个口子：插件 `inject: ["labObserver"]`，把自己的话说进同一条
+  // 事件流。好处是上报与框架事件**时序天然对齐**，看板不用去拼两份数据；
+  // 教学插件也不必各自 writeFileSync 一份格式各异的见证文件。
+  //
+  // 为什么是 `for(ctx)` 而不是直接 `say(...)`：服务方法拿不到调用方的
+  // context，而「谁说的」不能靠插件自报（它写死的名字未必等于条目 id）。
+  // 传一次自己的 ctx，采集器用现成的 whoOf 反查真实身份，比自报可靠。
+  const observer = {
+    /** 绑定调用者身份，返回一个上报函数。 */
+    for(callerCtx) {
+      const who = whoOf(callerCtx);
+      return (note, data) =&gt;
+        safely(() =&gt; push("report", { who, note: String(note), data: brief(data) }));
+    },
+  };
+
+  // provide 本身就是个 effect：fiber 卸载时服务自动撤销，不用自己包 ctx.effect
+  ctx.provide("labObserver", observer);
+
+  // ══ 流水型：全量记录 ══════════════════════════════════════════════════
+
+  // fiber 生命周期状态每变一次触发一次，带旧状态。
+  // 这是能抓住 LOADING 这种几毫秒窄窗口的唯一办法 —— 轮询必然错过。
+  ctx.on("internal/status", (fiber, oldValue) =&gt;
+    safely(() =&gt; push("status", {
+      ...describeFiber(fiber),
+      from: FIBER_STATE[oldValue] ?? String(oldValue),
+      to: FIBER_STATE[fiber?.state] ?? String(fiber?.state),
+    })));
+
+  // fiber 被创建，或销毁时 uid 被清空
+  ctx.on("internal/plugin", (fiber) =&gt;
+    safely(() =&gt; push("plugin", { ...describeFiber(fiber), uid: fiber?.uid ?? null })));
+
+  // 条目被重配置或部分销毁。**legacy 是改动前的 options** —— 能直接看出
+  // 「从什么改成了什么」，是 L10 最有价值的一条。
+  ctx.on("loader/partial-dispose", (entry, legacy, active) =&gt;
+    safely(() =&gt; push("entry-dispose", {
+      ...describeEntry(entry),
+      active,
+      legacy: brief(legacy),
+    })));
+
+  ctx.on("loader/entry-init", (entry) =&gt;
+    safely(() =&gt; push("entry-init", describeEntry(entry))));
+
+  ctx.on("loader/config-update", () =&gt;
+    safely(() =&gt; push("config-update", { note: "loader 把当前树写回了磁盘" })));
+
+  // 服务绑定变化：value 非空＝出现，空＝撤销。L3 的核心观测。
+  ctx.on("internal/service", function (name, value) {
+    safely(() =&gt; {
+      const present = value !== undefined &amp;&amp; value !== null;
+      services.set(name, present);
+      push("service", { serviceName: name, present, who: whoOf(this) });
+    });
+  });
+
+  // hmr 三件套
+  ctx.on("hmr/change", (url) =&gt;
+    safely(() =&gt; push("hmr-change", { url: String(url) })));
+
+  ctx.on("hmr/reload", (reloads) =&gt;
+    safely(() =&gt; {
+      // reloads 是 Map&lt;Plugin, Reload&gt;，key 是插件函数，只能取 Reload.filename
+      const files = [];
+      try {
+        for (const [, reload] of reloads) files.push(reload?.filename ?? null);
+      } catch { /* 不是 Map 就算了 */ }
+      push("hmr-reload", { count: files.length, files: brief(files, 800) });
+    }));
+
+  ctx.on("hmr/config-update-failed", (filename, error) =&gt;
+    safely(() =&gt; push("hmr-failed", {
+      filename: String(filename),
+      error: String(error?.message ?? error),
+    })));
+
+  // ══ 关系型：去重聚合 ══════════════════════════════════════════════════
+  // internal/listener 不是 waterfall（签名里没有 next），可以安全订阅。
+  ctx.on("internal/listener", function (name, listener, prepend) {
+    safely(() =&gt; bump(listeners, whoOf(this), String(name)));
+  });
+
+  // ══ 链路型：waterfall，默认关 ═════════════════════════════════════════
+  // ⚠️ 这些监听器**必须调用 next() 并传回它的返回值**，否则阻断整条执行链。
+  // 订阅它们不再是只读观测，而是插进了执行路径 —— 所以默认不开。
+  if (waterfall) {
+    push("recorder", { marker: MARKER, note: "⚠️ waterfall 观测已开启：仪器插在执行链里，测时序的实验请关掉" });
+
+    // 每次服务访问都触发，热路径。只做去重聚合，绝不记流水。
+    ctx.on("internal/get", function (someCtx, name, error, next) {
+      safely(() =&gt; bump(serviceReads, whoOf(someCtx), String(name)));
+      return next();
+    });
+
+    ctx.on("internal/set", function (someCtx, name, value, error, next) {
+      safely(() =&gt; push("service-set", { serviceName: String(name), who: whoOf(someCtx) }));
+      return next();
+    });
+
+    ctx.on("internal/config", function (cfg, next) {
+      safely(() =&gt; push("config-resolve", { ...describeFiber(this), config: brief(cfg) }));
+      return next();
+    });
+
+    ctx.on("internal/update", function (cfg, noSave, next) {
+      safely(() =&gt; push("config-update-fiber", { ...describeFiber(this), noSave, config: brief(cfg) }));
+      return next();
+    });
+
+    ctx.on("loader/patch-context", function (entry, next) {
+      safely(() =&gt; push("patch-context", describeEntry(entry)));
+      return next();
+    });
+  }
+
+  // ── flush ───────────────────────────────────────────────────────────────
+  const flushRelations = () =&gt; {
+    const payload = {
+      at: new Date().toISOString(),
+      marker: MARKER,
+      waterfall,
+      services: [...services.entries()].map(([name, present]) =&gt; ({ name, present })),
+      listeners: [...listeners.values()],
+      serviceReads: [...serviceReads.values()],
+    };
+    try {
+      writeFileSync(relOut, JSON.stringify(payload, null, 2), "utf8");
+    } catch { /* 同上，观测失败不影响被观测者 */ }
+  };
+
+  const flush = () =&gt; {
+    if (buffer.length &gt; 0) {
+      const lines = buffer.map((e) =&gt; JSON.stringify(e)).join("\n") + "\n";
+      buffer.length = 0;
+      try {
+        appendFileSync(out, lines, "utf8");
+      } catch { /* 同上 */ }
+    }
+    flushRelations();
+  };
+
+  const timer = setInterval(flush, flushMs);
+  // unref：别让这个定时器把进程钉住、导致实例该退出时退不出去
+  timer.unref?.();
+
+  push("recorder", {
+    marker: MARKER,
+    waterfall,
+    note: "采集开始（本行之前的事件未被记录）",
+  });
+
+  // ── 起点快照 ────────────────────────────────────────────────────────────
+  // 采集器自己也是树上的一个条目，在它 apply 之前挂载的条目，其
+  // PENDING→LOADING 已经发生完了（实测：lab-minimal 只赶上最后一跳）。
+  // 而加载顺序由**服务可用性**驱动、不由书写顺序决定，所以没法把自己排到第一个。
+  //
+  // 补救：订阅之后立刻拍一张全树快照，记下每个条目此刻的状态。
+  // 丢掉的仍然是**过程**，但起点是确切的。
+  //
+  // 用 ctx.get 运行时取 loader，**不写进 inject** —— loader 的 intercept 有
+  // await 语义，声明依赖它会把本插件锁死在 PENDING（见 demo/README.md）。
+  // 顺序上先订阅后快照：宁可重复也不漏。
+  safely(() =&gt; {
+    const loader = ctx.get("loader");
+    if (!loader?.entries) {
+      push("recorder", { marker: MARKER, note: "拿不到 loader，跳过起点快照" });
+      return;
+    }
+    let count = 0;
+    // 统计「睁眼时已经在半路上的」——**不是**「已经 ACTIVE 的」。
+    // 采集器零 inject、在第一批就挂上，实测 81 个条目里已 ACTIVE 的是 0 个，
+    // 按那个口径自述会读成「什么都没丢」，与事实相反：真正丢了头一跳的是
+    // 快照时已经建起来（state 非 null）的那几条 —— 其中就包括采集器自己。
+    let midway = 0;
+    for (const entry of loader.entries()) {
+      const options = entry?.options ?? {};
+      const fiber = entry?.fiber;
+      const state = fiber ? FIBER_STATE[fiber.state] ?? String(fiber.state) : null;
+      if (state !== null) midway += 1;
+      push("snapshot", {
+        scope: "entry",
+        id: options.id ?? null,
+        name: options.name ?? null,
+        to: state,
+        hasFiber: fiber !== undefined,
+        disabled: Boolean(entry?.disabled),
+        config: brief(options.config, 200),
+      });
+      count += 1;
+    }
+    // 量化「漏了多少」：快照时已经建起来的条目，它们的头一跳我们没看到
+    push("recorder", {
+      marker: MARKER,
+      note: `起点快照完成：${count} 个条目，其中 ${midway} 个睁眼时已在半路上（它们的出生过程没记全）`,
+    });
+  });
+
+  // 卸载时停表并把尾巴刷干净
+  ctx.effect(() =&gt; () =&gt; {
+    clearInterval(timer);
+    push("recorder", { marker: MARKER, note: "采集结束" });
+    flush();
+  }, "lab-recorder: flush timer");
+}
+</pre>
+  </li>
+</ul>
+</aside>
 </div>
 
 <script>
@@ -351,7 +1038,6 @@ const PROFILES = [
   {
     id: 'minimal', bundles: 'dsh-base', chips: ['census'], outcome: 'ok',
     outcomeText: '进程活着', test: 'test_profile_needs_only_two_files',
-    files: ['pkg', 'yml', 'patch', 'junction', 'plugpkg', 'plugidx'],
     detail: `
       <div class="row"><span class="k">需要文件</span><span class="v">
         <code>package.json</code>（<code>bundles: ["@deepseek-ai/dsh-base"]</code>）+
@@ -370,7 +1056,6 @@ const PROFILES = [
   {
     id: 'empty', bundles: '（空）', chips: ['timer', 'hmr', 'census'], outcome: 'ok',
     outcomeText: '进程活着', test: 'test_empty_bundle_list_boots',
-    files: ['pkg', 'patch', 'junction', 'plugpkg', 'plugidx'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -385,7 +1070,6 @@ const PROFILES = [
   {
     id: 'only-hmr', bundles: '（空）', chips: ['hmr'], outcome: 'bad',
     outcomeText: '启动失败，退出码 1', test: 'test_hmr_without_timer_wont_start',
-    files: ['patch'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -399,7 +1083,6 @@ const PROFILES = [
   {
     id: 'timing', bundles: '（空）', chips: ['timer', 'hmr', 'lab-recorder'], outcome: 'ok',
     outcomeText: '进程活着，用来看时序', test: 'test_hmr_loading_waits_for_timer_active',
-    files: ['pkg', 'patch'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -412,7 +1095,6 @@ const PROFILES = [
   {
     id: 'alive', bundles: '（空）', chips: ['timer', 'hmr', 'census'], outcome: 'ok',
     outcomeText: '看了 15 秒仍活着', test: 'test_who_keeps_process_alive',
-    files: ['pkg', 'patch', 'junction', 'plugpkg', 'plugidx'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -425,42 +1107,29 @@ const PROFILES = [
   },
 ];
 
-/** 点亮这一步在动的文件；keys 为空时整块复原。 */
-function bmHighlight(scopeEl, keys){
-  const set = new Set(keys || []);
-  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
-    li.classList.toggle('hit', set.has(li.dataset.f));
-    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
-  });
-}
-const bm0 = document.getElementById('bm0');
-const bm1 = document.getElementById('bm1');
-const bm1ProfName = document.getElementById('bm1-prof');
-const bm2 = document.getElementById('bm2');
-
 // ── 机制链条（过程型：分步，五个抽象环节，跟归档数字无关） ────────────────────
 const BEATS0 = [
-  { t: 'profile', bm: ['prof'],
+  { t: 'profile',
     d: '一个目录，同时是一个 Node 包 —— 有 <code>package.json</code>，也有 <code>node_modules</code>。' +
        '<code>$DSH_HOME/profiles/&lt;名&gt;/</code> 下的每个子目录都是一个 profile，也是一套组合配方。' },
-  { t: '配方', bm: ['pkg', 'yml', 'patch'],
+  { t: '配方',
     d: '<code>package.json</code> 里 <code>dsh.profile.bundles</code> 列出的每个 bundle —— 这里指 ' +
        'profile bundle：一个自带 <code>cordis.patch.yml</code> 的 npm 包，实质是一叠 patch 指令，' +
        '不是插件浏览器那半边的 client bundle —— 按顺序叠成 bundle 层；再叠上 profile 自己的 ' +
        '<code>cordis.patch.yml</code> —— 这一层叫活层，新增条目靠的 <code>insert</code> 指令' +
        '（把条目追加进列表）就写在这里。<code>cordis.yml</code> 恒为空数组 <code>[]</code>，' +
        '每次启动都被框架重写，不用手建。' },
-  { t: '条目 / fiber', bm: ['patch'],
+  { t: '条目 / fiber',
     d: '条目（entry）是配方里的一行：写着挂哪个插件、给它什么配置。运行时一条条目对应一个 fiber —— ' +
        '这个插件这一次生命的载体，从 <code>PENDING</code>（等它声明的服务就位：代码里 export 一个 ' +
        '<code>inject</code> 数组，或者包级字段 <code>services.required</code> 点名）到 ' +
        '<code>LOADING</code>（插件自己的 <code>apply</code> 函数正在跑）再到 <code>ACTIVE</code>（跑完，正在提供服务）。' },
-  { t: '解析', bm: ['nm', 'junction', 'farm', 'farmjunction'],
+  { t: '解析',
     d: '条目的 <code>name</code> 决定挂哪个插件：自己 link 进来的插件走包名，在 profile 自己的 ' +
        '<code>node_modules</code> 里靠一条 junction 指到真实源码。<code>timer</code>、<code>hmr</code> ' +
        '这两个基础设施包名不在 profile 自己的 <code>node_modules</code> 下，靠标准 Node parent-walk 在' +
        '上一层 —— <code>$DSH_HOME/profiles/node_modules</code> —— 的符号链接农场里被找到。' },
-  { t: '存活', bm: [],
+  { t: '存活',
     d: 'Node 进程在事件循环空了之后就会退出。timer 的定时器、hmr 的文件 watcher、web 服务的监听套接字' +
        '都是候选 —— 谁持有能让事件循环不空的东西，进程就跟着活。最少要留哪个，往下看。' },
 ];
@@ -477,7 +1146,6 @@ function goto0(i){
     n.classList.toggle('done', k < cur0);
     n.classList.toggle('todo', k > cur0);
   });
-  bmHighlight(bm0, BEATS0[cur0].bm);
   cap0t.textContent = BEATS0[cur0].t;
   cap0d.innerHTML = BEATS0[cur0].d;
   pos0.textContent = `${cur0 + 1} / ${BEATS0.length}`;
@@ -507,8 +1175,6 @@ const prev1 = document.getElementById('prev1'), next1 = document.getElementById(
 function renderDetail(i){
   const p = PROFILES[i];
   detailEl.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
-  bm1ProfName.textContent = p.id;
-  bmHighlight(bm1, p.files);
 }
 let cur1 = 0;
 function markSel(i){
@@ -559,7 +1225,6 @@ function resetVisuals2(){
 function goto2(i){
   cur2 = Math.max(0, Math.min(BEATS2.length - 1, i));
   resetVisuals2();
-  bmHighlight(bm2, ['farm', 'patch']);
   for (let k = 0; k <= cur2; k++) BEATS2[k].fn();
   const b = BEATS2[cur2];
   cap2t.textContent = b.ms.toFixed(2) + 'ms';
@@ -595,6 +1260,22 @@ addEventListener('keydown', e => {
 goto0(0);
 goto1(0);
 goto2(0);
+
+// ── 侧边文件树：点文件展开真实内容，同时最多展开一个 ──────────────────────
+document.querySelectorAll('.ft li.f').forEach(li => {
+  li.tabIndex = 0;
+  const toggle = () => {
+    const box = document.getElementById('fc-' + li.dataset.k);
+    const was = box.classList.contains('on');
+    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
+    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
+    if (!was) { box.classList.add('on'); li.classList.add('on'); }
+  };
+  li.addEventListener('click', toggle);
+  li.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+  });
+});
 </script>
 </body>
 </html>

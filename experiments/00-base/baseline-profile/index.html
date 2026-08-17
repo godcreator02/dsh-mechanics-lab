@@ -25,7 +25,35 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+/* ── 侧边文件树 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
+  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
+.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
+.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
+  font-size:11.5px;line-height:1.5}
+.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
+.ft li.br{color:var(--dim);margin-top:7px}
+.ft li.f{cursor:pointer}
+.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft li.f::after{content:" ·";color:var(--dim)}
+.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+  color:var(--bmhit);font-weight:600}
+.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
+  border-left:2px solid var(--bmhit);white-space:normal}
+.fc.on{display:block}
+.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
+.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
+.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
+  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
+@media (max-width:1040px){
+  .layout{grid-template-columns:1fr;max-width:860px}
+  .side{position:static;max-height:none;order:-1}
+}
 
 /* ── 头 ── */
 .crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
@@ -38,25 +66,6 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 h2{font-size:15px;margin:38px 0 4px}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
 .testref{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
-
-/* ── 底座参考块：这一节在动哪个文件 ── */
-.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;
-  padding:14px 16px;margin:0 0 14px}
-.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
-  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
-.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
-  border-radius:5px;transition:background .2s,opacity .2s}
-.bm-tree li .bm-n{white-space:pre;flex:none}
-.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
-  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.bm-tree li.dim{opacity:.35}
-.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
-  box-shadow:inset 2px 0 0 var(--bmhit)}
-.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
-.bm-tree li.hit .bm-c{color:var(--fg)}
-@media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
 /* ── 主图：三件套 → 树 ── */
 .diagram{display:grid;grid-template-columns:1fr 1fr;gap:16px;
@@ -159,7 +168,8 @@ footer a{color:inherit}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">00-base / baseline-profile</div>
 <h1>基线 profile 的形状与它保证了什么</h1>
@@ -182,40 +192,14 @@ footer a{color:inherit}
 <p class="note">跟着<b>下一步</b>走一遍——从 profile 目录里的三个文件，到一棵真正在跑的树。
 这是一条有先后顺序的链条，不是并列关系，所以这里用分步，不用 hover。</p>
 
-<div class="basemap" id="bm0">
-  <div>
-    <div class="bm-h">profile 树 · 三件套住在假 home 里的哪个位置</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 幂等维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ &lt;名&gt;/</span><span class="bm-c">一个 profile（这里是 dflt 或 rooted）</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">bundles: []，dependencies 里 base-census 走 link: 协议</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 实验改的就是这个文件</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 本项用的教学插件</div>
-    <ul class="bm-tree">
-      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
-      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
-      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-    </ul>
-  </div>
-</div>
-
 <div class="mdiag" id="msteps">
-  <div class="mstep" data-i="0" data-bm="pkg,yml,patch" style="--c:var(--pkg)">
+  <div class="mstep" data-i="0" style="--c:var(--pkg)">
     <div class="mt">profile 的三件套<span>①</span></div>
     <pre>package.json      dsh.profile.bundles: []
 cordis.yml        恒为 []
 cordis.patch.yml  活层，人改这个</pre>
   </div>
-  <div class="mstep" data-i="1" data-bm="patch" style="--c:var(--infra)">
+  <div class="mstep" data-i="1" style="--c:var(--infra)">
     <div class="mt">patch 是什么<span>②</span></div>
     <pre>cordis.patch.yml:
 - insert:
@@ -224,21 +208,21 @@ cordis.patch.yml  活层，人改这个</pre>
 - insert:
     - id: census</pre>
   </div>
-  <div class="mstep" data-i="2" data-bm="patch" style="--c:var(--caller)">
+  <div class="mstep" data-i="2" style="--c:var(--caller)">
     <div class="mt">条目长什么样<span>③</span></div>
     <pre>- id: census
   name: base-census
   config:
     out: "…/census.json"</pre>
   </div>
-  <div class="mstep" data-i="3" data-bm="yml,patch" style="--c:var(--yml)">
+  <div class="mstep" data-i="3" style="--c:var(--yml)">
     <div class="mt">树是怎么来的<span>④</span></div>
     <pre>cordis:include
 ├─ timer
 ├─ hmr
 └─ census</pre>
   </div>
-  <div class="mstep" data-i="4" data-bm="nm,junction,plugpkg,plugidx" style="--c:var(--rooted)">
+  <div class="mstep" data-i="4" style="--c:var(--rooted)">
     <div class="mt">插件怎么被找到<span>⑤</span></div>
     <pre>name: '@deepseek-ai/cordis-plugin-timer'   包名 → node_modules
 name: 'base-census'                         包名 → node_modules（junction 供给）
@@ -259,55 +243,29 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
 四个文件按读的顺序摆着，不是执行时序，所以这里是查关系，不是放过程。
 <span class="testref">test_baseline_profile</span></p>
 
-<div class="basemap" id="bm1">
-  <div>
-    <div class="bm-h">profile 树 · 三件套住在假 home 里的哪个位置</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 幂等维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ &lt;名&gt;/</span><span class="bm-c">一个 profile（这里是 dflt 或 rooted）</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">bundles: []，dependencies 里 base-census 走 link: 协议</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 实验改的就是这个文件</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 本项用的教学插件</div>
-    <ul class="bm-tree">
-      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
-      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
-      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-    </ul>
-  </div>
-</div>
-
 <div class="diagram">
   <div class="files" id="files">
-    <div class="file" data-i="0" data-hit="" data-bm="pkg,junction,plugpkg" style="--c:var(--pkg)">
+    <div class="file" data-i="0" data-hit="" style="--c:var(--pkg)">
       <div class="fn">package.json<span>①</span></div>
       <pre><span class="cm">"bundles": []</span>
 "dependencies": {
   "base-census": "link:…/fixtures/base-census"
 }</pre>
     </div>
-    <div class="file" data-i="1" data-hit="include" data-bm="yml" style="--c:var(--yml)">
+    <div class="file" data-i="1" data-hit="include" style="--c:var(--yml)">
       <div class="fn">cordis.yml<span>②</span></div>
       <pre><span class="cm"># dsh profile root — an empty entry list.
 # The tree is composed as patches.</span>
 []</pre>
     </div>
-    <div class="file" data-i="2" data-hit="timer,hmr" data-bm="patch" style="--c:var(--infra)">
+    <div class="file" data-i="2" data-hit="timer,hmr" style="--c:var(--infra)">
       <div class="fn">cordis.patch.yml · 基础设施块<span>③</span></div>
       <pre>- insert:
     - id: timer
     - id: hmr
       config: {root: […], debounce: 100}</pre>
     </div>
-    <div class="file" data-i="3" data-hit="census" data-bm="patch,nm,junction,plugpkg,plugidx" style="--c:var(--caller)">
+    <div class="file" data-i="3" data-hit="census" style="--c:var(--caller)">
       <div class="fn">cordis.patch.yml · 调用方块<span>④</span></div>
       <pre>- insert:
     - id: census
@@ -351,31 +309,6 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
 <p class="note">基线带 <code>hmr_root</code> 参数，默认 <code>[]</code>，也可以显式传
 <code>["."]</code>。树的形状（四个 id）在两个变体下完全一致——差别只落在 hmr 那一行 config。
 <span class="testref">test_baseline_profile</span></p>
-
-<div class="basemap" id="bm2">
-  <div>
-    <div class="bm-h">profile 树 · 当前变体落在哪个目录</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，两个变体共用同一份</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ <b id="bm2-name">dflt</b>/</span><span class="bm-c">当前变体的 profile 目录，随下方指针切换</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">两个变体形状相同，只有 name 字段跟着目录名走</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">两个变体唯一的差别 —— hmr 那一行 config.root</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，两个变体各自一份</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">cordis.patch.yml · hmr 那一行的实际差别</div>
-    <ul class="bm-tree">
-      <li data-f="vdflt"><span class="bm-n">dflt:  root: []</span><span class="bm-c">够监听 patch 文件本身，不监听代码文件</span></li>
-      <li data-f="vrooted"><span class="bm-n">rooted: root: ["."]</span><span class="bm-c">监听当前目录下的代码文件</span></li>
-    </ul>
-  </div>
-</div>
 
 <div class="variant">
   <div class="vrow" id="variant">
@@ -429,21 +362,234 @@ name: './local-plugin.js'                   相对路径 → 文件</pre>
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <h3>实验现场的文件</h3>
+  <ul class="ft">
+    <li class="br">$DSH_HOME/</li>
+    <li>├─ logs/</li>
+    <li>└─ profiles/</li>
+    <li>   ├─ node_modules/</li>
+    <li>   ├─ dflt/</li>
+    <li class="f" data-k="dflt-pkg">   │  ├─ package.json</li>
+    <li class="fc" id="fc-dflt-pkg">
+      <div class="why">dflt 变体的包清单，bundles 留空，base-census 走 link: 协议引入</div>
+      <div class="src">results/20260817-151120/profiles/dflt/package.json</div>
+      <pre>{
+  &quot;name&quot;: &quot;dsh-profile-dflt&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;base-census&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/baseline-profile/fixtures/base-census&quot;
+  }
+}</pre>
+    </li>
+    <li class="f" data-k="dflt-yml">   │  ├─ cordis.yml</li>
+    <li class="fc" id="fc-dflt-yml">
+      <div class="why">profile 的根，内容恒为空数组，每次启动被重写</div>
+      <div class="src">results/20260817-151120/profiles/dflt/cordis.yml</div>
+      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]</pre>
+    </li>
+    <li class="f" data-k="dflt-patch">   │  ├─ cordis.patch.yml</li>
+    <li class="fc" id="fc-dflt-patch">
+      <div class="why">活层——两个变体唯一的差别落在 hmr 那一行的 config.root</div>
+      <div class="src">results/20260817-151120/profiles/dflt/cordis.patch.yml</div>
+      <pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# 只挂一个普查员的活层
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/baseline-profile/census-baseline-dflt.json&quot;
+        delayMs: 2000</pre>
+    </li>
+    <li>   │  └─ node_modules/</li>
+    <li>   │     └─ base-census →</li>
+    <li>   └─ rooted/</li>
+    <li class="f" data-k="rooted-pkg">      ├─ package.json</li>
+    <li class="fc" id="fc-rooted-pkg">
+      <div class="why">rooted 变体的包清单，形状与 dflt 一致，只有 name 字段跟着目录名走</div>
+      <div class="src">results/20260817-151120/profiles/rooted/package.json</div>
+      <pre>{
+  &quot;name&quot;: &quot;dsh-profile-rooted&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;base-census&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/baseline-profile/fixtures/base-census&quot;
+  }
+}</pre>
+    </li>
+    <li class="f" data-k="rooted-yml">      ├─ cordis.yml</li>
+    <li class="fc" id="fc-rooted-yml">
+      <div class="why">profile 的根，内容恒为空数组，每次启动被重写</div>
+      <div class="src">results/20260817-151120/profiles/rooted/cordis.yml</div>
+      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]</pre>
+    </li>
+    <li class="f" data-k="rooted-patch">      ├─ cordis.patch.yml</li>
+    <li class="fc" id="fc-rooted-patch">
+      <div class="why">活层——跟 dflt 对着看，hmr 那一行 config.root 是唯一差别</div>
+      <div class="src">results/20260817-151120/profiles/rooted/cordis.patch.yml</div>
+      <pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: ["."]
+        debounce: 100
+
+# 只挂一个普查员的活层
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/baseline-profile/census-baseline-rooted.json&quot;
+        delayMs: 2000</pre>
+    </li>
+    <li>      └─ node_modules/</li>
+    <li>         └─ base-census →</li>
+    <li class="br">插件源码</li>
+    <li>└─ fixtures/base-census/</li>
+    <li class="f" data-k="fx-pkg">   ├─ package.json</li>
+    <li class="fc" id="fc-fx-pkg">
+      <div class="why">包型插件的清单：name / type:module / exports，靠包名被引用</div>
+      <div class="src">experiments/00-base/baseline-profile/fixtures/base-census/package.json</div>
+      <pre>{
+  &quot;name&quot;: &quot;base-census&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;private&quot;: true,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;exports&quot;: {
+    &quot;.&quot;: &quot;./index.js&quot;
+  }
+}</pre>
+    </li>
+    <li class="f" data-k="fx-idx">   └─ index.js</li>
+    <li class="fc" id="fc-fx-idx">
+      <div class="why">教学插件本体：export function apply(ctx, config)，拍两张树快照</div>
+      <div class="src">experiments/00-base/baseline-profile/fixtures/base-census/index.js</div>
+      <pre>/**
+ * 树的普查员：从进程内部给 loader 上的整棵条目树拍快照。
+ *
+ * 存在的理由：`--dump-config` 只能告诉你「配方算出来是什么」，看不到框架在
+ * boot 结束之后才补上的条目（那些条目不在任何 patch 文件里）。要看见它们，
+ * 只能从进程内部往外看。
+ *
+ * 拍两张快照，这是本插件全部的设计：
+ *
+ *   boot   —— apply 被调用的当下。这时 boot() 还没返回，框架的补丁还没打。
+ *   settle —— 延后 delayMs 之后。这时 boot() 早已返回，补的条目都到位了。
+ *
+ * 延后用 Node 原生 setTimeout，不用 `ctx.setTimeout` —— 后者是 timer 服务提供的。
+ */
+
+import { writeFileSync } from &quot;node:fs&quot;;
+
+const MARKER = &quot;base-census-v1&quot;;
+
+const WATCHED_SERVICES = [&quot;loader&quot;, &quot;timer&quot;, &quot;hmr&quot;, &quot;logger&quot;, &quot;webServer&quot;];
+
+/**
+ * 找一个条目的**父条目**。`loader.entries()` 是扁平遍历，光看列表分不出层级，
+ * 取法照抄 loader 源码里 `getOuterStack` 的走法：`entry.parent` 是它所属的
+ * EntryGroup，那个组的 `ctx.fiber.entry` 就是拥有这棵子树的条目；
+ * 根组没有拥有者，返回 null。
+ */
+function parentIdOf(entry) {
+  try {
+    return entry.parent?.ctx?.fiber?.entry?.options?.id ?? null;
+  } catch {
+    return null; // 观测点绝不抛错
+  }
+}
+
+function censusEntry(entry) {
+  const fiber = entry.fiber;
+  return {
+    id: entry.options?.id ?? null,
+    name: entry.options?.name ?? null,
+    parent: parentIdOf(entry),
+    disabled: entry.options?.disabled === true,
+    hasFiber: fiber !== undefined,
+    fiberState: fiber === undefined ? null : fiber.state,
+    inject: fiber === undefined ? null : Object.keys(fiber.inject ?? {}),
+  };
+}
+
+function takeSnapshot(ctx, phase) {
+  const loader = ctx.get(&quot;loader&quot;);
+  const services = {};
+  for (const name of WATCHED_SERVICES) {
+    services[name] = ctx.get(name) !== undefined;
+  }
+  return {
+    phase,
+    at: new Date().toISOString(),
+    services,
+    entries: loader === undefined ? null : [...loader.entries()].map(censusEntry),
+  };
+}
+
+/**
+ * 历次 apply 的记录，**模块级**——普查员会被重挂，挪到模块级之后重挂只会往
+ * 数组里多加一条，不会把之前的 settle 快照连带吞掉。
+ */
+const records = [];
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error(&quot;base-census: config.out 是必需的&quot;);
+  const delayMs = config?.delayMs ?? 1500;
+
+  const record = {
+    marker: MARKER,
+    applyIndex: records.length,
+    delayMs,
+    snapshots: [takeSnapshot(ctx, &quot;boot&quot;)],
+  };
+  records.push(record);
+
+  const flush = () => writeFileSync(out, JSON.stringify(records, null, 2), &quot;utf8&quot;);
+  flush();
+
+  const handle = setTimeout(() => {
+    record.snapshots.push(takeSnapshot(ctx, &quot;settle&quot;));
+    flush();
+  }, delayMs);
+  ctx.on(&quot;dispose&quot;, () => clearTimeout(handle));
+}</pre>
+    </li>
+  </ul>
+</aside>
 </div>
 
 <script>
-/** 点亮这一步在动的文件；keys 为空时整块复原。scope 隔离 bm1 / bm2，互不串。 */
-function bmHighlight(scopeEl, keys){
-  const set = new Set(keys || []);
-  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
-    li.classList.toggle('hit', set.has(li.dataset.f));
-    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
-  });
-}
-const bm0 = document.getElementById('bm0');
-const bm1 = document.getElementById('bm1');
-const bm2 = document.getElementById('bm2');
-
 /* ── 机制舞台：五步，process 类内容用纯分步，不需要 hover ── */
 const MSTEPS = [...document.querySelectorAll('.mstep')];
 const MLAST = MSTEPS.length - 1;
@@ -468,7 +614,6 @@ function mrender(i){
   mcapT.textContent = MSTEP_T[i];
   mcapD.innerHTML = MCAP[i];
   mpos.textContent = `${mcur + 1} / ${MSTEPS.length}`;
-  bmHighlight(bm0, (MSTEPS[i].dataset.bm || '').split(',').filter(Boolean));
 }
 
 function mgoto(i){
@@ -516,7 +661,6 @@ function render(i){
   // 计数器读的是 cur 不是 i：hover 预览别的卡片时指针没动，数字跟着动会让
   // 读者分不清「现在钉在哪一步」和「正在预览哪一张」。
   posEl.textContent = `${cur + 1} / ${FILES.length}`;
-  bmHighlight(bm1, (FILES[i].dataset.bm || '').split(',').filter(Boolean));
 }
 
 function gotoStep(i){
@@ -546,11 +690,6 @@ const VCAP = [
 const vpos = document.getElementById('vpos');
 const vcapT = document.getElementById('vcap-t'), vcapD = document.getElementById('vcap-d');
 const vprev = document.getElementById('vprev'), vnext = document.getElementById('vnext');
-const bm2Name = document.getElementById('bm2-name');
-const VBM_KEYS = [
-  ['patch', 'prof', 'vdflt'],
-  ['patch', 'prof', 'vrooted'],
-];
 let vcur = 0;
 
 function vrender(i){
@@ -562,8 +701,6 @@ function vrender(i){
   vcapT.style.color = getComputedStyle(VCARDS[i]).getPropertyValue('--c');
   vcapD.innerHTML = VCAP[i];
   vpos.textContent = `${vcur + 1} / ${VCARDS.length}`;
-  bm2Name.textContent = i === 0 ? 'dflt' : 'rooted';
-  bmHighlight(bm2, VBM_KEYS[i]);
 }
 
 function vgoto(i){
@@ -601,6 +738,22 @@ addEventListener('keydown', e => {
 mgoto(0);
 gotoStep(0);
 vgoto(0);
+
+/* ── 侧边文件树：点文件展开真实内容，同时最多展开一个 ── */
+document.querySelectorAll('.ft li.f').forEach(li => {
+  li.tabIndex = 0;
+  const toggle = () => {
+    const box = document.getElementById('fc-' + li.dataset.k);
+    const was = box.classList.contains('on');
+    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
+    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
+    if (!was) { box.classList.add('on'); li.classList.add('on'); }
+  };
+  li.addEventListener('click', toggle);
+  li.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+  });
+});
 </script>
 </body>
 </html>

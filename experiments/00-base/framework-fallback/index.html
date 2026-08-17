@@ -19,7 +19,35 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+/* ── 侧边文件树 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
+  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
+.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
+.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
+  font-size:11.5px;line-height:1.5}
+.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
+.ft li.br{color:var(--dim);margin-top:7px}
+.ft li.f{cursor:pointer}
+.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft li.f::after{content:" ·";color:var(--dim)}
+.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+  color:var(--bmhit);font-weight:600}
+.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
+  border-left:2px solid var(--bmhit);white-space:normal}
+.fc.on{display:block}
+.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
+.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
+.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
+  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
+@media (max-width:1040px){
+  .layout{grid-template-columns:1fr;max-width:860px}
+  .side{position:static;max-height:none;order:-1}
+}
 
 /* ── 头 ── */
 .crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
@@ -33,25 +61,6 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
 .note code{font-family:var(--mono);font-size:12px}
-
-/* ── 底座参考块：这一节在动哪个文件 ── */
-.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;
-  padding:14px 16px;margin:0 0 14px}
-.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
-  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
-.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
-  border-radius:5px;transition:background .2s,opacity .2s}
-.bm-tree li .bm-n{white-space:pre;flex:none}
-.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
-  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.bm-tree li.dim{opacity:.35}
-.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
-  box-shadow:inset 2px 0 0 var(--bmhit)}
-.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
-.bm-tree li.hit .bm-c{color:var(--fg)}
-@media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
 /* ── 舞台 ── */
 .stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
@@ -130,7 +139,8 @@ footer a{color:inherit}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">00-base / framework-fallback</div>
 <h1>兜底补 timer/hmr</h1>
@@ -153,32 +163,6 @@ footer a{color:inherit}
 <code>docs/GLOSSARY.md</code> 里都有记录）；④⑤ 是本项自己的判据与落点，跟本页
 后面的实测快照用的是同一条用例、同一份「待验」证据。</p>
 
-<div class="basemap" id="bm0">
-  <div>
-    <div class="bm-h">profile 树 · 这一步在动哪个文件</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，本项专属，住 out/testhome/framework-fallback/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr（no-infra.out.log / no-infra.err.log）</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ no-infra/</span><span class="bm-c">本项唯一的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: []，dependencies 里 link: 供给 base-census</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 挂哪个插件、给什么配置写在这个文件里，本项只声明了 census 一条</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 本项用的教学插件</div>
-    <ul class="bm-tree">
-      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
-      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
-      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config) —— 拍 boot / settle 两张树快照</span></li>
-    </ul>
-  </div>
-</div>
-
 <div class="stage" id="stage2">
   <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
   <div class="ctl">
@@ -192,32 +176,6 @@ footer a{color:inherit}
 <p class="note">用例 <code>test_neither_declared_gets_both_supplied_at_root</code>。
 这条判定眼下只有这一条用例撑着，docstring 里把它标成「待验」——下面按这个成色来看，
 别当成跟满覆盖的项一样确凿。</p>
-
-<div class="basemap" id="bm1">
-  <div>
-    <div class="bm-h">profile 树 · 实验跑起来时假 home 里的样子</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，本项专属，住 out/testhome/framework-fallback/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr（no-infra.out.log / no-infra.err.log）</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ no-infra/</span><span class="bm-c">本项唯一的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: []，dependencies 里 link: 供给 base-census</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 6 步动的就是这个文件，只声明了 census 一条</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 本项用的教学插件</div>
-    <ul class="bm-tree">
-      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
-      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
-      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config) —— 拍 boot / settle 两张树快照</span></li>
-    </ul>
-  </div>
-</div>
 
 <div class="stage">
   <div id="patchview">
@@ -294,6 +252,164 @@ footer a{color:inherit}
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <h3>实验现场的文件</h3>
+  <ul class="ft">
+    <li class="br">$DSH_HOME/</li>
+    <li>├─ logs/</li>
+    <li>└─ profiles/</li>
+    <li>   ├─ node_modules/</li>
+    <li>   └─ no-infra/</li>
+    <li class="f" data-k="pkg">      ├─ package.json</li>
+    <li class="fc" id="fc-pkg">
+      <div class="why">dsh.profile.bundles: []，dependencies 里 link: 供给 base-census</div>
+      <div class="src">results/20260817-151139/profiles/no-infra/package.json</div>
+      <pre>{
+  "name": "dsh-profile-no-infra",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "base-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/00-base/framework-fallback/fixtures/base-census"
+  }
+}
+</pre>
+    </li>
+    <li class="f" data-k="yml">      ├─ cordis.yml</li>
+    <li class="fc" id="fc-yml">
+      <div class="why">恒为 []，每次启动被 profile-boot 重写</div>
+      <div class="src">results/20260817-151139/profiles/no-infra/cordis.yml</div>
+      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </li>
+    <li class="f" data-k="patch">      ├─ cordis.patch.yml</li>
+    <li class="fc" id="fc-patch">
+      <div class="why">活层 —— 挂哪个插件、给什么配置写在这里，本项只声明了 census 一条</div>
+      <div class="src">results/20260817-151139/profiles/no-infra/cordis.patch.yml</div>
+      <pre># 完全不声明 timer/hmr，只有普查员自己
+- insert:
+    - id: census
+      name: base-census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/framework-fallback/census-fallback.json"
+        delayMs: 3000
+</pre>
+    </li>
+    <li>      └─ node_modules/</li>
+    <li>         └─ base-census →</li>
+    <li class="br">插件源码</li>
+    <li>└─ fixtures/base-census/</li>
+    <li class="f" data-k="fixpkg">   ├─ package.json</li>
+    <li class="fc" id="fc-fixpkg">
+      <div class="why">包型插件：有 package.json，靠包名引用</div>
+      <div class="src">experiments/00-base/framework-fallback/fixtures/base-census/package.json</div>
+      <pre>{
+  "name": "base-census",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+    </li>
+    <li class="f" data-k="fixidx">   └─ index.js</li>
+    <li class="fc" id="fc-fixidx">
+      <div class="why">export function apply(ctx, config) —— 拍 boot / settle 两张树快照</div>
+      <div class="src">experiments/00-base/framework-fallback/fixtures/base-census/index.js</div>
+      <pre>/**
+ * 树的普查员：从进程内部给 loader 上的整棵条目树拍快照。
+ *
+ * 存在的理由：`--dump-config` 只能告诉你「配方算出来是什么」，看不到框架在
+ * boot 结束之后才补上的条目（那些条目不在任何 patch 文件里）。要看见它们，
+ * 只能从进程内部往外看——本项要看见的正是框架自己补的 timer/hmr。
+ *
+ * 拍两张快照：
+ *   boot   —— apply 被调用的当下，boot() 还没返回，框架的兜底还没触发。
+ *   settle —— 延后 delayMs 之后，boot() 早已返回，兜底该触发的都触发了。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "base-census-v1";
+
+const WATCHED_SERVICES = ["loader", "timer", "hmr", "logger", "webServer"];
+
+/**
+ * 找一个条目的**父条目**。根组没有拥有者，返回 null——框架兜底补的条目
+ * 就落在这里：跟 `include` 平级，不在它的子树里。
+ */
+function parentIdOf(entry) {
+  try {
+    return entry.parent?.ctx?.fiber?.entry?.options?.id ?? null;
+  } catch {
+    return null; // 观测点绝不抛错
+  }
+}
+
+function censusEntry(entry) {
+  const fiber = entry.fiber;
+  return {
+    id: entry.options?.id ?? null,
+    name: entry.options?.name ?? null,
+    parent: parentIdOf(entry),
+    disabled: entry.options?.disabled === true,
+    hasFiber: fiber !== undefined,
+    fiberState: fiber === undefined ? null : fiber.state,
+    inject: fiber === undefined ? null : Object.keys(fiber.inject ?? {}),
+  };
+}
+
+function takeSnapshot(ctx, phase) {
+  const loader = ctx.get("loader");
+  const services = {};
+  for (const name of WATCHED_SERVICES) {
+    services[name] = ctx.get(name) !== undefined;
+  }
+  return {
+    phase,
+    at: new Date().toISOString(),
+    services,
+    entries: loader === undefined ? null : [...loader.entries()].map(censusEntry),
+  };
+}
+
+const records = [];
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("base-census: config.out 是必需的");
+  const delayMs = config?.delayMs ?? 1500;
+
+  const record = {
+    marker: MARKER,
+    applyIndex: records.length,
+    delayMs,
+    snapshots: [takeSnapshot(ctx, "boot")],
+  };
+  records.push(record);
+
+  const flush = () => writeFileSync(out, JSON.stringify(records, null, 2), "utf8");
+  flush();
+
+  const handle = setTimeout(() => {
+    record.snapshots.push(takeSnapshot(ctx, "settle"));
+    flush();
+  }, delayMs);
+  ctx.on("dispose", () => clearTimeout(handle));
+}
+</pre>
+    </li>
+  </ul>
+</aside>
 </div>
 
 <script>
@@ -301,30 +417,30 @@ footer a{color:inherit}
 // 中间三步（判据 / 补 timer / 补 hmr）是源码引用——没有对应的单独拍照，
 // 所以那几步里的服务状态标"未知"，不编造中间值。
 const STEPS = [
-  { view:'patch', t:'patch', files:['patch'],
+  { view:'patch', t:'patch',
     cap:'no-infra profile 的 patch 只挂了普查员一条，完全不提 timer/hmr——这是触发兜底的前提。' },
 
-  { view:'tree', t:'boot 收尾', files:[],
+  { view:'tree', t:'boot 收尾',
     on:{include:1,census:1,timer:0,hmr:0}, neu:null,
     svc:{loader:'true',timer:'false',hmr:'false'}, judge:false,
     cap:'<b>boot() 收尾那一刻的真实快照：</b>树上只有 include 和它下面的 census；服务对象里 timer / hmr 都是 false。' },
 
-  { view:'tree', t:'判据', files:[],
+  { view:'tree', t:'判据',
     on:{include:1,census:1,timer:0,hmr:0}, neu:null,
     svc:{loader:'true',timer:'false',hmr:'false'}, judge:true,
     cap:'框架接着检查 <code>ctx.get("hmr")</code>——查的是 hmr <b>服务</b>在不在，不是有没有一个叫 hmr 的<b>条目</b>。此刻是 undefined，走进兜底分支。' },
 
-  { view:'tree', t:'补 timer', files:['farm'],
+  { view:'tree', t:'补 timer',
     on:{include:1,census:1,timer:1,hmr:0}, neu:'timer',
     svc:{loader:'true',timer:'pending',hmr:'false'}, judge:false,
     cap:'先补 timer：<code>ctx.loader.create({ name: "…cordis-plugin-timer" })</code> 没传 id，落到随机字符串；<code>parent</code> 默认 null，落在根组，不进 include 子树。这一步没有单独拍照，服务状态未知。' },
 
-  { view:'tree', t:'补 hmr', files:['farm'],
+  { view:'tree', t:'补 hmr',
     on:{include:1,census:1,timer:1,hmr:1}, neu:'hmr',
     svc:{loader:'true',timer:'pending',hmr:'pending'}, judge:false,
     cap:'再补 hmr：<code>config: { root: [] }</code>，同样随机 id、同样落在根组。它的 inject 里已经声明了 timer——顺序是先 timer 后 hmr。' },
 
-  { view:'tree', t:'settle · +3.012s', files:[],
+  { view:'tree', t:'settle · +3.012s',
     on:{include:1,census:1,timer:1,hmr:1}, neu:null,
     svc:{loader:'true',timer:'true',hmr:'true'}, judge:false,
     cap:'<b>3.012 秒后的 settle 快照：</b>树上四条，补的两条跟 include 平级、不在它下面；服务对象里 timer / hmr 都变成 true。' },
@@ -339,15 +455,6 @@ const prev = document.getElementById('prev'), next = document.getElementById('ne
 
 const ENTRY_KEYS = ['include','census','timer','hmr'];
 const SVC_KEYS = ['loader','timer','hmr'];
-
-/** 点亮这一步在动的文件；keys 为空时整块复原。 */
-function bmHighlight(scopeEl, keys){
-  const set = new Set(keys || []);
-  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
-    li.classList.toggle('hit', set.has(li.dataset.f));
-    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
-  });
-}
 
 /** 纯函数：树与服务面板只由 i 决定，跳步直接渲染目标状态，不做增量动画。 */
 function render(i){
@@ -375,8 +482,6 @@ function render(i){
   capD.innerHTML = s.cap;
   prev.disabled = i === 0;
   next.disabled = i === LAST;
-
-  bmHighlight(document.getElementById('bm1'), s.files);
 }
 
 let cur = 0;
@@ -394,25 +499,25 @@ goto(0);
 
 // ── 机制怎么工作：五步概念走查，跟上面的实测快照分开一套指针 ──
 const STEPS2 = [
-  { t:'条目 / 插件', files:['patch','plugpkg','plugidx'],
+  { t:'条目 / 插件',
     cap:'配方里的一行叫<b>条目（entry）</b>——本项唯一的一条是 <code>census</code>，写着'
       + '『挂 <code>base-census</code> 这个插件、给它什么 <code>config</code>』。插件本身是'
       + '一段可挂载的代码，DSH 的写法是模块导出一个 <code>apply(ctx, config)</code> 函数：'
       + '<code>ctx</code> 是这次挂载拿到的上下文，插件靠它访问一切。' },
 
-  { t:'服务', files:['plugidx'],
+  { t:'服务',
     cap:'插件在 <code>apply</code> 里可以往 <code>ctx</code> 上 <b>provide</b> 一个具名对象，这就是'
       + '<b>服务（service）</b>；别的插件靠 <b>inject</b> 声明依赖，或者用 <code>ctx.get("服务名")</code> '
       + '运行时现查来拿。服务名跟条目 id 是两码事——本项的 <code>base-census</code> 自己不 provide '
       + '任何服务，只在 <code>apply</code> 里用 <code>ctx.get()</code> 挨个查 <code>loader</code>'
       + '（读组合树的服务）、<code>timer</code>、<code>hmr</code> 在不在，把结果拍进快照。' },
 
-  { t:'boot', files:[],
+  { t:'boot',
     cap:'<b>boot</b> 是 dsh 进程起来后把整份配方挂成一棵条目树、逐条激活插件的那一程；它有个'
       + '明确的收尾时刻——负责启动的 <code>@deepseek-ai/dsh-app-boot</code> 里那个 <code>boot()</code> '
       + '函数返回。' },
 
-  { t:'判据', files:[],
+  { t:'判据',
     cap:'<code>boot()</code> 收尾那一刻，框架自己再查一遍 <code>ctx.get("timer")</code> / '
       + '<code>ctx.get("hmr")</code>——查的是这两个<b>服务</b>在不在，不是有没有一条 id 叫 '
       + 'timer/hmr 的条目。不在，就调用 <code>ctx.loader.create()</code> 自己造一条条目，'
@@ -420,7 +525,7 @@ const STEPS2 = [
       + '<code>@deepseek-ai/cordis-plugin-hmr</code> 这两个包。'
       + '<span class="badge">⚠️ 待验</span>' },
 
-  { t:'落点', files:[],
+  { t:'落点',
     cap:'整棵配方树有个固定的根：<code>cordis:include</code>，id 固定是 <code>include</code>，'
       + '由 <code>mountRootInclude()</code> 在 boot 期建好——你写的每一条条目最终都挂在它的'
       + '子树下面。框架兜底补的这两条不是这样：<code>ctx.loader.create()</code> 不传 '
@@ -430,7 +535,6 @@ const STEPS2 = [
 ];
 const LAST2 = STEPS2.length - 1;
 
-const bm0 = document.getElementById('bm0');
 const pos2 = document.getElementById('pos2');
 const cap2T = document.getElementById('cap2-t'), cap2D = document.getElementById('cap2-d');
 const prev2 = document.getElementById('prev2'), next2 = document.getElementById('next2');
@@ -442,7 +546,6 @@ function render2(i){
   cap2D.innerHTML = s.cap;
   prev2.disabled = i === 0;
   next2.disabled = i === LAST2;
-  bmHighlight(bm0, s.files);
 }
 
 let cur2 = 0;
@@ -453,6 +556,22 @@ function goto2(i){
 prev2.addEventListener('click', () => goto2(cur2 - 1));
 next2.addEventListener('click', () => goto2(cur2 + 1));
 goto2(0);
+
+// ── 侧边文件树：点文件行展开内容，同时最多展开一个 ──
+document.querySelectorAll('.ft li.f').forEach(li => {
+  li.tabIndex = 0;
+  const toggle = () => {
+    const box = document.getElementById('fc-' + li.dataset.k);
+    const was = box.classList.contains('on');
+    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
+    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
+    if (!was) { box.classList.add('on'); li.classList.add('on'); }
+  };
+  li.addEventListener('click', toggle);
+  li.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
+  });
+});
 </script>
 </body>
 </html>

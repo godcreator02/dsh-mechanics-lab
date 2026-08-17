@@ -22,7 +22,35 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+/* ── 侧边文件树 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
+  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px}
+.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
+.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
+  font-size:11.5px;line-height:1.5}
+.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
+.ft li.br{color:var(--dim);margin-top:7px}
+.ft li.f{cursor:pointer}
+.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft li.f::after{content:" ·";color:var(--dim)}
+.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+  color:var(--bmhit);font-weight:600}
+.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
+  border-left:2px solid var(--bmhit);white-space:normal}
+.fc.on{display:block}
+.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
+.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
+.fc pre{margin:0;font-size:10.5px;line-height:1.5;white-space:pre;
+  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
+@media (max-width:1040px){
+  .layout{grid-template-columns:1fr;max-width:860px}
+  .side{position:static;max-height:none;order:-1}
+}
 
 /* ── 头 ── */
 .crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
@@ -37,29 +65,6 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
 .usecase{font-size:12px;color:var(--dim);font-family:var(--mono);margin:10px 0 0}
 .usecase code{color:var(--fg)}
-
-/* ── 底座参考块：这一节在动哪个文件 ── */
-.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;
-  padding:14px 16px;margin:0 0 14px}
-.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
-  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
-.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
-  border-radius:5px;transition:background .2s,opacity .2s}
-.bm-tree li .bm-n{white-space:pre;flex:none}
-.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
-  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.bm-tree li.dim{opacity:.35}
-.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
-  box-shadow:inset 2px 0 0 var(--bmhit)}
-.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
-.bm-tree li.hit .bm-c{color:var(--fg)}
-/* 右栏两种插件形态并排——本项独有：一种靠包名，一种靠相对路径 */
-.bm-dual{display:flex;gap:14px}
-.bm-dual>div{flex:1;min-width:0}
-.bm-h2{font-family:var(--mono);font-size:10px;color:var(--dim);margin:0 0 4px}
-@media (max-width:700px){.basemap{grid-template-columns:1fr}.bm-dual{flex-direction:column}}
 
 /* ── 板块 0：机制怎么工作（分步说明）── */
 .mech-body{font-size:13.5px;line-height:1.75;min-height:108px}
@@ -185,7 +190,8 @@ footer a{color:inherit}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">00-base / recorder-reach</div>
 <h1>采集器自己看得见什么</h1>
@@ -203,45 +209,6 @@ footer a{color:inherit}
 <p class="note">从「配置里写的一行」到「一份能翻查的事件流」，分五步走完整条链路。
 点下面的按钮切一步，或者用「上一步 / 下一步」。</p>
 
-<div class="basemap" id="bm0">
-  <div>
-    <div class="bm-h">profile 树 · 假 home 里这次实验的样子</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，这一项独占，住 out/testhome/recorder-reach/</span></li>
-      <li data-f="events"><span class="bm-n">├─ events.jsonl</span><span class="bm-c">lab-recorder 追加写的事件流——本仓所有实验的原料</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；框架自带条目（timer / hmr 等）靠 Node parent-walk 在这里解析到</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ observer/</span><span class="bm-c">本项唯一的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: [dsh-base] ＋ dependencies.lab-recorder（link: 供给）</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 我们写的两条 insert 都在这里</span></li>
-      <li data-f="neighborfile"><span class="bm-n">      ├─ neighbor.mjs</span><span class="bm-c">裸文件插件，直接躺在 profile 目录里，patch 里靠 ./neighbor.mjs 相对路径引用</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ lab-recorder →</span><span class="bm-c">junction，指向右边包型插件的源码</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 两种引用形态并排</div>
-    <div class="bm-dual">
-      <div>
-        <div class="bm-h2">包型 · 靠包名引用</div>
-        <ul class="bm-tree">
-          <li data-f="pluglab_pkgdir"><span class="bm-n">observatory/lab-recorder/</span><span class="bm-c">采集器本身</span></li>
-          <li data-f="pluglab_pkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name: lab-recorder，type: module</span></li>
-          <li data-f="pluglab_idx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-        </ul>
-      </div>
-      <div>
-        <div class="bm-h2">裸文件 · 靠相对路径引用</div>
-        <ul class="bm-tree">
-          <li data-f="plugbare"><span class="bm-n">fixtures/neighbor.mjs</span><span class="bm-c">单文件，没有 package.json、没有构建</span></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="panel">
   <div class="stepbar" id="stepbarM"></div>
   <div class="mech-body" id="mechbody"></div>
@@ -256,44 +223,6 @@ footer a{color:inherit}
 <p class="note">同一次真实运行：一台仪器 <code>lab-recorder</code> + 一个陪衬插件
 <code>neighbor</code>，跑在真实 DSH 实例里。数字来自这次归档。
 点下面的按钮切换视角，或把鼠标停在任意一个方块上。</p>
-
-<div class="basemap" id="bm1">
-  <div>
-    <div class="bm-h">profile 树 · 假 home 里这次实验的样子</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，这一项独占，住 out/testhome/recorder-reach/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；框架自带条目（timer / hmr 等）靠 Node parent-walk 在这里解析到</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ observer/</span><span class="bm-c">本项唯一的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: [dsh-base] ＋ dependencies.lab-recorder（link: 供给）</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 我们写的两条 insert 都在这里</span></li>
-      <li data-f="neighborfile"><span class="bm-n">      ├─ neighbor.mjs</span><span class="bm-c">裸文件插件，直接躺在 profile 目录里，patch 里靠 ./neighbor.mjs 相对路径引用</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ lab-recorder →</span><span class="bm-c">junction，指向右边包型插件的源码</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 两种引用形态并排</div>
-    <div class="bm-dual">
-      <div>
-        <div class="bm-h2">包型 · 靠包名引用</div>
-        <ul class="bm-tree">
-          <li data-f="pluglab_pkgdir"><span class="bm-n">observatory/lab-recorder/</span><span class="bm-c">采集器本身</span></li>
-          <li data-f="pluglab_pkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name: lab-recorder，type: module</span></li>
-          <li data-f="pluglab_idx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-        </ul>
-      </div>
-      <div>
-        <div class="bm-h2">裸文件 · 靠相对路径引用</div>
-        <ul class="bm-tree">
-          <li data-f="plugbare"><span class="bm-n">fixtures/neighbor.mjs</span><span class="bm-c">单文件，没有 package.json、没有构建</span></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div class="panel">
   <div class="stat-row">
@@ -330,44 +259,6 @@ footer a{color:inherit}
 <h2>睁眼那一刻</h2>
 <p class="note">毫秒数取自真实归档。<b>横轴按事件顺序等距摊开，不按时间比例</b>——
 六个事件全挤在头 8 毫秒里，按比例画会叠成一团。</p>
-
-<div class="basemap" id="bm2">
-  <div>
-    <div class="bm-h">profile 树 · 睁眼那一刻在读哪些文件</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，这一项独占，住 out/testhome/recorder-reach/</span></li>
-      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；框架自带条目（timer / hmr 等）靠 Node parent-walk 在这里解析到</span></li>
-      <li data-f="prof"><span class="bm-n">   └─ observer/</span><span class="bm-c">本项唯一的 profile</span></li>
-      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: [dsh-base] ＋ dependencies.lab-recorder（link: 供给）</span></li>
-      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
-      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 我们写的两条 insert 都在这里</span></li>
-      <li data-f="neighborfile"><span class="bm-n">      ├─ neighbor.mjs</span><span class="bm-c">裸文件插件，直接躺在 profile 目录里，patch 里靠 ./neighbor.mjs 相对路径引用</span></li>
-      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
-      <li data-f="junction"><span class="bm-n">         └─ lab-recorder →</span><span class="bm-c">junction，指向右边包型插件的源码</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">插件树 · 两种引用形态并排</div>
-    <div class="bm-dual">
-      <div>
-        <div class="bm-h2">包型 · 靠包名引用</div>
-        <ul class="bm-tree">
-          <li data-f="pluglab_pkgdir"><span class="bm-n">observatory/lab-recorder/</span><span class="bm-c">采集器本身</span></li>
-          <li data-f="pluglab_pkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name: lab-recorder，type: module</span></li>
-          <li data-f="pluglab_idx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
-        </ul>
-      </div>
-      <div>
-        <div class="bm-h2">裸文件 · 靠相对路径引用</div>
-        <ul class="bm-tree">
-          <li data-f="plugbare"><span class="bm-n">fixtures/neighbor.mjs</span><span class="bm-c">单文件，没有 package.json、没有构建</span></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div class="tl">
   <div class="seg-label"><span>它睁眼之前是黑的</span><span>它睁眼之后才有记录</span></div>
@@ -446,28 +337,471 @@ snapshot 与 status 记录），是一次观测的快照。<br>
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <h3>实验现场的文件</h3>
+  <ul class="ft">
+    <li class="br">$DSH_HOME/</li>
+    <li>├─ events.jsonl</li>
+    <li>├─ logs/</li>
+    <li>└─ profiles/</li>
+    <li>   ├─ node_modules/</li>
+    <li>   └─ observer/</li>
+    <li class="f" data-k="pkg">      ├─ package.json</li>
+    <li class="fc" id="fc-pkg">
+      <div class="why">profile 清单：走哪个 bundle，以 link: 方式引进采集器</div>
+      <div class="src">experiments/00-base/recorder-reach/results/20260817-151019/profiles/observer/package.json</div>
+      <pre>{
+  "name": "dsh-profile-observer",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre>
+    </li>
+    <li class="f" data-k="yml">      ├─ cordis.yml</li>
+    <li class="fc" id="fc-yml">
+      <div class="why">恒为空数组，每次启动被 profile-boot 重写</div>
+      <div class="src">experiments/00-base/recorder-reach/results/20260817-151019/profiles/observer/cordis.yml</div>
+      <pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </li>
+    <li class="f" data-k="patch">      ├─ cordis.patch.yml</li>
+    <li class="fc" id="fc-patch">
+      <div class="why">活层——我们写的两条 insert 都在这里</div>
+      <div class="src">experiments/00-base/recorder-reach/results/20260817-151019/profiles/observer/cordis.patch.yml</div>
+      <pre># 一台仪器 + 一个陪衬
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/recorder-reach/events.jsonl"
+        flushMs: 100
+
+    - id: neighbor
+      name: ./neighbor.mjs
+</pre>
+    </li>
+    <li class="f" data-k="neighborfile">      ├─ neighbor.mjs</li>
+    <li class="fc" id="fc-neighborfile">
+      <div class="why">裸文件插件，直接躺在 profile 目录里，patch 靠 ./neighbor.mjs 相对路径引用</div>
+      <div class="src">experiments/00-base/recorder-reach/fixtures/neighbor.mjs</div>
+      <pre>/**
+ * 陪衬插件——存在的意义只有一个：给采集器一个「别人」可看。
+ *
+ * 全部内容两件事：
+ *   1. 声明要用观察器 —— 框架保证它先就位，之后本文件才被调用
+ *   2. 在 apply 里说一句话 —— 这句话进采集器那条事件流
+ *
+ * 没有 package.json，没有构建，没有依赖安装，就这一个文件。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  // 先把自己的 ctx 交给观察器，它据此反查「说话的是树上哪一条」
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了");
+}
+</pre>
+    </li>
+    <li>      └─ node_modules/</li>
+    <li>         └─ lab-recorder →</li>
+    <li class="br">插件源码</li>
+    <li>└─ observatory/lab-recorder/</li>
+    <li class="f" data-k="libpkg">   ├─ package.json</li>
+    <li class="fc" id="fc-libpkg">
+      <div class="why">采集器包清单：ESM 模块，导出 index.js</div>
+      <div class="src">observatory/lab-recorder/package.json</div>
+      <pre>{
+  "name": "lab-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "观测台的采集器：订阅 Cordis 生命周期事件，追加写 jsonl。无 UI、零 inject。",
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </li>
+    <li class="f" data-k="libidx">   └─ index.js</li>
+    <li class="fc" id="fc-libidx">
+      <div class="why">采集器实现：订阅 Cordis 生命周期事件，追加写 events.jsonl</div>
+      <div class="src">observatory/lab-recorder/index.js</div>
+      <pre>/**
+ * lab-recorder — 观测台的采集器。
+ *
+ * 唯一必须住在被观测进程里的东西：订阅 Cordis 与 loader 的生命周期事件，
+ * 追加写 jsonl。看板是独立的 Python 服务，读这些文件。
+ *
+ * ── 事件分三类处理，依据是**是不是 waterfall**，不是"量大不大" ──────────
+ *
+ *   流水型  低频、有时序意义 → 全量记进 events.jsonl，时间线展示
+ *   关系型  价值在去重后的集合 → 聚合进 relations.json，不进时间线
+ *   链路型  waterfall：监听器**必须调 next()**，否则阻断整条执行链。
+ *           订阅它等于插进执行路径，不再是只读观测 → **默认关**
+ *
+ * 为什么关系型要去重：`internal/get` 每次服务访问都触发，热路径上每秒几千次。
+ * 记流水的话一次运行几万条、几十 MB，而"webServer 被读了 8000 次"毫无价值；
+ * 去重成「谁读过什么服务」之后只剩几十条，还直接画得出服务依赖图。
+ *
+ * 为什么 waterfall 默认关：L10 / L13 测的就是时序。订阅 waterfall 会让每次
+ * config 更新、每次服务读写都多走一层回调，next() 返回 Promise 时还会改变异步
+ * 调度。仪器插在执行链里会让那两课的结论可疑。平时想看依赖细节再打开。
+ *
+ * ── 三条设计约束 ────────────────────────────────────────────────────────
+ *
+ * 1. **零 inject**。订阅只要 apply 的 ctx，写文件只要 node:fs。没有依赖就没有
+ *    等待，它会在很早的批次挂上，漏掉的早期事件最少。
+ *    （反面教材：lab-inspector 因为 inject 了 loader，被 loader 的 await 语义
+ *    锁死在 PENDING —— 见 demo/README.md。）
+ * 2. **内存缓冲 + 定时 flush**。逐个同步写盘会明显改变时序，而我们测的是
+ *    "什么变了什么没变"这类定性结论，宁可丢掉最后 250ms 也不污染时序。
+ * 3. **只记录，不判断**。事件原样落盘，过滤/聚合/解释全在看板做。
+ *    采集器越笨越好 —— 它是唯一会影响被观测系统的部分。
+ */
+
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+/**
+ * FiberState 的数字 → 名字。
+ *
+ * 必须自己写：`FiberState` 在 cordis 里是 TypeScript 的 `const enum`，
+ * 编译后被内联成数字字面量，**运行时不存在这个对象**，import 不到。
+ */
+const FIBER_STATE = ["PENDING", "LOADING", "ACTIVE", "FAILED", "DISPOSED", "UNLOADING"];
+
+const MARKER = "lab-recorder-v2";
+
+/** config 之类的任意值记进日志前先压扁，防止一条事件撑爆整个文件。 */
+function brief(value, max = 400) {
+  if (value === undefined) return undefined;
+  try {
+    const text = JSON.stringify(value);
+    if (text === undefined) return String(value);
+    return text.length &gt; max ? text.slice(0, max) + `…(共${text.length}字符)` : JSON.parse(text);
+  } catch {
+    return String(value);
+  }
+}
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("lab-recorder: config.out（事件日志路径）是必需的");
+
+  const relOut = config?.relationsOut ?? out.replace(/\.jsonl$/, "") + ".relations.json";
+  const flushMs = config?.flushMs ?? 250;
+  /** 是否订阅 waterfall 事件。**默认关** —— 理由见文件头。 */
+  const waterfall = config?.waterfall === true;
+
+  mkdirSync(dirname(out), { recursive: true });
+  // 每次挂载重开：一次运行一份日志，避免跨运行串味
+  writeFileSync(out, "", "utf8");
+
+  const t0 = process.hrtime.bigint();
+  const buffer = [];
+  let seq = 0;
+
+  const push = (kind, payload) =&gt; {
+    buffer.push({
+      seq: seq++,
+      // 相对采集器挂载时刻的毫秒数，三位小数 —— 看得出几毫秒的窄窗口
+      ms: Number(process.hrtime.bigint() - t0) / 1e6,
+      at: new Date().toISOString(),
+      kind,
+      ...payload,
+    });
+  };
+
+  /** 记录时绝不能抛：采集器把被观测系统搞崩是最坏的结果。 */
+  const safely = (fn) =&gt; {
+    try {
+      fn();
+    } catch {
+      /* 观测失败就观测失败，绝不影响被观测者 */
+    }
+  };
+
+  // ── 关系表（去重聚合，不进时间线）────────────────────────────────────
+  /** key = "谁\0什么"，value = {who, what, count} */
+  const serviceReads = new Map();
+  const listeners = new Map();
+  /** 当前存在的服务：name → 最近一次绑定是否有值 */
+  const services = new Map();
+
+  const bump = (map, who, what) =&gt; {
+    const key = who + " " + what;
+    const hit = map.get(key);
+    if (hit) hit.count += 1;
+    else map.set(key, { who, what, count: 1 });
+  };
+
+  /** 从一个 Context 反查它属于哪个条目 —— 关系表的「谁」。 */
+  const whoOf = (someCtx) =&gt; {
+    const entry = someCtx?.fiber?.entry;
+    return entry?.options?.id ?? entry?.options?.name ?? "(无条目)";
+  };
+
+  /** 从 fiber 反查条目。不是所有 fiber 都对应条目（插件内部 ctx.plugin() 起的没有）。 */
+  const describeFiber = (fiber) =&gt; {
+    const entry = fiber?.entry;
+    if (entry?.options) {
+      return { scope: "entry", id: entry.options.id ?? null, name: entry.options.name ?? null };
+    }
+    return { scope: "inner", id: null, name: fiber?.runtime?.name ?? null };
+  };
+
+  const describeEntry = (entry) =&gt; ({
+    scope: "entry",
+    id: entry?.options?.id ?? null,
+    name: entry?.options?.name ?? null,
+  });
+
+  // ══ 对外服务：让被观测的插件自己说话 ══════════════════════════════════
+  //
+  // 采集器订阅的那些事件回答的是「框架对这个条目做了什么」，回答不了
+  // 「这个插件自己拿到了什么、干了什么」—— 那些只有插件自己知道。
+  //
+  // 所以再开一个口子：插件 `inject: ["labObserver"]`，把自己的话说进同一条
+  // 事件流。好处是上报与框架事件**时序天然对齐**，看板不用去拼两份数据；
+  // 教学插件也不必各自 writeFileSync 一份格式各异的见证文件。
+  //
+  // 为什么是 `for(ctx)` 而不是直接 `say(...)`：服务方法拿不到调用方的
+  // context，而「谁说的」不能靠插件自报（它写死的名字未必等于条目 id）。
+  // 传一次自己的 ctx，采集器用现成的 whoOf 反查真实身份，比自报可靠。
+  const observer = {
+    /** 绑定调用者身份，返回一个上报函数。 */
+    for(callerCtx) {
+      const who = whoOf(callerCtx);
+      return (note, data) =&gt;
+        safely(() =&gt; push("report", { who, note: String(note), data: brief(data) }));
+    },
+  };
+
+  // provide 本身就是个 effect：fiber 卸载时服务自动撤销，不用自己包 ctx.effect
+  ctx.provide("labObserver", observer);
+
+  // ══ 流水型：全量记录 ══════════════════════════════════════════════════
+
+  // fiber 生命周期状态每变一次触发一次，带旧状态。
+  // 这是能抓住 LOADING 这种几毫秒窄窗口的唯一办法 —— 轮询必然错过。
+  ctx.on("internal/status", (fiber, oldValue) =&gt;
+    safely(() =&gt; push("status", {
+      ...describeFiber(fiber),
+      from: FIBER_STATE[oldValue] ?? String(oldValue),
+      to: FIBER_STATE[fiber?.state] ?? String(fiber?.state),
+    })));
+
+  // fiber 被创建，或销毁时 uid 被清空
+  ctx.on("internal/plugin", (fiber) =&gt;
+    safely(() =&gt; push("plugin", { ...describeFiber(fiber), uid: fiber?.uid ?? null })));
+
+  // 条目被重配置或部分销毁。**legacy 是改动前的 options** —— 能直接看出
+  // 「从什么改成了什么」，是 L10 最有价值的一条。
+  ctx.on("loader/partial-dispose", (entry, legacy, active) =&gt;
+    safely(() =&gt; push("entry-dispose", {
+      ...describeEntry(entry),
+      active,
+      legacy: brief(legacy),
+    })));
+
+  ctx.on("loader/entry-init", (entry) =&gt;
+    safely(() =&gt; push("entry-init", describeEntry(entry))));
+
+  ctx.on("loader/config-update", () =&gt;
+    safely(() =&gt; push("config-update", { note: "loader 把当前树写回了磁盘" })));
+
+  // 服务绑定变化：value 非空＝出现，空＝撤销。L3 的核心观测。
+  ctx.on("internal/service", function (name, value) {
+    safely(() =&gt; {
+      const present = value !== undefined &amp;&amp; value !== null;
+      services.set(name, present);
+      push("service", { serviceName: name, present, who: whoOf(this) });
+    });
+  });
+
+  // hmr 三件套
+  ctx.on("hmr/change", (url) =&gt;
+    safely(() =&gt; push("hmr-change", { url: String(url) })));
+
+  ctx.on("hmr/reload", (reloads) =&gt;
+    safely(() =&gt; {
+      // reloads 是 Map&lt;Plugin, Reload&gt;，key 是插件函数，只能取 Reload.filename
+      const files = [];
+      try {
+        for (const [, reload] of reloads) files.push(reload?.filename ?? null);
+      } catch { /* 不是 Map 就算了 */ }
+      push("hmr-reload", { count: files.length, files: brief(files, 800) });
+    }));
+
+  ctx.on("hmr/config-update-failed", (filename, error) =&gt;
+    safely(() =&gt; push("hmr-failed", {
+      filename: String(filename),
+      error: String(error?.message ?? error),
+    })));
+
+  // ══ 关系型：去重聚合 ══════════════════════════════════════════════════
+  // internal/listener 不是 waterfall（签名里没有 next），可以安全订阅。
+  ctx.on("internal/listener", function (name, listener, prepend) {
+    safely(() =&gt; bump(listeners, whoOf(this), String(name)));
+  });
+
+  // ══ 链路型：waterfall，默认关 ═════════════════════════════════════════
+  // ⚠️ 这些监听器**必须调用 next() 并传回它的返回值**，否则阻断整条执行链。
+  // 订阅它们不再是只读观测，而是插进了执行路径 —— 所以默认不开。
+  if (waterfall) {
+    push("recorder", { marker: MARKER, note: "⚠️ waterfall 观测已开启：仪器插在执行链里，测时序的实验请关掉" });
+
+    // 每次服务访问都触发，热路径。只做去重聚合，绝不记流水。
+    ctx.on("internal/get", function (someCtx, name, error, next) {
+      safely(() =&gt; bump(serviceReads, whoOf(someCtx), String(name)));
+      return next();
+    });
+
+    ctx.on("internal/set", function (someCtx, name, value, error, next) {
+      safely(() =&gt; push("service-set", { serviceName: String(name), who: whoOf(someCtx) }));
+      return next();
+    });
+
+    ctx.on("internal/config", function (cfg, next) {
+      safely(() =&gt; push("config-resolve", { ...describeFiber(this), config: brief(cfg) }));
+      return next();
+    });
+
+    ctx.on("internal/update", function (cfg, noSave, next) {
+      safely(() =&gt; push("config-update-fiber", { ...describeFiber(this), noSave, config: brief(cfg) }));
+      return next();
+    });
+
+    ctx.on("loader/patch-context", function (entry, next) {
+      safely(() =&gt; push("patch-context", describeEntry(entry)));
+      return next();
+    });
+  }
+
+  // ── flush ───────────────────────────────────────────────────────────────
+  const flushRelations = () =&gt; {
+    const payload = {
+      at: new Date().toISOString(),
+      marker: MARKER,
+      waterfall,
+      services: [...services.entries()].map(([name, present]) =&gt; ({ name, present })),
+      listeners: [...listeners.values()],
+      serviceReads: [...serviceReads.values()],
+    };
+    try {
+      writeFileSync(relOut, JSON.stringify(payload, null, 2), "utf8");
+    } catch { /* 同上，观测失败不影响被观测者 */ }
+  };
+
+  const flush = () =&gt; {
+    if (buffer.length &gt; 0) {
+      const lines = buffer.map((e) =&gt; JSON.stringify(e)).join("\n") + "\n";
+      buffer.length = 0;
+      try {
+        appendFileSync(out, lines, "utf8");
+      } catch { /* 同上 */ }
+    }
+    flushRelations();
+  };
+
+  const timer = setInterval(flush, flushMs);
+  // unref：别让这个定时器把进程钉住、导致实例该退出时退不出去
+  timer.unref?.();
+
+  push("recorder", {
+    marker: MARKER,
+    waterfall,
+    note: "采集开始（本行之前的事件未被记录）",
+  });
+
+  // ── 起点快照 ────────────────────────────────────────────────────────────
+  // 采集器自己也是树上的一个条目，在它 apply 之前挂载的条目，其
+  // PENDING→LOADING 已经发生完了（实测：lab-minimal 只赶上最后一跳）。
+  // 而加载顺序由**服务可用性**驱动、不由书写顺序决定，所以没法把自己排到第一个。
+  //
+  // 补救：订阅之后立刻拍一张全树快照，记下每个条目此刻的状态。
+  // 丢掉的仍然是**过程**，但起点是确切的。
+  //
+  // 用 ctx.get 运行时取 loader，**不写进 inject** —— loader 的 intercept 有
+  // await 语义，声明依赖它会把本插件锁死在 PENDING（见 demo/README.md）。
+  // 顺序上先订阅后快照：宁可重复也不漏。
+  safely(() =&gt; {
+    const loader = ctx.get("loader");
+    if (!loader?.entries) {
+      push("recorder", { marker: MARKER, note: "拿不到 loader，跳过起点快照" });
+      return;
+    }
+    let count = 0;
+    // 统计「睁眼时已经在半路上的」——**不是**「已经 ACTIVE 的」。
+    // 采集器零 inject、在第一批就挂上，实测 81 个条目里已 ACTIVE 的是 0 个，
+    // 按那个口径自述会读成「什么都没丢」，与事实相反：真正丢了头一跳的是
+    // 快照时已经建起来（state 非 null）的那几条 —— 其中就包括采集器自己。
+    let midway = 0;
+    for (const entry of loader.entries()) {
+      const options = entry?.options ?? {};
+      const fiber = entry?.fiber;
+      const state = fiber ? FIBER_STATE[fiber.state] ?? String(fiber.state) : null;
+      if (state !== null) midway += 1;
+      push("snapshot", {
+        scope: "entry",
+        id: options.id ?? null,
+        name: options.name ?? null,
+        to: state,
+        hasFiber: fiber !== undefined,
+        disabled: Boolean(entry?.disabled),
+        config: brief(options.config, 200),
+      });
+      count += 1;
+    }
+    // 量化「漏了多少」：快照时已经建起来的条目，它们的头一跳我们没看到
+    push("recorder", {
+      marker: MARKER,
+      note: `起点快照完成：${count} 个条目，其中 ${midway} 个睁眼时已在半路上（它们的出生过程没记全）`,
+    });
+  });
+
+  // 卸载时停表并把尾巴刷干净
+  ctx.effect(() =&gt; () =&gt; {
+    clearInterval(timer);
+    push("recorder", { marker: MARKER, note: "采集结束" });
+    flush();
+  }, "lab-recorder: flush timer");
+}
+</pre>
+    </li>
+  </ul>
+</aside>
 </div>
 
 <script>
-// ══ 底座参考块：这一节在动哪个文件 ══════════════════════════
-/** 点亮这一步在动的文件；keys 为空时整块复原。 */
-function bmHighlight(scopeEl, keys){
-  const set = new Set(keys || []);
-  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
-    li.classList.toggle('hit', set.has(li.dataset.f));
-    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
+// ══ 侧边文件树：点文件看内容 ══════════════════════════════════
+document.querySelectorAll('.ft li.f').forEach(li => {
+  li.tabIndex = 0;
+  const toggle = () => {
+    const box = document.getElementById('fc-' + li.dataset.k);
+    const was = box.classList.contains('on');
+    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
+    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
+    if (!was) { box.classList.add('on'); li.classList.add('on'); }
+  };
+  li.addEventListener('click', toggle);
+  li.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
   });
-}
-const bm0 = document.getElementById('bm0');
-const bm1 = document.getElementById('bm1');
-const bm2 = document.getElementById('bm2');
-//: 左栏「lab-recorder」这个插件牵动的所有行——node_modules 里的 junction，
-//: 加上右栏它自己那棵包型插件树。
-const FILES_LAB_RECORDER = ['junction','pluglab_pkgdir','pluglab_pkg','pluglab_idx'];
-//: 同理，「neighbor」牵动的行——profile 目录里那个裸文件，加上右栏它自己那行。
-const FILES_NEIGHBOR = ['neighborfile','plugbare'];
-//: events.jsonl 本身，只在 bm0 里出现。
-const FILES_EVENTS = ['events'];
+});
 
 // ══ 板块 0：机制怎么工作 ══════════════════════════════════════
 const STEPS_MECH = [
@@ -475,31 +809,26 @@ const STEPS_MECH = [
     mb: `条目（entry）是 patch 文件（<code>cordis.patch.yml</code>）里的一行，写明
       “挂哪个插件、给它什么配置”；运行时一条条目对应一个 <b>fiber</b>——这个插件这一次
       生命的载体。这次实验的 patch 文件只写了两条：<code>lab-recorder</code> 自己，
-      和陪衬插件 <code>neighbor</code>。`,
-    files: ['patch'] },
+      和陪衬插件 <code>neighbor</code>。` },
   { label: '② 状态', mt: 'fiber 有状态，会往前迁移',
     mb: `fiber 的状态一共六种，这一项用得到三种：<code>PENDING</code>（它依赖的服务还没
       就位，先等着）、<code>LOADING</code>（插件的入口函数 <code>apply</code> 正在执行）、
       <code>ACTIVE</code>（加载完成，正在提供服务）。首次挂载走的是
-      <code>PENDING → LOADING → ACTIVE</code> 这条链。`,
-    files: ['patch'] },
+      <code>PENDING → LOADING → ACTIVE</code> 这条链。` },
   { label: '③ 仪器', mt: 'lab-recorder 自己就是一条普通条目',
     mb: `lab-recorder 在自己的 <code>apply</code> 里做两件事：一是 <b>provide</b> 一个叫
       <code>labObserver</code> 的服务——provide 就是“这条条目把某个能力交给别人用”的
       意思；二是挂上钩子，监听所有条目的 <code>PENDING</code> / <code>LOADING</code> /
-      <code>ACTIVE</code> 迁移。`,
-    files: [...FILES_LAB_RECORDER, 'patch'] },
+      <code>ACTIVE</code> 迁移。` },
   { label: '④ 依赖', mt: '别的条目靠 inject 声明要用它',
     mb: `陪衬插件 <code>neighbor.mjs</code> 写了 <code>export const inject = ['labObserver']</code>
       ——<b>inject</b> 就是条目“声明自己需要哪些服务才能跑”的意思。框架保证被依赖的服务
       先就位，之后才会调用声明方的 <code>apply</code>；neighbor.mjs 正是这样等到
-      <code>labObserver</code> 备好，才在自己的 apply 里说话。`,
-    files: [...FILES_NEIGHBOR, 'patch'] },
+      <code>labObserver</code> 备好，才在自己的 apply 里说话。` },
   { label: '⑤ 记录', mt: '状态迁移全部写进 events.jsonl',
     mb: `钩子收到的每一条状态迁移，都被追加写进 <code>events.jsonl</code>——这份文件就是
       后面所有实验的原料。下面「它听见了谁」「睁眼那一刻」两节，读的都是同一份
-      <code>events.jsonl</code>。`,
-    files: FILES_EVENTS },
+      <code>events.jsonl</code>。` },
 ];
 
 const stepbarM = document.getElementById('stepbarM');
@@ -525,7 +854,6 @@ function gotoM(i){
   posM.textContent = `${curM + 1} / ${STEPS_MECH.length}`;
   prevM.disabled = curM === 0;
   nextM.disabled = curM === STEPS_MECH.length - 1;
-  bmHighlight(bm0, s.files);
 }
 prevM.addEventListener('click', () => gotoM(curM - 1));
 nextM.addEventListener('click', () => gotoM(curM + 1));
@@ -545,27 +873,27 @@ const chipsMine = document.getElementById('chipsMine');
 const chipsFrame = document.getElementById('chipsFrame');
 const hearcapd = document.getElementById('hearcap-d');
 
-function makeChip(text, cls, note, files){
+function makeChip(text, cls, note){
   const s = document.createElement('span');
   s.className = 'chip ' + cls;
   s.textContent = text;
   s.dataset.note = note;
-  s.addEventListener('mouseenter', () => { hearcapd.textContent = note; bmHighlight(bm1, files || []); });
+  s.addEventListener('mouseenter', () => { hearcapd.textContent = note; });
   s.addEventListener('mouseleave', () => applyStep(curStep));
   return s;
 }
 
-chipsMine.appendChild(makeChip('lab-recorder', 'mine', 'lab-recorder —— 仪器自己，patch 文件里写下的第一条', FILES_LAB_RECORDER));
-chipsMine.appendChild(makeChip('neighbor', 'mine', 'neighbor —— 陪衬插件，patch 文件里写下的第二条，专门用来给仪器一个「别人」可看', FILES_NEIGHBOR));
+chipsMine.appendChild(makeChip('lab-recorder', 'mine', 'lab-recorder —— 仪器自己，patch 文件里写下的第一条'));
+chipsMine.appendChild(makeChip('neighbor', 'mine', 'neighbor —— 陪衬插件，patch 文件里写下的第二条，专门用来给仪器一个「别人」可看'));
 FRAMEWORK_SAMPLE_20.forEach(id => {
-  chipsFrame.appendChild(makeChip(id, 'fw', id + ' —— patch 文件里一个字都没写过，框架自带', ['farm']));
+  chipsFrame.appendChild(makeChip(id, 'fw', id + ' —— patch 文件里一个字都没写过，框架自带'));
 });
-chipsFrame.appendChild(makeChip('+59 更多', 'fw more', '样本之外还有 59 条，同样是框架自带、同样没人写过', ['farm']));
+chipsFrame.appendChild(makeChip('+59 更多', 'fw more', '样本之外还有 59 条，同样是框架自带、同样没人写过'));
 
 const STEPS = [
-  { focus: null, cap: '431 条事件、81 个条目——这些数字都来自同一次真实运行的归档。', files: [] },
-  { focus: 'mine', cap: 'patch 文件里唯一写下的两条：仪器自己，和一个给它看的陪衬。', files: [...FILES_LAB_RECORDER, ...FILES_NEIGHBOR] },
-  { focus: 'fw', cap: '剩下 79 条，从 agent 到 workflow-engine，没有一条是我们写的——都是 DSH 自带的框架条目。', files: ['farm'] },
+  { focus: null, cap: '431 条事件、81 个条目——这些数字都来自同一次真实运行的归档。' },
+  { focus: 'mine', cap: 'patch 文件里唯一写下的两条：仪器自己，和一个给它看的陪衬。' },
+  { focus: 'fw', cap: '剩下 79 条，从 agent 到 workflow-engine，没有一条是我们写的——都是 DSH 自带的框架条目。' },
 ];
 let curStep = 0;
 const zoneMine = document.getElementById('zoneMine');
@@ -578,7 +906,6 @@ function applyStep(i){
   zoneMine.classList.toggle('dim', STEPS[i].focus === 'fw');
   zoneFrame.classList.toggle('dim', STEPS[i].focus === 'mine');
   hearcapd.textContent = STEPS[i].cap;
-  bmHighlight(bm1, STEPS[i].files);
 }
 stepBtns.forEach(b => b.addEventListener('click', () => applyStep(Number(b.dataset.step))));
 applyStep(0);
@@ -586,17 +913,17 @@ applyStep(0);
 // ══ 板块二：睁眼那一刻 ══════════════════════════════════════
 // 真实事件，ms 与 seq 取自归档 events.jsonl。lane: a=lab-recorder 自己 b=neighbor 陪衬
 const EV2 = [
-  { ms: 0.34, kind: 'marker', seq: 0, files: ['patch', ...FILES_LAB_RECORDER],
+  { ms: 0.34, kind: 'marker', seq: 0,
     cap: '（这不是它的第一个动作，是它睁眼的那一刻。）从这一行起，事件流才开始有记录。' },
-  { ms: 0.97, lane: 'a', nm: 'LOADING', c: '--loading', seq: 80, files: ['patch', ...FILES_LAB_RECORDER],
+  { ms: 0.97, lane: 'a', nm: 'LOADING', c: '--loading', seq: 80,
     cap: '起点快照按下快门：它自己也在这份名单里——此刻是 <b>LOADING</b>。它没有特权，跟树上其他条目受同样的规则约束。' },
-  { ms: 0.98, lane: 'b', nm: 'PENDING', c: '--pending', seq: 81, files: ['patch', ...FILES_NEIGHBOR],
+  { ms: 0.98, lane: 'b', nm: 'PENDING', c: '--pending', seq: 81,
     cap: '陪衬插件这时也被拍进快照，此刻还是 <b>PENDING</b>——它的整条链会被完整记录。' },
-  { ms: 2.56, lane: 'a', nm: 'ACTIVE', c: '--active', seq: 121, files: ['patch', ...FILES_LAB_RECORDER],
+  { ms: 2.56, lane: 'a', nm: 'ACTIVE', c: '--active', seq: 121,
     cap: '<b>这一跳，它是自己把自己记下来的：</b>LOADING → ACTIVE。' },
-  { ms: 2.62, lane: 'b', nm: 'LOADING', c: '--loading', seq: 122, files: ['patch', ...FILES_NEIGHBOR],
+  { ms: 2.62, lane: 'b', nm: 'LOADING', c: '--loading', seq: 122,
     cap: '陪衬插件走出第一跳：PENDING → LOADING，从被造出来那一刻就没漏过。' },
-  { ms: 8.24, lane: 'b', nm: 'ACTIVE', c: '--active', seq: 203, files: ['patch', ...FILES_NEIGHBOR],
+  { ms: 8.24, lane: 'b', nm: 'ACTIVE', c: '--active', seq: 203,
     cap: '陪衬插件走完全程——<b>PENDING → LOADING → ACTIVE，一跳不缺</b>。这是对照组：它没有像 lab-recorder 自己那样，被截掉开头那一跳。' },
 ];
 const track2 = document.getElementById('track2');
@@ -642,7 +969,6 @@ function goto2(i){
   cap2d.innerHTML = e.cap;
   prev2.disabled = cur2 === 0;
   next2.disabled = cur2 === EV2.length - 1;
-  bmHighlight(bm2, e.files);
 }
 prev2.addEventListener('click', () => goto2(cur2 - 1));
 next2.addEventListener('click', () => goto2(cur2 + 1));

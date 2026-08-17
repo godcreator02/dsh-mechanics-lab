@@ -27,7 +27,6 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
   font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
 
 /* ── 头 ── */
 .crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
@@ -50,24 +49,35 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 /* ── 全内容区虚线框：跟已验项在视觉上分开 ── */
 .gapwrap{border:1.5px dashed var(--line);border-radius:14px;padding:6px 22px 20px}
 
-/* ── 底座参考块：这一步在动哪个文件 ── */
-.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px;
-  padding:14px 16px;margin:14px 0}
-.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
-  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
-.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
-  border-radius:5px;transition:background .2s,opacity .2s}
-.bm-tree li .bm-n{white-space:pre;flex:none}
-.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
-  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.bm-tree li.dim{opacity:.35}
-.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
-  box-shadow:inset 2px 0 0 var(--bmhit)}
-.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
-.bm-tree li.hit .bm-c{color:var(--fg)}
-@media (max-width:700px){.basemap{grid-template-columns:1fr}}
+/* ── 侧边文件树 ── */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;
+  max-width:1200px;margin:0 auto;padding:32px 20px 72px;align-items:start}
+.side{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;
+  background:var(--card);border:1.5px dashed var(--line);border-radius:10px;padding:12px 10px}
+.side h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--dim);padding:0 4px 7px;border-bottom:1px solid var(--line)}
+.ft{list-style:none;margin:0;padding:0;font-family:var(--mono);
+  font-size:11.5px;line-height:1.5}
+.ft li{padding:1px 4px;border-radius:4px;white-space:pre}
+.ft li.br{color:var(--dim);margin-top:7px}
+.ft li.f{cursor:pointer}
+.ft li.f:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.ft li.f::after{content:" ·";color:var(--dim)}
+.ft li.f.on{background:color-mix(in srgb,var(--bmhit) 15%,transparent);
+  color:var(--bmhit);font-weight:600}
+.fc{display:none;margin:3px 0 6px 10px;padding-left:8px;
+  border-left:2px solid var(--bmhit);white-space:normal}
+.fc.on{display:block}
+.fc .why{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  font-size:11px;line-height:1.5;color:var(--dim);margin-bottom:4px}
+.fc .src{font-size:9.5px;color:var(--dim);margin-bottom:4px;word-break:break-all}
+.fc pre{margin:0 0 8px;font-size:10.5px;line-height:1.5;white-space:pre;
+  max-height:300px;overflow:auto;padding:7px 8px;border-radius:5px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent)}
+@media (max-width:1040px){
+  .layout{grid-template-columns:1fr;max-width:860px}
+  .side{position:static;max-height:none;order:-1}
+}
 
 h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
@@ -128,7 +138,8 @@ footer a{color:inherit}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">00-base / isolation-guarantees</div>
 <h1>实验台自己怎么隔离，缺口在哪</h1>
@@ -165,34 +176,6 @@ footer a{color:inherit}
 车」。每一步点亮右边源码树里对应的那一行，走完这五步，前面提到的隔离机制就有一条完整
 链条了。</p>
 
-<div class="basemap" id="bm0">
-  <div>
-    <div class="bm-h">假 home 落地形态 · out/testhome/&lt;项名&gt;/（隔离的物理落点）</div>
-    <ul class="bm-tree">
-      <li data-f="home"><span class="bm-n">out/testhome/</span><span class="bm-c">TESTHOME_ROOT —— 所有假 home 共同的根</span></li>
-      <li data-f="home"><span class="bm-n">└─ isolation-guarantees/</span><span class="bm-c">本项的假 home，环境变量 DSH_HOME 就指向这里</span></li>
-      <li data-f="home"><span class="bm-n">   ├─ profiles/&lt;profile&gt;/</span><span class="bm-c">profile —— 一套具体的组合配方，本身也是一个 npm 包</span></li>
-      <li data-f="junction"><span class="bm-n">   │  └─ node_modules/</span><span class="bm-c">junction 农场，link 供给落地在这里</span></li>
-      <li data-f="home"><span class="bm-n">   └─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="lock"><span class="bm-n">out/testhome/.lab-lock.json</span><span class="bm-c">会话锁文件，跟各项假 home 目录同级</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">实验台源码里管这件事的几个名字</div>
-    <ul class="bm-tree">
-      <li data-f="ctx"><span class="bm-n">experiments/lab/core.py</span><span class="bm-c"></span></li>
-      <li data-f="home"><span class="bm-n">├─ TESTHOME_ROOT</span><span class="bm-c">假 home 的根，LabHome 只能建在它下面</span></li>
-      <li data-f="port"><span class="bm-n">├─ LAB_PORT_RANGE</span><span class="bm-c">3090–3099，端口分段的原料</span></li>
-      <li data-f="port"><span class="bm-n">├─ FORBIDDEN_PORTS</span><span class="bm-c">(3080, 3239, 3733)，任何情况下都不许碰</span></li>
-      <li data-f="junction"><span class="bm-n">└─ rmtree_safe()</span><span class="bm-c">删目录遇到 junction 或符号链接，只拆链接本身，不递归进去</span></li>
-      <li data-f="ctx"><span class="bm-n">experiments/lab/instance.py</span><span class="bm-c"></span></li>
-      <li data-f="lock"><span class="bm-n">└─ acquire_lock()</span><span class="bm-c">拿不到就排队等待，只认活着的 pid</span></li>
-      <li data-f="ctx"><span class="bm-n">experiments/conftest.py</span><span class="bm-c"></span></li>
-      <li data-f="port"><span class="bm-n">└─ _my_ports()</span><span class="bm-c">按 xdist worker 把端口段切成互不重叠的几份</span></li>
-    </ul>
-  </div>
-</div>
-
 <div class="detail" id="stepdetail"></div>
 
 <div class="ctl">
@@ -204,48 +187,6 @@ footer a{color:inherit}
 <h2>四条机制，点一条看谁实现、缺什么</h2>
 <p class="note">卡片是并发跑各组用例时依赖的四条隔离；点一条，下面联动出「谁实现」「没验证什么」
 「补上要造什么」。四条现状相近——都是<b>有源码机制，没有用例</b>，差别在缺口的形状。</p>
-
-<div class="basemap" id="bm1">
-  <div>
-    <div class="bm-h">假 home 树 · out/testhome/ 下按项分（隔离①的物理形态）</div>
-    <ul class="bm-tree">
-      <li data-f="ctx"><span class="bm-n">out/testhome/</span><span class="bm-c">TESTHOME_ROOT —— 所有假 home 的根，只在这一层下建目录</span></li>
-      <li data-f="home"><span class="bm-n">├─ minimal-profile/</span><span class="bm-c">一项一个 home，标签＝测试文件所在目录名（<code>_label_of()</code>）</span></li>
-      <li data-f="ctx"><span class="bm-n">│  ├─ cordis.patch.yml</span><span class="bm-c">home 级活层，压过下面每个 profile 自己的</span></li>
-      <li data-f="ctx"><span class="bm-n">│  ├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
-      <li data-f="ctx"><span class="bm-n">│  └─ profiles/</span><span class="bm-c"></span></li>
-      <li data-f="ctx"><span class="bm-n">│     └─ &lt;profile&gt;/</span><span class="bm-c">一个 profile，名字由用例自定（如 minimal-profile 项目里的 minimal / empty / alive）</span></li>
-      <li data-f="ctx"><span class="bm-n">│        ├─ package.json</span><span class="bm-c">dsh.profile.bundles 名单</span></li>
-      <li data-f="ctx"><span class="bm-n">│        ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被框架重写</span></li>
-      <li data-f="ctx"><span class="bm-n">│        ├─ cordis.patch.yml</span><span class="bm-c">活层</span></li>
-      <li data-f="ctx"><span class="bm-n">│        └─ node_modules/</span><span class="bm-c">link: 供给落地的 junction</span></li>
-      <li data-f="home"><span class="bm-n">├─ baseline-profile/</span><span class="bm-c">并列的另一项，同一套骨架，互不覆盖</span></li>
-      <li data-f="home"><span class="bm-n">├─ recorder-reach/</span><span class="bm-c">并列的第三项，同一套骨架</span></li>
-      <li data-f="lock"><span class="bm-n">└─ .lab-lock.json</span><span class="bm-c">会话锁文件，跟各项目录同级（_LOCK_FILE = TESTHOME_ROOT / ".lab-lock.json"）</span></li>
-    </ul>
-  </div>
-  <div>
-    <div class="bm-h">实验台源码树 · 本项没有教学插件，画的是 experiments/ 自己（不是 fixtures/）</div>
-    <ul class="bm-tree">
-      <li data-f="ctx"><span class="bm-n">experiments/</span><span class="bm-c">实验台源码根</span></li>
-      <li data-f="ctx"><span class="bm-n">├─ conftest.py</span><span class="bm-c">pytest 装置：假 home / 端口 / 会话锁 / 归档，四条机制的接线全在这</span></li>
-      <li data-f="home"><span class="bm-n">│  ├─ _label_of()</span><span class="bm-c">home 标签＝测试文件所在目录名，一项一个 home</span></li>
-      <li data-f="port"><span class="bm-n">│  ├─ _my_ports()</span><span class="bm-c">按 xdist worker 把 LAB_PORT_RANGE 切成互不重叠的段</span></li>
-      <li data-f="lock"><span class="bm-n">│  ├─ pytest_configure() / pytest_unconfigure()</span><span class="bm-c">session 级会话锁，只有主进程拿 / 放</span></li>
-      <li data-f="archive"><span class="bm-n">│  └─ _archive()</span><span class="bm-c">lab_home fixture 的 finally 块里跑，归档失败不盖掉用例结果</span></li>
-      <li data-f="ctx"><span class="bm-n">└─ lab/</span><span class="bm-c"></span></li>
-      <li data-f="ctx"><span class="bm-n">   ├─ core.py</span><span class="bm-c">LabHome / LabProfile 与路径常量的定义处</span></li>
-      <li data-f="home"><span class="bm-n">   │  ├─ TESTHOME_ROOT</span><span class="bm-c">假 home 的根，LabHome 只允许建在它下面</span></li>
-      <li data-f="port"><span class="bm-n">   │  ├─ LAB_PORT_RANGE</span><span class="bm-c">3090–3099，端口分段的原料</span></li>
-      <li data-f="home"><span class="bm-n">   │  └─ LabHome.clean()</span><span class="bm-c">删 home 前判「是不是 TESTHOME_ROOT 真子目录」的护栏</span></li>
-      <li data-f="ctx"><span class="bm-n">   ├─ instance.py</span><span class="bm-c">实例起停、并发锁、HTTP 探测</span></li>
-      <li data-f="lock"><span class="bm-n">   │  ├─ acquire_lock()</span><span class="bm-c">拿不到就排队等待，只认活着的 pid</span></li>
-      <li data-f="lock"><span class="bm-n">   │  └─ release_lock()</span><span class="bm-c">删锁文件</span></li>
-      <li data-f="ctx"><span class="bm-n">   ├─ dump.py</span><span class="bm-c">--dump-config 真解析（含 !!js 方言），不参与本页四条隔离机制</span></li>
-      <li data-f="ctx"><span class="bm-n">   └─ events.py</span><span class="bm-c">读事件流，不参与本页四条隔离机制</span></li>
-    </ul>
-  </div>
-</div>
 
 <div class="cards" id="cards"></div>
 
@@ -277,12 +218,185 @@ footer a{color:inherit}
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <h3>假 home ＋ 实验台源码（右边这支不是插件，是实验台自己）</h3>
+  <ul class="ft">
+    <li class="br">假 home · out/testhome/ 下按项分</li>
+    <li>out/testhome/</li>
+    <li>├─ minimal-profile/</li>
+    <li>│  └─ profiles/</li>
+    <li>│     └─ minimal/</li>
+    <li>├─ baseline-profile/</li>
+    <li>├─ recorder-reach/</li>
+    <li>└─ framework-fallback/</li>
+    <li class="br">实验台源码 · experiments/</li>
+    <li>experiments/</li>
+    <li class="f" data-k="conftest">├─ conftest.py</li>
+    <li class="fc" id="fc-conftest">
+      <div class="src">experiments/conftest.py · _label_of()</div>
+      <div class="why">home 标签怎么算——「一项一个假 home」这条隔离靠标签全局唯一撑住。</div>
+      <pre>def _label_of(request: pytest.FixtureRequest) -> str:
+    """实验目录名就是标签，**整个用上、不截断**。
+
+    ⚠️ 由此得出一条硬约束：**叶子目录名必须全局唯一**。两项算出同一个标签就
+    共用同一个假 home，并行跑时一项的 `clean()` 会删掉另一项正在用的 profile。
+    串行跑看不出来（各模块起手清 home、跑完即归档），只有并行才炸。
+
+    所以不截断、不取第一段——唯一性交给文件系统保证，不依赖命名纪律。
+    """
+    return request.path.parent.name</pre>
+      <div class="src">experiments/conftest.py · _my_ports()</div>
+      <div class="why">端口怎么按 xdist worker 静态切段，避开「查完到起进程」之间的撞车窗口。</div>
+      <pre>def _my_ports(config: pytest.Config) -> list[int]:
+    """本进程可用的那一小段端口。
+
+    并行时必须**静态分段**而不是共享整段：`port_listening()` 查完到真正
+    `Popen` 起进程之间有个窗口，两个 worker 同时扫会双双认定同一个口是空的。
+    分段之后各扫各的，窗口再大也撞不上。
+
+    3090–3099 十个是硬边界（3080 与 3100 以上都可能有别的进程），所以
+    worker 数不能超过 10 —— 超了直接报错，不去做「取模复用」那种事，
+    那等于把刚焊死的竞态又打开。
+    """
+    ports = list(LAB_PORT_RANGE)
+    wi = getattr(config, "workerinput", None)
+    if wi is None:
+        return ports  # 单进程跑，整段都归自己
+
+    count = wi["workercount"]
+    if count > len(ports):
+        raise RuntimeError(
+            f"worker 数 {count} 超过可用端口数 {len(ports)}（{LAB_PORT_RANGE}）。"
+            f"端口段是硬边界不能扩，把 -n 降到 {len(ports)} 以内"
+        )
+    idx = int(str(wi["workerid"]).removeprefix("gw"))
+    per = len(ports) // count
+    return ports[idx * per : (idx + 1) * per]</pre>
+    </li>
+    <li>└─ lab/</li>
+    <li class="f" data-k="core">   ├─ core.py</li>
+    <li class="fc" id="fc-core">
+      <div class="src">experiments/lab/core.py · TESTHOME_ROOT</div>
+      <div class="why">假 home 的根，LabHome 只允许建在它下面。</div>
+      <pre>#: 假 DSH home 的根，每个实验在下面占一个子目录。跑某一项时先整个清掉再重建，
+#: 跑完留着供排查。**这是实验台的安全边界**：`DSH_HOME` 只会指向这下面，
+#: 绝不指向 `~/.dsh`。
+#:
+#: ⚠️ 假 home **不能搬进 `experiments/` 里**，尽管那样「点开一项就看到全部」。
+#: 它的 `profiles/*/node_modules/` 是 dsh 整份运行时依赖树的 junction 镜像，
+#: 每个包一条、指向 npx 缓存与本仓源码。junction 一旦进了源码树，任何递归遍历
+#: 都会跟着走出去：ripgrep 扫进 npx 缓存、pytest collection 收到链接那头的
+#: `test_*.py`、IDE 索引持续吃 CPU。现在只需挡住 `out/` 一处，搬进去要挡四处，
+#: 漏一处就是踩坑。归档产物不同——那是纯文件，所以它住各实验目录下的 `results/`。
+TESTHOME_ROOT = OUT_DIR / "testhome"</pre>
+      <div class="src">experiments/lab/core.py · LAB_PORT_RANGE / FORBIDDEN_PORTS</div>
+      <div class="why">实验只用 3090–3099，3080/3239/3733 三个端口任何情况下都不许碰。</div>
+      <pre>#: 本机上可能有别的东西在跑的端口，任何情况下都不许碰
+FORBIDDEN_PORTS = (3080, 3239, 3733)
+
+#: 本箱可用端口。上下界都是硬的——3080 与 3100 以上都可能被别的进程占着
+LAB_PORT_RANGE = range(3090, 3100)</pre>
+      <div class="src">experiments/lab/core.py · rmtree_safe()</div>
+      <div class="why">删假 home 时遇到 junction 只拆链接本身，绝不递归进去删源码或 npx 缓存。</div>
+      <pre>def rmtree_safe(path: Path) -> None:
+    """删目录树，遇到 junction / symlink 只拆链接本身，绝不跟进去。
+
+    为什么不用 shutil.rmtree：profile 的 node_modules 里全是指向插件源码和 npx
+    缓存的 junction，rmtree 有跟进去删目标内容的历史问题 —— 那会删掉真东西。
+
+    Windows 细节：
+      * os.rmdir() 作用在一个目录重解析点（junction）上，只删链接、不碰目标内容
+      * Path.is_dir() 对 junction 也返回 True（它会解析），所以**必须先判 is_junction**
+      * Path.is_junction() 是 Python 3.12 才有的，本项目钉 3.12.10，可以直接用
+    """
+    if not path.exists() and not path.is_symlink():
+        return
+    if path.is_junction() or path.is_symlink():
+        path.rmdir() if path.is_dir() else path.unlink()
+        return
+
+    for child in path.iterdir():
+        if child.is_junction() or child.is_symlink():
+            child.rmdir() if child.is_dir() else child.unlink()
+        elif child.is_dir():
+            rmtree_safe(child)
+        else:
+            child.chmod(0o600)  # node_modules 里可能有只读文件
+            child.unlink()
+    path.rmdir()</pre>
+    </li>
+    <li class="f" data-k="instance">   ├─ instance.py</li>
+    <li class="fc" id="fc-instance">
+      <div class="src">experiments/lab/instance.py · acquire_lock()</div>
+      <div class="why">整个 pytest 会话只在主进程拿一次锁，防两个真实会话同时开跑互踩 patch 文件。</div>
+      <pre>def acquire_lock(label: str, *, wait: float = 900.0, poll: float = 3.0) -> None:
+    """拿实验台的独占锁。**占用时排队等待**，不是直接失败。
+
+    存在的理由：v1 曾有两个会话并发跑实验，共用 profile 名和端口，
+    互相覆盖对方的 patch 文件 —— 而且是靠人眼看出来的。纪律靠不住，加把锁。
+
+    **保护的粒度是「会话」，不是「课」**（2026-08-16 改）：一次 pytest 运行
+    拿一次锁（`conftest.pytest_configure`，且只有主进程拿）。session 内部各课
+    是并行跑的，不需要互相排队——home 按课隔离、端口按 worker 静态分段、
+    `stop()` 按 pid `taskkill /T` 只杀自己那棵树。
+
+    等待而不是抛错：并行的写作者（人或 subagent）各做各的课很正常，直接抛错
+    会变成「谁先跑谁赢，剩下的全报错」；排队则让它们自然共存。
+
+    死锁防护：只认**活着的** pid。持锁进程死了（崩溃、被 kill、taskkill 整树）
+    留下的锁文件会被直接夺走，不需要人工清理。
+
+    Args:
+        wait: 最多等多久。默认 15 分钟 —— 全套并行约 75 秒，排在几个后面也够。
+        poll: 轮询间隔。
+    """
+    TESTHOME_ROOT.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + wait
+    started_waiting = None
+
+    while True:
+        held = None
+        if _LOCK_FILE.exists():
+            try:
+                held = json.loads(_LOCK_FILE.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                held = {}
+            pid = held.get("pid")
+            if not (pid and _pid_alive(pid)):
+                held = None  # 持锁者已死，锁作废
+
+        if held is None:
+            _LOCK_FILE.write_text(
+                json.dumps({"label": label, "pid": os.getpid(), "started": time.strftime("%Y-%m-%d %H:%M:%S")}),
+                encoding="utf-8",
+            )
+            if started_waiting is not None:
+                print(f"[lab] 排队 {time.monotonic() - started_waiting:.0f}s 后拿到锁", flush=True)
+            return
+
+        if time.monotonic() >= deadline:
+            raise LabError(
+                f"等锁超时（{wait:.0f}s）：实验台被 {held.get('label')} 占着"
+                f"（pid={held.get('pid')}，起于 {held.get('started')}）。"
+                f"确认那个进程已死的话，删掉 {_LOCK_FILE}"
+            )
+
+        if started_waiting is None:
+            started_waiting = time.monotonic()
+            print(f"\n[lab] 实验台被 {held.get('label')} 占用中，排队等待…", flush=True)
+        time.sleep(poll)</pre>
+    </li>
+    <li>   ├─ dump.py</li>
+    <li>   └─ events.py</li>
+  </ul>
+</aside>
 </div>
 
 <script>
 const M = [
   {
-    key:'home', accent:'--m1', nm:'假 home 按项分', files:['home'],
+    key:'home', accent:'--m1', nm:'假 home 按项分',
     one:'每个实验一个独立目录，物理隔离，不靠纪律。',
     st:'机制 ＋ 人工纪律并存',
     impl:'<code>conftest.py · _label_of()</code> —— 用测试文件所在目录名当标签；'
@@ -294,7 +408,7 @@ const M = [
         +'互不覆盖——需要一个能伪造 <code>request.path.parent.name</code> 冲突的 fixture。',
   },
   {
-    key:'port', accent:'--m2', nm:'端口按 worker 静态分段', files:['port'],
+    key:'port', accent:'--m2', nm:'端口按 worker 静态分段',
     one:'把 3090–3099 按 xdist worker 数切段，各扫各的。',
     st:'机制成立，没压边界',
     impl:'<code>conftest.py · _my_ports()</code> —— 按 <code>workerid</code> 切'
@@ -304,7 +418,7 @@ const M = [
     need:'把 worker 数推到端口段上限（10），并发起实例压边界，断言全程没有端口冲突错误。',
   },
   {
-    key:'lock', accent:'--m3', nm:'会话锁只挡会话级', files:['lock'],
+    key:'lock', accent:'--m3', nm:'会话锁只挡会话级',
     one:'整个 session 只在主进程拿一次锁，worker 之间不需要锁。',
     st:'机制存在，曾经没管住',
     impl:'<code>conftest.py · pytest_configure()</code> / <code>pytest_unconfigure()</code>；'
@@ -316,7 +430,7 @@ const M = [
         +'同一份 patch 文件。',
   },
   {
-    key:'archive', accent:'--m4', nm:'产物归档不误伤失败现场', files:['archive'],
+    key:'archive', accent:'--m4', nm:'产物归档不误伤失败现场',
     one:'成败都归档，归档失败也不能盖掉用例本身的结果。',
     st:'机制存在，兜底没验',
     impl:'<code>conftest.py · _archive()</code> —— 在 <code>lab_home</code> fixture 的 '
@@ -329,15 +443,21 @@ const M = [
   },
 ];
 
-/** 点亮这条机制由哪些文件实现；keys 为空时整块复原。 */
-function bmHighlight(scopeEl, keys){
-  const set = new Set(keys || []);
-  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
-    li.classList.toggle('hit', set.has(li.dataset.f));
-    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
+document.querySelectorAll('.ft li.f').forEach(li => {
+  li.tabIndex = 0;
+  const toggle = () => {
+    const box = document.getElementById('fc-' + li.dataset.k);
+    const was = box.classList.contains('on');
+    document.querySelectorAll('.ft .fc.on').forEach(e => e.classList.remove('on'));
+    document.querySelectorAll('.ft li.f.on').forEach(e => e.classList.remove('on'));
+    if (!was) { box.classList.add('on'); li.classList.add('on'); }
+  };
+  li.addEventListener('click', toggle);
+  li.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { toggle(); e.preventDefault(); }
   });
-}
-const bm1 = document.getElementById('bm1');
+});
+const sideTree = document.querySelector('.side .ft');
 
 const cardsEl = document.getElementById('cards');
 const detailEl = document.getElementById('detail');
@@ -378,7 +498,6 @@ function goto(i){
   posEl.textContent = `${cur + 1} / ${M.length} · ${m.nm}`;
   prevBtn.disabled = cur === 0;
   nextBtn.disabled = cur === M.length - 1;
-  bmHighlight(bm1, m.files);
 }
 prevBtn.addEventListener('click', () => goto(cur - 1));
 nextBtn.addEventListener('click', () => goto(cur + 1));
@@ -389,13 +508,13 @@ addEventListener('keydown', e => {
 goto(0);
 
 const STEPS = [
-  { nm:'一个实例需要什么', files:[], body:
+  { nm:'一个实例需要什么', body:
     `一个 dsh 实例要跑起来，最少吃下三样东西：一个 <code>home</code> 目录——存放这次用的 profile`
     +`（一套具体的组合配方，本身也是一个真正的 npm 包）和运行日志；如果这个 profile 叠了 web `
     +`服务，还要一个端口拿来听 HTTP；再加上承载这一切的进程本身。这三样都是可能撞车的东西`
     +`——两套实例写进同一个 home、抢同一个端口、进程互相踩，观测到的数据就分不清是谁的。`
     +`后面四步，讲的是实验台怎么让这三样东西，每次都各自独立、互不相干。` },
-  { nm:'假 home', files:['home'], body:
+  { nm:'假 home', body:
     `实验台不用真 home。真 home 就是 <code>~/.dsh</code>，机器上那套在用的主实例的家，里面`
     +`挂着真实的会话和分发线，绝不能碰。实验台给每一项实验单独准备一个假 home，落在`
     +`<code>out/testhome/&lt;项名&gt;/</code> 下面——<code>TESTHOME_ROOT</code> 是它们共同的根，`
@@ -403,7 +522,7 @@ const STEPS = [
     +`<code>DSH_HOME</code>：dsh 进程启动时读它决定这次用哪个 home，不设它就退回真 home。`
     +`实验台把这个变量经子进程环境传给要拉起的 dsh 实例，不改当前进程自己的环境变量——这样`
     +`不存在漏改回来的窗口，也不会有别的代码在中途读到一个被悄悄换过的环境。` },
-  { nm:'端口静态分段', files:['port'], body:
+  { nm:'端口静态分段', body:
     `实验只用 3090–3099 这十个端口，代码里叫 <code>LAB_PORT_RANGE</code>。3080、3239、3733`
     +`三个端口——<code>FORBIDDEN_PORTS</code>——被硬编码成任何情况下都不许碰，其中 3080 正是`
     +`那套在用的主实例正在听的端口。光划出这一段还不够：并行跑的时候，如果每个 worker`
@@ -412,14 +531,14 @@ const STEPS = [
     +`worker 完全可能同时判定同一个端口空闲、同时抢它。实验台按 worker 数量，把`
     +`<code>LAB_PORT_RANGE</code> 静态切成互不重叠的小段，各 worker 只在自己那一段里找`
     +`空闲端口，段与段之间不会撞。` },
-  { nm:'删目录拆 junction', files:['junction'], body:
+  { nm:'删目录拆 junction', body:
     `profile 的 <code>node_modules</code> 目录里，装的不是真文件，是一整片 junction——`
     +`Windows 下一种目录重解析点，效果类似符号链接，打开它就像走进了别的地方，指向的是`
     +`插件源码和 npx 缓存里的真实位置。删假 home 时如果用普通的递归删除，遇到这类链接会`
     +`真的走进去，把链接另一头的源码和缓存内容当成这次实验的垃圾删掉——那是别处的真东西。`
     +`实验台自己写的 <code>rmtree_safe()</code>（<code>experiments/lab/core.py</code>）专门`
     +`认这件事：碰到 junction 或符号链接，只拆链接本身，从不递归进去。` },
-  { nm:'会话锁', files:['lock'], body:
+  { nm:'会话锁', body:
     `前四步保证的是「实验台」和「那套在用的实例」不撞车，实验台自己也可能被同时开两次——`
     +`比如两个人、或者两个 subagent，各自跑了一次 pytest。整个 pytest 会话启动时，只由主`
     +`进程（不是每个 xdist worker）调一次 <code>acquire_lock()</code>`
@@ -429,7 +548,6 @@ const STEPS = [
     +`各自互不相干。` },
 ];
 
-const bm0 = document.getElementById('bm0');
 const stepDetail = document.getElementById('stepdetail');
 const stepPos = document.getElementById('pos0');
 const stepPrev = document.getElementById('prev0');
@@ -437,7 +555,7 @@ const stepNext = document.getElementById('next0');
 stepDetail.style.setProperty('--accent', 'var(--dim)');
 let stepCur = 0;
 
-/** 走到第 i 步：换内容面板文字，点亮 bm0 对应的源码行。 */
+/** 走到第 i 步：换内容面板文字，点亮侧边树里对应的源码行。 */
 function gotoStep(i){
   stepCur = Math.max(0, Math.min(STEPS.length - 1, i));
   const s = STEPS[stepCur];
@@ -448,7 +566,6 @@ function gotoStep(i){
   stepPos.textContent = `${stepCur + 1} / ${STEPS.length} · ${s.nm}`;
   stepPrev.disabled = stepCur === 0;
   stepNext.disabled = stepCur === STEPS.length - 1;
-  bmHighlight(bm0, s.files);
 }
 stepPrev.addEventListener('click', () => gotoStep(stepCur - 1));
 stepNext.addEventListener('click', () => gotoStep(stepCur + 1));
