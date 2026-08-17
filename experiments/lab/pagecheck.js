@@ -23,7 +23,8 @@
     fileCount: 0,      // 树里的可点文件行
     dead: [],          // 点开之后文件窗是空的——树上的死行
     wrapped: [],       // 折了行的短标签：版面挤坏的信号
-    overflowX: 0,      // 正文横向溢出，应当为 0
+    overflowX: 0,      // 页面级横向溢出，应当为 0
+    spill: [],         // 撑破正文列、钻到右栏底下的元素
   };
 
   window.addEventListener('error', (e) => out.errs.push('onerror: ' + e.message));
@@ -76,5 +77,23 @@
   });
 
   out.overflowX = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+
+  // 元素撑破正文列。页面级横向滚动条查不出这种：.layout 是 grid、main 带
+  // min-width:0，超出的部分不撑开 documentElement，而是直接钻到右栏底下——
+  // 读者看到的是一张右半截被侧栏盖住的表，页面却报「没有横向溢出」。
+  const main = document.querySelector('main');
+  if (main) {
+    const mr = main.getBoundingClientRect().right;
+    main.querySelectorAll('table,pre,img,.cmp2,.cmp3,.kv,.chain').forEach((e) => {
+      const r = e.getBoundingClientRect();
+      if (r.width > 0 && r.right > mr + 1) {
+        out.spill.push(
+          e.tagName + '.' + e.className + ' 宽' + Math.round(r.width)
+          + ' 超出正文列 ' + Math.round(r.right - mr) + 'px'
+        );
+      }
+    });
+  }
+
   return JSON.stringify(out, null, 1);
 })();
