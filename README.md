@@ -13,6 +13,15 @@ DeepSeek Harness（DSH）插件系统原理的**独立研究项目**。
 覆盖清单 `docs/SYLLABUS.md`（有哪些机制、谁管、验没验）、术语 `docs/GLOSSARY.md`、
 探索历史 `docs/trajectory/`、官方文档快照 `docs/official/`。
 
+## 转载声明：`docs/official/`
+
+`docs/official/` 下的 215 篇是 DeepSeek Harness 官方仓库 `docs/` 的只读快照，
+中英各一棵树，版本钉死在 commit `47f9438`。内容一字未改，版权归原作者所有，
+本仓收录它只为让实验结论有个固定的对照基准。
+
+⚠️ **这份快照不跟随上游、也不是权威。** 官方文档改了它不会动——要看当前文档
+请去官方仓库，照着这份快照做事可能踩到已经被改掉的结论。
+
 ## 跑
 
 一律经 uv，不激活虚拟环境、不碰全局解释器：
