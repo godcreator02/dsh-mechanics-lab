@@ -357,8 +357,15 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 | 1 | bundle 层 | 每个 bundle 包自带的 `cordis.patch.yml`，按 `dsh.profile.bundles` 顺序 | ✅ 冷 |
 | 2 | profile 活层 | `profiles/<名>/cordis.patch.yml` | ✅ 热 |
 | 3 | **home 级层** | `$DSH_HOME/cordis.patch.yml` | ✅ 热 |
-| 4 | overlay | `--patch <路径>`，按 argv 顺序 | 冷 |
-| 5 | 内置 overlay | agent-presets 根、telemetry 开关 | 冷 |
+| 4 | overlay | `--patch <路径>`，按 argv 顺序 | ✅ 冷 |
+| 5 | 内置 overlay | agent-presets 根、telemetry 开关 | ⚠️ 待验 · 冷 |
+
+⚠️ **第 5 层只有源码依据，没有用例。** 它是框架自己追加的两条补丁，**追加在 argv
+overlay 之后，所以优先级压过全部四层**：`agent-presets` 只在树里已有该 id 时才强改
+它的 `roots`；telemetry 只在已有 `session-telemetry-otel` 条目且 `DSH_TELEMETRY_DISABLED`
+非空时追加 `disabled: true`——**任意非空值都算禁用，包括字符串 `'0'`**。
+源码在 `dsh/lib/profile-boot-*.js` 的 `composeProfile()` 与 `allPatches()`。
+⚠️ 官方 `zh/user/develop/basic/publish.md:112-119` 只讲了前四层，那是简化。
 
 ⚠️ ✅ **第 3 层很多文档都漏了**，但它真实存在，**优先级压过 profile 自己的活层**，
 且对同一个 home 下**所有 profile 同时生效**。共享 home 的部署里，
