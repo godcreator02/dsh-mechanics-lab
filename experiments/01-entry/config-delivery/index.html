@@ -288,17 +288,17 @@ export function apply(ctx, config) {
 }
 </pre>
     </div>
-    <div id="fc-recv-flat" data-src="results/20260817-151004/summary.md"
+    <div id="fc-recv-flat" data-src="results/20260817-151004/summary.md · 平铺 config 那两行"
          data-why="test_config_reaches_apply_unchanged 的打印行：写进去的 config 与 apply() 收到的对照"><pre>写进去的：{问候语: 你好, 重试次数: 3, 啰嗦: true}
   收到的：  {'问候语': '你好', '重试次数': 3, '啰嗦': True}</pre>
     </div>
-    <div id="fc-recv-nested" data-src="results/20260817-151004/summary.md"
+    <div id="fc-recv-nested" data-src="results/20260817-151004/summary.md · 嵌套 config 那一行"
          data-why="test_nested_shapes_survive 的打印行：嵌套 config 原样送达"><pre>嵌套 config 原样送达：{"服务器": {"主机": "127.0.0.1", "端口": 3090}, "名单": ["甲", "乙"], "空值": null, "小数": 3.14, "嵌套": {"层一": {"层二": [1, 2, {"深处": "到底了"}]}}, "数组": ["甲", "乙", "丙"], "浮点": 3.14}</pre>
     </div>
-    <div id="fc-recv-absent" data-src="results/20260817-151004/summary.md"
+    <div id="fc-recv-absent" data-src="results/20260817-151004/summary.md · 一个 config 都不写那一行"
          data-why="test_missing_or_mistyped_config_is_undefined[absent] 的打印行"><pre>[一个 config 都不写] 插件收到的类型：undefined    内容：None</pre>
     </div>
-    <div id="fc-recv-typo" data-src="results/20260817-151004/summary.md"
+    <div id="fc-recv-typo" data-src="results/20260817-151004/summary.md · 键名拼错了那一行"
          data-why="test_missing_or_mistyped_config_is_undefined[typo] 的打印行"><pre>[键名拼错了] 插件收到的类型：undefined    内容：None</pre>
     </div>
   </div>
