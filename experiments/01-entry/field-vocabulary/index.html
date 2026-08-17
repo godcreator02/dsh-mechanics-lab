@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>field-vocabulary · 条目能写哪些字段</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+
+ --bmhit:#7c3aed;
+
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+
+ --bmhit:#a78bfa;
+}}
+:root[data-theme=dark]{
+
+ --bmhit:#a78bfa;
+}
+.ft .same{color:var(--dim)}
+
+/* ── 六字段表：本页唯一的图 ── */
+.fv-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:4px 0 6px}
+.fv-table th{text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--dim);
+  font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line)}
+.fv-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.fv-table td.field code{font-family:var(--mono);font-size:12.5px;font-weight:600}
+.fv-table td.yn{font-family:var(--mono);font-size:11.5px}
+/* 第三列只放「必填 / 可选」两个词，不给它折行的机会——不钉住的话它会被
+   两边的长文本挤到 48px、竖成一字一行 */
+.fv-table th:nth-child(3),.fv-table td:nth-child(3){white-space:nowrap;width:1%}
+.fv-table th:nth-child(1),.fv-table td:nth-child(1){width:14%}
+.fv-table th:nth-child(4),.fv-table td:nth-child(4){width:34%}
+.fv-table td.yn.yes{color:var(--ok)}
+.fv-table td.yn.no{color:var(--dim)}
+.fv-table tr.wild td{border-top:1px dashed var(--line);color:var(--dim);
+  background:color-mix(in srgb,var(--warn) 6%,transparent)}
+.fv-table tr.wild td.field code{color:var(--warn)}
+
+/* ── 两处现场对照 ── */
+.ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:8px 0 4px}
+@media (max-width:640px){.ev-grid{grid-template-columns:1fr}}
+.ev-card{border:1px solid var(--line);border-radius:10px;padding:13px 15px;background:var(--card)}
+.ev-card h4{margin:0 0 8px;font-size:13px}
+.ev-card p{margin:0 0 8px;font-size:12.5px;color:var(--dim);line-height:1.65}
+.ev-card code{font-family:var(--mono);font-size:12px;color:var(--fg)}
+.ev-card .quote{margin-top:2px;padding:8px 10px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);font-size:12px;color:var(--dim);
+  font-family:var(--mono);line-height:1.6}
+.ev-card .quote b{color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">01-entry / field-vocabulary</div>
+<h1>条目能写哪些字段</h1>
+<p class="sub">六个字段是权威清单的全部——patch 里写别的键不报错，只是没人读。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">📗 复述型</span>
+  <span class="tag ok">✅ 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry：配方里的一行，写着挂哪个插件、给它什么配置——见
+<code>00-base/minimal-profile</code>）能写的字段不是随便什么都算数的。loader
+解析条目时按一份固定的接口去读，接口之外的键即使写了也不会被拿来做任何事。
+这一项要讲清楚的，就是这份接口长什么样：一共几个字段、各管什么活、缺一个会怎样、
+多写一个又会怎样。</p>
+
+<h2>条目能写的六个字段</h2>
+<p class="note">权威清单定义在 <code>cordis-plugin-loader</code> 的
+<code>src/config/entry.ts</code>，接口名叫 <code>EntryOptions</code>，一共六个字段，
+loader 不认识清单之外的任何键。下表按接口里的声明顺序列出每个字段管什么、
+是否必填；最后一列是本项归档里实测出现过的情况。</p>
+
+<table class="fv-table">
+<tr><th>字段</th><th>管什么</th><th>必填与否</th><th>本项组合树里出现过</th></tr>
+<tr><td class="field"><code>id</code></td>
+  <td>这条条目在树里的稳定地址，patch 靠它定位、后续修改这条条目——跟插件叫什么名字无关</td>
+  <td>必填</td><td class="yn yes">是</td></tr>
+<tr><td class="field"><code>name</code></td>
+  <td>loader 拿它去 Node 做模块解析（import）的说明符——对包型插件，这就是包名</td>
+  <td>必填</td><td class="yn yes">是</td></tr>
+<tr><td class="field"><code>config</code></td>
+  <td>传给插件 <code>apply(ctx, config)</code> 的第二个参数</td>
+  <td>可选</td><td class="yn yes">是</td></tr>
+<tr><td class="field"><code>disabled</code></td>
+  <td>挂不挂这条条目（及它的子孙）；可以写布尔，也可以写 <code>!!js</code> 表达式延迟求值</td>
+  <td>可选</td><td class="yn no">否</td></tr>
+<tr><td class="field"><code>group</code></td>
+  <td>把这条标成一个嵌套的条目组，<code>config</code> 变成子条目数组</td>
+  <td>可选</td><td class="yn no">否</td></tr>
+<tr><td class="field"><code>inject</code></td>
+  <td>这条条目需要哪些服务，覆盖或补充插件代码里自己声明的依赖</td>
+  <td>可选</td><td class="yn no">否</td></tr>
+<tr class="wild"><td class="field"><code>野字段</code>（举例，不在清单内）</td>
+  <td>权威清单之外的任意键——本项 patch 里真写了一个 <code>野字段: "loader 不认识我"</code></td>
+  <td>不适用</td><td class="yn no">出现过，但被忽略：原样进组合树、不阻断加载、不报任何警告</td></tr>
+</table>
+
+<p class="note">本项唯一一次跑 <code>test_entry_field_vocabulary</code>，dump
+里出现过的字段集合是 <code>['config', 'id', 'name']</code>，对照权威清单
+<code>['config', 'disabled', 'group', 'id', 'inject', 'name']</code>——上表最右列
+就是这次对比的结果，取自 <code>results/20260817-151009/summary.md</code>。</p>
+
+<h2>两处现场：id 换了别名、patch 塞了野字段</h2>
+<p class="note">下面两个 profile 各自的 <code>cordis.patch.yml</code> 都只挂了同一个教学
+插件 <code>lab-entry</code>——完整文件在右边文件树里可以点开看。插件本身很简单：
+<code>apply()</code> 把 <code>marker</code>、<code>moduleLoadedAt</code>、<code>appliedAt</code>
+和收到的 <code>config</code> 写进一份见证文件，仅此而已；见证文件存在且
+<code>marker</code> 对得上，就说明这次 <code>apply()</code> 真的跑过。</p>
+
+<div class="ev-grid">
+  <div class="ev-card">
+    <h4>alias profile —— id 跟 name 毫无关系</h4>
+    <p>patch 里写的是 <code>id: 完全不像包名的别名</code>，<code>name: lab-entry</code>——
+    两个字段故意给成不相干的值。</p>
+    <div class="quote">dump.entry("完全不像包名的别名") 存在<br>
+    dump.entry("lab-entry")　　　　　　为 None</div>
+    <p style="margin-top:8px">插件照常加载，见证文件 <code>w-alias.json</code> 里
+    <code>marker</code> 对得上：</p>
+    <div class="quote"><b>id 与包名完全不同，插件照常加载——id 只是树内地址</b></div>
+    <span class="from">test_id_and_name_are_independent</span>
+  </div>
+  <div class="ev-card">
+    <h4>unknown profile —— patch 里塞了个野字段</h4>
+    <p>patch 在 <code>id</code> / <code>name</code> / <code>config</code> 之外，
+    还多写了一行 <code>野字段: "loader 不认识我"</code>——这个键不在
+    <code>EntryOptions</code> 里。</p>
+    <div class="quote">entry.get("野字段") == "loader 不认识我"</div>
+    <p style="margin-top:8px">dump 里能看到它原样在场；插件同样照常加载，
+    <code>w-unknown.json</code> 里 <code>marker</code> 对得上：</p>
+    <div class="quote"><b>野字段进了组合树，插件照常加载——不认识的键不报错，只是没人读</b></div>
+    <span class="from">test_unknown_field_is_carried_but_ignored</span>
+  </div>
+</div>
+
+<h2>读出来的判定</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>一个条目只有六个字段。</b>真实组合树里出现过的字段，是 <code>EntryOptions</code>
+    这六个（<code>id</code>/<code>name</code>/<code>config</code>/<code>disabled</code>/
+    <code>group</code>/<code>inject</code>）的子集——本项没写的三个（<code>disabled</code>/
+    <code>group</code>/<code>inject</code>）各自具体怎么起作用，不是这一项要回答的问题。
+    <span class="from">test_entry_field_vocabulary</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>patch 能塞任意键，但只有六个会被读。</b>野字段被原样带进组合树、
+    <code>--dump-config</code> 里看得见，但不阻断加载、不报任何警告——字段名写错
+    （比如把 <code>disabled</code> 拼成 <code>disable</code>）不是「非法」，只是「没人读」。
+    <span class="from">test_unknown_field_is_carried_but_ignored</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b><code>id</code> 是树内地址，<code>name</code> 是 Node 模块解析名，两者互不相干。</b>
+    loader 拿 <code>name</code> 去 resolve 模块，拿 <code>id</code> 在树里定位条目；把
+    <code>id</code> 改成跟包名毫无关系的字符串，插件照常加载——后续 patch 想改这条
+    条目，用的是 <code>id</code>，不是包名。
+    <span class="from">test_id_and_name_are_independent</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_field_vocabulary.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+表格数字与两处现场对照均取自归档 <code>results/20260817-151009/</code>
+（<code>summary.md</code> 与 <code>w-alias.json</code> / <code>w-unknown.json</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="fl" data-k="w-alias">w-alias.json</button></li>
+          <li><button class="fl" data-k="w-unknown">w-unknown.json</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">vocab/</button>
+                <ul>
+                  <li><button class="fl" data-k="pkg-vocab">package.json</button></li>
+                  <li><button class="fl" data-k="yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="patch-vocab">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-entry →</li></ul>
+                  </li>
+                </ul></li>
+              <li><button class="tw">unknown/</button>
+                <ul>
+                  <li><span class="flabel">package.json</span></li>
+                  <li><span class="flabel">cordis.yml <span class="same">（与 vocab 同）</span></span></li>
+                  <li><button class="fl" data-k="patch-unknown">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-entry →</li></ul>
+                  </li>
+                </ul></li>
+              <li><button class="tw">alias/</button>
+                <ul>
+                  <li><span class="flabel">package.json</span></li>
+                  <li><span class="flabel">cordis.yml <span class="same">（与 vocab 同）</span></span></li>
+                  <li><button class="fl" data-k="patch-alias">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-entry →</li></ul>
+                  </li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/lab-entry/</button>
+            <ul>
+              <li><button class="fl" data-k="fixpkg">package.json</button></li>
+              <li><button class="fl" data-k="fixidx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-w-alias" data-name="w-alias.json"
+         data-src="results/20260817-151009/w-alias.json"
+         data-why="见证文件：apply() 执行时把 marker 和收到的 config 写进来——证明 id 换了别名后插件照常加载"><pre>{
+  "marker": "field-vocabulary-v1",
+  "moduleLoadedAt": "2026-08-17T07:10:08.566Z",
+  "appliedAt": "2026-08-17T07:10:08.567Z",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/field-vocabulary/w-alias.json"
+  }
+}</pre>
+    </div>
+    <div id="fc-w-unknown" data-name="w-unknown.json"
+         data-src="results/20260817-151009/w-unknown.json"
+         data-why="见证文件：证明野字段没有阻断加载，apply() 照常执行"><pre>{
+  "marker": "field-vocabulary-v1",
+  "moduleLoadedAt": "2026-08-17T07:10:06.294Z",
+  "appliedAt": "2026-08-17T07:10:06.295Z",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/field-vocabulary/w-unknown.json"
+  }
+}</pre>
+    </div>
+    <div id="fc-pkg-vocab" data-name="package.json"
+         data-src="results/20260817-151009/profiles/vocab/package.json"
+         data-why="dsh.profile.bundles: []，dependencies 里 link: 指向 fixtures/lab-entry——name 字段就是这里的包名"><pre>{
+  "name": "dsh-profile-vocab",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-entry": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/field-vocabulary/fixtures/lab-entry"
+  }
+}</pre>
+    </div>
+    <div id="fc-yml" data-name="cordis.yml"
+         data-src="results/20260817-151009/profiles/vocab/cordis.yml"
+         data-why="恒为 []，每次启动被 profile-boot 重写；三个 profile 这份逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]</pre>
+    </div>
+    <div id="fc-patch-vocab" data-name="cordis.patch.yml"
+         data-src="results/20260817-151009/profiles/vocab/cordis.patch.yml"
+         data-why="活层：唯一一条 lab-entry 条目，跑 test_entry_field_vocabulary 的静态 dump 用"><pre># field-vocabulary 活层
+- insert:
+    - id: lab-entry
+      name: lab-entry
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/field-vocabulary/w-vocab.json"</pre>
+    </div>
+    <div id="fc-patch-unknown" data-name="cordis.patch.yml"
+         data-src="results/20260817-151009/profiles/unknown/cordis.patch.yml"
+         data-why="活层：id/name/config 之外多写了一个 野字段，跑 test_unknown_field_is_carried_but_ignored 用"><pre># field-vocabulary 活层
+- insert:
+    - id: lab-entry
+      name: lab-entry
+      野字段: "loader 不认识我"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/field-vocabulary/w-unknown.json"</pre>
+    </div>
+    <div id="fc-patch-alias" data-name="cordis.patch.yml"
+         data-src="results/20260817-151009/profiles/alias/cordis.patch.yml"
+         data-why="活层：id 换成一个跟 name 毫无关系的字符串，跑 test_id_and_name_are_independent 用"><pre># field-vocabulary 活层
+- insert:
+    - id: 完全不像包名的别名
+      name: lab-entry
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/field-vocabulary/w-alias.json"</pre>
+    </div>
+    <div id="fc-fixpkg" data-name="package.json"
+         data-src="experiments/01-entry/field-vocabulary/fixtures/lab-entry/package.json"
+         data-why="包型插件：有 package.json，name 字段就是 patch 里 name 拿去 resolve 的那个说明符"><pre>{
+  "name": "lab-entry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}</pre>
+    </div>
+    <div id="fc-fixidx" data-name="index.js"
+         data-src="experiments/01-entry/field-vocabulary/fixtures/lab-entry/index.js"
+         data-why="export function apply(ctx, config) —— 只把 marker / moduleLoadedAt / appliedAt / 收到的 config 写进 witness 文件，自己不该成为任何判定的解释"><pre>/**
+ * field-vocabulary 用的教学插件：靠写见证文件证明 apply 执行过、
+ * config 原样送达。除了 marker / moduleLoadedAt / appliedAt 三个指纹，
+ * 没有别的行为——它自己不该成为任何一条判定的解释。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "field-vocabulary-v1";
+const moduleLoadedAt = new Date().toISOString();
+
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) {
+    throw new Error("lab-entry: config.witness 是必需的");
+  }
+
+  writeFileSync(
+    witness,
+    JSON.stringify(
+      {
+        marker: MARKER,
+        moduleLoadedAt,
+        appliedAt: new Date().toISOString(),
+        config,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+</body>
+</html>

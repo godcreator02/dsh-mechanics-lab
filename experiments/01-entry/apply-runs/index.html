@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>apply-runs · 从外部证明 apply 真的跑了</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#7c3aed;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#a78bfa;
+}}
+:root[data-theme=dark]{
+ --bmhit:#a78bfa;
+}
+/* ── 机制：四步链条，纯陈述，不用分步控件——内容短，跳读比按序点更省事 ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px}
+.chain{margin:0;padding-left:20px;display:grid;gap:11px}
+.chain li{font-size:13.5px;line-height:1.65}
+.chain code{font-family:var(--mono);font-size:12px}
+/* ── 两个时刻怎么分：一张小表，不做时间线 ── */
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0 4px}
+table.dt th,table.dt td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+table.dt th{font-size:10.5px;color:var(--dim);font-weight:500;font-family:var(--mono);line-height:1.45}
+table.dt td:first-child{font-family:var(--mono);font-size:12px;white-space:nowrap}
+.chg{color:var(--bmhit);font-weight:600}
+.nochg{color:var(--dim)}
+/* ── 实验看到了什么：两个 profile 并置 ── */
+.oc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+.oc{border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden}
+.oc.hit{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.oc.miss{border-color:color-mix(in srgb,var(--miss) 45%,var(--line))}
+.oc-h{font-family:var(--mono);font-size:11.5px;padding:9px 12px;
+  border-bottom:1px solid var(--line);color:var(--dim)}
+.oc.hit .oc-h{color:var(--ok)}
+.oc.miss .oc-h{color:var(--miss)}
+.oc-body{padding:11px 14px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px}
+.kv span{color:var(--dim)}
+.kv code{font-family:var(--mono);font-size:12px}
+@media (max-width:640px){.oc-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">01-entry / apply-runs</div>
+<h1>怎么从外部证明 apply 真的执行了</h1>
+<p class="sub">配方里写了一条插件，证明不了它真的跑过——这一项拿一份进程外部也验证得了的证据，
+把「进树」和「被执行」这两件事分开钉死。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 2 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">活层（user patch layer）里写一条 <code>insert</code>，只是把一行描述放进了配方。
+<code>--dump-config</code> 能看到这条条目、看到它的 <code>name</code> 和 <code>config</code>，
+但那只证明「配方里有这一行」——证明不了插件真的被跑过：模块有没有被 import、
+<code>apply(ctx, config)</code> 有没有被调用，静态 dump 都看不见。</p>
+<p class="note">这一项拿一样从进程外部也验证得了的证据把后者钉死——<b>见证文件（witness）</b>：
+教学插件在 <code>apply()</code> 里主动写出的一个 JSON 文件，把「我被执行了」这件事和执行时刻
+一起记下来。同时验一条反过来的对照：插件文件已经摆在 <code>node_modules</code> 里，只是活层
+没写那条 <code>insert</code>，它会不会自己被捡起来。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">从活层写下一行 insert，到进程里跑出一份能验证的证据，中间是四步；右边文件窗能点开
+每一份源码，这里只把顺序理清。</p>
+
+<div class="stage">
+<ol class="chain">
+  <li><b>活层写 insert。</b>本项唯一新增的一条：<code>id: lab-minimal</code>，
+    <code>config.witness</code> 指到一个文件路径。<code>insert</code>（不带 id）是往根列表末尾
+    追加一条——新增插件的唯一姿势；裸 <code>id:</code> 是「改已有条目」语义，目标不存在时只
+    警告并跳过，插件永远不会被加载。</li>
+  <li><b>loader 挂载条目、import 模块。</b>条目的 <code>name</code> 被解析到
+    <code>fixtures/lab-minimal/index.js</code>，Node 把这个模块的顶层代码求值一次——
+    <code>moduleLoadedAt</code> 这个 <code>const</code> 就在这一刻被赋值，此后不会再变，
+    除非模块被重新 import。</li>
+  <li><b>框架调用 <code>apply(ctx, config)</code>。</b>这才是插件真正「运行」的时刻：函数体里
+    再取一次时间戳记成 <code>appliedAt</code>，跟 <code>moduleLoadedAt</code>、<code>marker</code>、
+    原样透传的 <code>config</code> 拼成一个对象。</li>
+  <li><b>见证文件落盘。</b><code>writeFileSync</code> 把这个对象写到 <code>config.witness</code>
+    指的路径——这份文件此后就是「apply 被执行过」的外部证据，不用碰 <code>ctx</code>，
+    看文件就够。</li>
+</ol>
+</div>
+
+<p class="note"><b>为什么两个时刻要分开记。</b>右边 <code>index.js</code> 里能看到，
+<code>moduleLoadedAt</code> 写在模块顶层，只有这个模块被（重新）import 才会重新赋值；
+<code>appliedAt</code> 写在 <code>apply</code> 函数体内，这个条目每被激活一次就重新赋值一次，
+跟模块是不是新 import 的无关。这是两个字段各自的写入时机直接推出的结果，不是另外测出来的——
+下面这张表把三种情形摊开：</p>
+
+<table class="dt">
+  <tr><th></th><th>活层没有任何改动</th><th>条目被重新 apply，模块没被重新 import</th><th>模块本身被重新 import</th></tr>
+  <tr><td>moduleLoadedAt</td><td class="nochg">不变</td><td class="nochg">不变</td><td class="chg">变</td></tr>
+  <tr><td>appliedAt</td><td class="nochg">不变</td><td class="chg">变</td><td class="chg">变</td></tr>
+</table>
+
+<p class="note"><b>反过来——插件在磁盘上，活层没提它。</b><code>lab-minimal</code> 照样被
+<code>link</code> 进了 profile 的 <code>node_modules</code>（见右边
+<code>unmounted/package.json</code>），但活层里没有那条 <code>insert</code>。loader 只认活层
+写了什么，不会去扫 <code>node_modules</code> 里有什么——挂载的判据是「配方里有没有这一行」，
+不是「文件在不在硬盘上」。</p>
+
+<h2>实验看到了什么</h2>
+<p class="note">两条用例分别落在 <code>run</code> 和 <code>unmounted</code> 两个 profile 上——
+同一份 <code>lab-minimal</code>、同一份基线，唯一的差别是活层写没写那条 insert。</p>
+
+<div class="oc-grid">
+  <div class="oc hit">
+    <div class="oc-h">run · witness-run.json 出现了</div>
+    <div class="oc-body">
+      <div class="kv"><span>marker</span><code>apply-runs-v1</code></div>
+      <div class="kv"><span>moduleLoadedAt</span><code>2026-08-17T07:10:39.157Z</code></div>
+      <div class="kv"><span>appliedAt</span><code>2026-08-17T07:10:39.157Z</code></div>
+    </div>
+  </div>
+  <div class="oc miss">
+    <div class="oc-h">unmounted · 见证文件没有出现</div>
+    <div class="oc-body">
+      <div class="kv"><span>实例还活着？</span><code>True</code></div>
+      <div class="kv"><span>见证文件出现了吗？</span><code>False</code></div>
+    </div>
+  </div>
+</div>
+
+<p class="note">这一次观测里 <code>moduleLoadedAt</code> 和 <code>appliedAt</code> 完全相同
+（都是 07:10:39.157Z）——这正是预期结果：boot 阶段这个条目只被处理了一次，import 和 apply
+前后脚发生，两个时刻本来就不会拉开肉眼可见的差距。上面那张表说的是两者各自<b>什么时候会</b>
+重新赋值，不是「两者总会不一样」。</p>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>「被加载」的可观测定义是「apply 被执行」，不是「配方里写了它」。</b>
+    <code>appliedAt</code> 是从进程外部也验证得了的证据；静态 <code>--dump-config</code>
+    只能看到条目进了组合树，看不到它是否真的跑过。
+    <span class="from">test_apply_actually_runs</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>对照组：插件文件已经 link 进 profile，活层没写那条 insert——它不上树，不说话。</b>
+    挂载只认活层 patch 里写没写；<code>lab-minimal</code> 没有任何自注册声明，插件老老实实
+    躺在 <code>node_modules</code> 里也不会自己被捡起来。
+    <span class="from">test_without_the_entry_nothing_runs</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_apply_runs.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+见证文件与 profile 快照取自归档 <code>results/20260817-151051/</code>，是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="fl" data-k="witness">witness-run.json</button></li>
+          <li>logs/</li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li>node_modules/</li>
+              <li><button class="tw">run/</button>
+                <ul>
+                  <li><button class="fl" data-k="pkgrun">package.json</button></li>
+                  <li>cordis.yml</li>
+                  <li><button class="fl" data-k="patchrun">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-minimal →</li></ul>
+                  </li>
+                </ul></li>
+              <li><button class="tw">unmounted/</button>
+                <ul>
+                  <li><button class="fl" data-k="pkgun">package.json</button></li>
+                  <li>cordis.yml</li>
+                  <li><button class="fl" data-k="patchun">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-minimal →</li></ul>
+                  </li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/lab-minimal/</button>
+            <ul>
+              <li><button class="fl" data-k="fixpkg">package.json</button></li>
+              <li><button class="fl" data-k="fixidx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-witness" data-name="witness-run.json"
+         data-src="results/20260817-151051/witness-run.json"
+         data-why="config.witness 指定的路径，apply() 执行后 writeFileSync 写出——appliedAt 是外部能验证的『被执行过』证据"><pre>{
+  "marker": "apply-runs-v1",
+  "moduleLoadedAt": "2026-08-17T07:10:39.157Z",
+  "appliedAt": "2026-08-17T07:10:39.157Z",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/apply-runs/witness-run.json"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-pkgrun" data-name="package.json"
+         data-src="results/20260817-151051/profiles/run/package.json"
+         data-why="dsh.profile.bundles: []，dependencies 里 link: 供给 lab-minimal——跟 unmounted 那份除了 name 完全一样，插件老实被 link 进两个 profile"><pre>{
+  "name": "dsh-profile-run",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-minimal": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/apply-runs/fixtures/lab-minimal"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-patchrun" data-name="cordis.patch.yml"
+         data-src="results/20260817-151051/profiles/run/cordis.patch.yml"
+         data-why="活层——唯一新增的一条 insert，写明 id / name / config.witness"><pre># apply-runs 活层
+- insert:
+    - id: lab-minimal
+      name: lab-minimal
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/apply-runs/witness-run.json"
+</pre>
+    </div>
+    <div id="fc-pkgun" data-name="package.json"
+         data-src="results/20260817-151051/profiles/unmounted/package.json"
+         data-why="同样 link 了 lab-minimal——证明『文件在磁盘上』不是挂载的判据"><pre>{
+  "name": "dsh-profile-unmounted",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-minimal": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/apply-runs/fixtures/lab-minimal"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-patchun" data-name="cordis.patch.yml"
+         data-src="results/20260817-151051/profiles/unmounted/cordis.patch.yml"
+         data-why="活层——只有基础设施 timer/hmr，没有 lab-minimal 那一条 insert"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+</pre>
+    </div>
+    <div id="fc-fixpkg" data-name="package.json"
+         data-src="experiments/01-entry/apply-runs/fixtures/lab-minimal/package.json"
+         data-why="包型插件：exports['.'] 指向 index.js，靠包名被 loader resolve"><pre>{
+  "name": "lab-minimal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fixidx" data-name="index.js"
+         data-src="experiments/01-entry/apply-runs/fixtures/lab-minimal/index.js"
+         data-why="moduleLoadedAt 是模块顶层的一条 const；appliedAt 在 apply() 函数体内——两处不同的求值时机就是这一项要证明的两件事"><pre>/**
+ * apply-runs 用的教学插件：一个 DSH 插件最少长什么样，全部家当就三样——
+ * package.json 的 "type": "module"、exports["."] 指向本文件、导出一个
+ * apply 函数。不 inject 任何服务、不注册路由、不碰 UI，这样「插件被
+ * 加载了」这件事就没有任何别的解释。
+ *
+ * 观测手段是写一个见证文件，而不是打日志：日志可能被吞、被缓冲、被格式
+ * 变化骗过去；文件存在与否是硬事实。
+ */
+
+import { writeFileSync } from "node:fs";
+
+/** 代码版本指纹。改了这个值就能证明跑的是新代码。 */
+const MARKER = "apply-runs-v1";
+
+/** 模块顶层求值：模块被 import 的时刻。它变了说明模块被重新 import 过。 */
+const moduleLoadedAt = new Date().toISOString();
+
+/**
+ * @param {object} ctx    插件上下文（本项不用它）
+ * @param {object} config 活层条目里 `config:` 那一坨，原样送到这里
+ */
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) {
+    // 没给见证文件路径就没法被观测到——直接吵出来，别静默失败
+    throw new Error("lab-minimal: config.witness 是必需的");
+  }
+
+  writeFileSync(
+    witness,
+    JSON.stringify(
+      {
+        marker: MARKER,
+        moduleLoadedAt,
+        appliedAt: new Date().toISOString(),
+        config,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+</body>
+</html>

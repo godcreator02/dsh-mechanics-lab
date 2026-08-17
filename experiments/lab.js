@@ -49,7 +49,13 @@
    opts.hover 打开时，hover 只是临时预览：它不动 cur，鼠标移开回落到选中那项。 */
 function initPicker(root, render, opts = {}){
   const picks = [...root.querySelectorAll('.pick')];
-  const body = root.querySelector('.pickbody');
+  // root 既可以是包住两者的容器，也可以就是 .picker 本身、后面紧跟着 .pickbody
+  // ——后一种写法太自然，认它，省得每页各踩一次。找不到就当场报错，别留个 null
+  // 给 render 去撞，那种报错离病根太远。
+  const body = root.querySelector('.pickbody')
+    || (root.nextElementSibling && root.nextElementSibling.classList.contains('pickbody')
+        ? root.nextElementSibling : null);
+  if (!body) throw new Error('initPicker：找不到 .pickbody（它要么在 root 里，要么紧跟在 root 后面）');
   let cur = 0;
   const paint = i => {
     picks.forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('dim', k !== i); });

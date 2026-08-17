@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>name-resolution · name 字段怎么变成一个真的模块</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#7c3aed; --urlres:#0ea5e9; --pkgres:#f97316;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#a78bfa; --urlres:#38bdf8; --pkgres:#fb923c;
+}}
+:root[data-theme=dark]{
+ --bmhit:#a78bfa; --urlres:#38bdf8; --pkgres:#fb923c;
+}
+.b-url{color:var(--urlres);font-weight:600}
+.b-pkg{color:var(--pkgres);font-weight:600}
+.note code{font-family:var(--mono);font-size:12px}
+
+/* ── 机制舞台：五步 arrow picker ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+/* ── 并列对照卡：两张卡横排 ── */
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.b2.miss{color:var(--miss)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+.ccard .row b{color:var(--fg);font-weight:600}
+.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:11px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
+
+/* ── 简单键值块 ── */
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:150px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
+
+/* ── 表格 ── */
+table.matrix{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+table.matrix th,table.matrix td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+table.matrix th{color:var(--dim);font-weight:600;font-family:var(--mono);font-size:11px}
+table.matrix td.c-name{font-family:var(--mono);font-size:11px;color:var(--dim)}
+table.matrix .b2{display:inline-block}
+
+/* ── 矫正点卡：判定层特殊样式 ── */
+.read.match{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));
+  background:var(--warnbg)}
+.read.match .n{color:var(--warn)}
+.read.match p b{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">01-entry / name-resolution</div>
+<h1>条目的 name 怎么变成一个真的模块</h1>
+<p class="sub">条目里 <code>name</code> 写的那个字符串，怎么被 loader 变成一次真正的模块加载——同一个字段，实测下来只有两条互不相通的解析算法，各自的规则、各自的边界。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">⚠️ 矫正型</span>
+  <span class="tag ok">✅ 满覆盖 · 11 条用例（4 个参数化）</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，见 <code>00-base/baseline-profile</code>）有个 <code>name</code> 字段：loader 拿它去问
+Node「这个字符串对应哪个模块」，问到了就把模块 import 进来、执行它的 <code>apply</code>。这一项讲的正是
+这一步——<code>name</code> 里写的那个字符串，怎么被 dsh 的 loader（<code>cordis-plugin-loader</code> 的
+<code>EntryTree.import</code>）变成一次真正的模块加载。同一个字段，源码里判了四种写法，实测下来它们
+分走的其实只有两条解析算法，各自的规则、各自的边界，写错一步就从「能被 Node 读懂的字符串」
+变成「读不懂的字符串」。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍 <code>EntryTree.import</code> 判断这个字符串该怎么读的过程：①②是各自独立的分支，
+③④决定剩下的字符串最终走哪条解析算法，⑤是这两条算法各自认的锚点。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn"><code>cordis:</code> 前缀</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">internal 在不在</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">URL 解析</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">包解析</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">两条路的锚点</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>地基：internal 是不是激活</h2>
+<p class="note">后面每一条判定的因果解释，都先看这一个字段——如果它激活，③④会被同一次调用接管。
+见证探针（<code>fixtures/probe</code>）在自己那三个指纹之外，多测一件事：
+<code>ctx.get("loader").internal !== undefined</code>。这条探针本身走裸包名加载，能不能测到这个
+字段跟"internal 是否激活"这个问题本身正交，可以放心当第一条用例。</p>
+<div class="kv">
+  <div class="r"><span class="k">ctx.get('loader').internal 是否存在</span><span class="v ok">true</span></div>
+  <div class="r"><span class="k">ctx.baseUrl</span><span class="v">file:///D:/…/out/testhome/name-resolution/profiles/internal/</span></div>
+  <div class="r"><span class="k">耗时</span><span class="v">1.59s</span></div>
+</div>
+<p class="note">本次部署上它是<b>激活</b>的——③④两条实际上都被同一次
+<code>internal.import(name, baseUrl, {})</code> 调用接管，<code>name</code> 原样传入，不做任何前缀判断。
+表现出来的规则跟源码注释里写的③④分支基本一致（报错堆栈里能看到 Node 内部 ESM loader 的函数名），
+所以下文仍按③④两条来讲。</p>
+
+<h2>同一个字符串，两种命运——Windows 裸盘符 vs <code>file://</code> URL</h2>
+<p class="note">同一个插件（<code>fixtures/probe</code>），只把条目的 <code>name</code> 换成两种写法，都故意不
+link——全靠这个字符串自己被解析。两次都固定等待 10 秒才下判定：结果预先不知道，轮询提前退出只能
+证明「此刻还没发生」，证明不了「永远不会发生」。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">abswin</span><span class="b2 miss">✗ 加载失败</span></div>
+    <div class="row"><b>name</b> = <code>D:\…\fixtures\probe\index.js</code></div>
+    <div class="row">进程还活着？ <b>False</b>（退出码 1）</div>
+    <pre>Error [ERR_UNSUPPORTED_ESM_URL_SCHEME]: Only URLs with a scheme in:
+file, data, and node are supported by the default ESM loader.
+On Windows, absolute paths must be valid file:// URLs.
+Received protocol 'd:'</pre>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">fileurl</span><span class="b2 ok">✓ 加载成功</span></div>
+    <div class="row"><b>name</b> = <code>file:///D:/…/fixtures/probe/index.js</code></div>
+    <div class="row">进程还活着？ <b>True</b>（internal=true）</div>
+    <pre>{
+  "marker": "name-resolution-probe-v1",
+  "loaderInternal": true,
+  "baseUrl": "file:///D:/…/profiles/fileurl/"
+}</pre>
+  </div>
+</div>
+
+<h2>两种「加载失败」，报错文本不一样</h2>
+<p class="note"><code>cordis:</code> 指向不存在的内置表项，跟裸包名指向不存在的包——两者都让实例起不来
+（退出码 1），但报错文本出自完全不同的地方。混着断言「有没有报错」会把两种机制读成同一件事。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">cordisbad</span><span class="b2 miss">✗ cordis 自造报错</span></div>
+    <div class="row"><b>name</b> = <code>cordis:nonexistent</code></div>
+    <div class="row">从没建立过 fiber</div>
+    <pre>invalid plugin, expect function or object with an
+"apply" method, received undefined</pre>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">nopkg</span><span class="b2 miss">✗ Node 标准报错</span></div>
+    <div class="row"><b>name</b> = <code>name-resolution-definitely-does-not-exist</code></div>
+    <div class="row">走了完整的包解析</div>
+    <pre>Cannot find package 'name-resolution-definitely-does-not-exist'
+imported from …\profiles\nopkg\
+code: 'ERR_MODULE_NOT_FOUND'</pre>
+  </div>
+</div>
+
+<h2><span class="b-pkg">包解析</span>的回退链只属于包解析</h2>
+<p class="note"><span class="b-pkg">包解析</span>认 <code>package.json</code>：<code>exports["."]</code> →
+<code>main</code> → 默认 <code>index.js</code>，三条路任意一条通就能 resolve 到。
+<span class="b-url">URL 解析</span>压根不看这个文件——三块证据。</p>
+
+<p class="note"><b>同一份代码，两种引用方式</b>：<code>fixtures/fallback/plugin.js</code> 故意让三条回退路
+全断（没 <code>exports</code>、没 <code>main</code>，真代码又不叫 <code>index.js</code>）。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">fallback-rel</span><span class="b2 ok">✓ 加载成功</span></div>
+    <div class="row"><b>name</b> = <code>./…/fixtures/fallback/plugin.js</code></div>
+    <div class="row">走 <span class="b-url">URL 解析</span>，不看 package.json</div>
+    <div class="row">marker=<code>fallback-plugin-v1</code></div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">fallback-pkg</span><span class="b2 miss">✗ 加载失败</span></div>
+    <div class="row"><b>name</b> = <code>fallback</code>（同一份代码，link 进来）</div>
+    <div class="row">走 <span class="b-pkg">包解析</span>，三条回退路全断</div>
+    <pre>Cannot find package '…\node_modules\fallback\index.js'
+code: 'ERR_MODULE_NOT_FOUND'</pre>
+  </div>
+</div>
+
+<p class="note"><b><code>exports</code> 子路径要显式声明</b>：两个包的 <code>tool.js</code> 逐字节相同，
+唯一差异是 <code>package.json</code> 的 <code>exports</code> 里有没有声明 <code>"./tool"</code>（侧栏可点开
+两份 <code>package.json</code> 对照）。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">declared</span><span class="b2 ok">✓ 加载成功</span></div>
+    <div class="row"><b>name</b> = <code>subpath-declared/tool</code></div>
+    <div class="row">耗时 0.98s，marker=<code>subpath-declared-tool-v1</code></div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">undeclared</span><span class="b2 miss">✗ 加载失败</span></div>
+    <div class="row"><b>name</b> = <code>subpath-undeclared/tool</code></div>
+    <div class="row">文件确实存在，报 <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code></div>
+  </div>
+</div>
+
+<p class="note"><b>边界矩阵</b>：最小插件（<code>fixtures/minimal/index.js</code>）复制到四个变体，
+每次只换入口文件名和 <code>package.json</code> 里多带的字段，逐一验证三条回退路。</p>
+<table class="matrix">
+  <thead><tr><th>变体</th><th>入口文件</th><th>package.json 多带什么</th><th>预期</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>exports 指向入口</td><td class="c-name">index.js</td><td class="c-name">exports:{".":"./index.js"}</td>
+      <td>应加载</td><td><span class="b2 ok">✓ 加载了</span>（1.84s）</td></tr>
+    <tr><td>无 exports，入口恰好叫 index.js</td><td class="c-name">index.js</td><td class="c-name">（无）</td>
+      <td>应加载</td><td><span class="b2 ok">✓ 加载了</span>（1.80s）</td></tr>
+    <tr><td>无 exports，入口叫别的名字</td><td class="c-name">plugin.js</td><td class="c-name">（无）</td>
+      <td>不该加载</td><td><span class="b2 miss">✗ 没加载</span>（12.05s 固定等待）</td></tr>
+    <tr><td>无 exports，但 main 指向入口</td><td class="c-name">plugin.js</td><td class="c-name">main:"./plugin.js"</td>
+      <td>应加载</td><td><span class="b2 ok">✓ 加载了</span>（1.90s）</td></tr>
+  </tbody>
+</table>
+
+<h2>裸包名以 dsh 安装目录为锚，不必 link 进 profile</h2>
+<p class="note"><code>bare</code> profile 的活层只声明了 <code>census</code> 一条（侧栏可点开它的
+<code>cordis.patch.yml</code> 与 <code>package.json</code>）——<code>timer</code>/<code>hmr</code> 从没被 link
+进这个 profile，普查插件延后 2 秒拍一张树快照。</p>
+<div class="kv">
+  <div class="r"><span class="k">timer 被 link 进 profile 了吗</span><span class="v">false（预期）</span></div>
+  <div class="r"><span class="k">上一层共享 node_modules 里有吗</span><span class="v ok">true（预期）</span></div>
+</div>
+<table class="matrix">
+  <thead><tr><th>id</th><th>name</th><th>fiberState</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">include</td><td class="c-name">cordis:include</td><td><span class="b2 ok">2 ACTIVE</span></td></tr>
+    <tr><td class="c-name">timer</td><td class="c-name">@deepseek-ai/cordis-plugin-timer</td><td><span class="b2 ok">2 ACTIVE</span></td></tr>
+    <tr><td class="c-name">hmr</td><td class="c-name">@deepseek-ai/cordis-plugin-hmr</td><td><span class="b2 ok">2 ACTIVE</span></td></tr>
+    <tr><td class="c-name">census</td><td class="c-name">census</td><td><span class="b2 ok">2 ACTIVE</span></td></tr>
+  </tbody>
+</table>
+<p class="note">机制：标准 Node parent-walk。profile 目录往上一层就是共享的
+<code>$DSH_HOME/profiles/node_modules</code>，dsh 每次 <code>prepareProfile</code> 幂等维护的符号
+链接农场——官方包在那里，不必逐个 profile 单独 link；我们自己的教学插件（<code>census</code>）不在
+农场里，仍然要 <code>link_plugin</code>。</p>
+
+<h2><span class="b-url">相对路径</span>：指到目录还是指到文件</h2>
+<p class="note">同一个 <code>fixtures/census</code> 目录，<code>name</code> 只差要不要补一个
+<code>/index.js</code>。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">reldir</span><span class="b2 miss">✗ 加载失败</span></div>
+    <div class="row"><b>name</b> = <code>./…/fixtures/census</code>（指到目录）</div>
+    <div class="row">进程还活着？ <b>False</b></div>
+    <pre>ERR_UNSUPPORTED_DIR_IMPORT</pre>
+    <div class="row">census-rel-dir.json 从未被写出——普查插件的 apply 都没跑到</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">relfile</span><span class="b2 ok">✓ 加载成功</span></div>
+    <div class="row"><b>name</b> = <code>./…/fixtures/census/index.js</code>（指到文件）</div>
+    <div class="row">进程还活着？ <b>True</b></div>
+    <pre>census 条目 fiberState=2（ACTIVE），name 字段原样是这条相对路径</pre>
+  </div>
+</div>
+
+<h2>对照组：写对了就是能跑</h2>
+<p class="note">同一份 <code>fixtures/tool.mjs</code> 从头到尾没改过，变的只是条目上那一行
+<code>name</code>——排除「插件本身有毛病」这种可能，前面所有失败都只跟 <code>name</code> 有关。</p>
+<div class="kv">
+  <div class="r"><span class="k">tool 的 fiber 状态转换</span><span class="v">PENDING → LOADING → ACTIVE</span></div>
+  <div class="r"><span class="k">tool 说的话</span><span class="v ok">"工具插件跑起来了"</span></div>
+  <div class="r"><span class="k">实例还活着</span><span class="v ok">true</span></div>
+</div>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>internal 已激活，"三条互不相通的解析路径"只成立一半。</b><code>ctx.loader.internal</code>
+    本次实测激活——相对路径 / 绝对路径 / 裸包名全部经同一条
+    <code>internal.import(name, baseUrl, {})</code>，<code>cordis:</code> 前缀在它之前就短路，是独立的第一刀。
+    <span class="from">test_loader_internal_activated</span>
+  </p></div>
+  <div class="read match"><span class="n">②</span><p>
+    <b>矫正点：官方文档说「插件路径必须是绝对路径」，实测规则是「必须是合法 URL」。</b>
+    官方 <code>docs/official/zh/user/develop/basic/index.md:56</code>：“插件路径必须是绝对路径。patch
+    文件只贡献配置，不会改变 loader 解析模块路径时使用的 profile 目录。”示例给的是 POSIX 风格路径——
+    POSIX 上「绝对路径」恰好同时是合法 URL 路径部分，文档的建议不会踩坑；但 Windows 裸盘符路径
+    （<code>D:\…</code>）不是合法 URL，<code>D:</code> 被当协议名解析，报
+    <code>ERR_UNSUPPORTED_ESM_URL_SCHEME</code>；同一份文件写成 <code>file://</code> URL 就能加载。
+    文档没有区分操作系统，这是「建议」和「解析规则」之间的落差。
+    <span class="from">test_windows_absolute_path · test_file_url</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>两种「加载失败」，报错文本完全不同。</b><code>cordis:</code> 未知内置表项是 cordis 自造的报错
+    （从没建立过 fiber）；裸包名指向不存在的包走的是 Node 标准的包解析失败。两者都表现为「启动失败」，
+    但成因不同，不能只判断「有没有报错」。
+    <span class="from">test_cordis_unknown_builtin · test_nonexistent_bare_package</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b><code>exports</code> 声明的子路径才能被包解析找到</b>，未声明的哪怕文件确实存在也会
+    <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code>。
+    <span class="from">test_exports_subpath[declared] · test_exports_subpath[undeclared]</span>
+  </p></div>
+  <div class="read"><span class="n">⑤</span><p>
+    <b>包解析的边界不在 <code>exports</code>，而在「Node 能不能 resolve 到入口」。</b>
+    <code>exports["."]</code> → <code>main</code> → 默认 <code>index.js</code>，三条路任意一条通就能加载，
+    只有三条全断才真的加载不了。
+    <span class="from">test_resolution_is_the_real_boundary（4 个变体）</span>
+  </p></div>
+  <div class="read"><span class="n">⑥</span><p>
+    <b>相对路径没有这条回退链。</b>同一份代码：回退路全断时包名到不了，相对路径直指同一个文件照样能
+    加载——回退链只属于包解析，相对路径走的是纯 URL 解析，压根不看 <code>package.json</code>。
+    <span class="from">test_relative_path_has_no_fallback_chain</span>
+  </p></div>
+  <div class="read"><span class="n">⑦</span><p>
+    <b>裸包名以 dsh 安装目录为锚，不必 link 进 profile。</b><code>timer</code>/<code>hmr</code>
+    从没被 link 过，标准 Node parent-walk 在上一层的共享 <code>node_modules</code> 里就能找到。
+    <span class="from">test_bare_package_name_resolves_via_shared_node_modules</span>
+  </p></div>
+  <div class="read"><span class="n">⑧</span><p>
+    <b>相对路径指到目录会失败，指到文件才行。</b><code>name.startsWith(".")</code> 走
+    <code>import(new URL(name, ctx.baseUrl))</code>，指到目录报 <code>ERR_UNSUPPORTED_DIR_IMPORT</code>——
+    只有包解析认 <code>package.json</code>，相对路径压根不看它。
+    <span class="from">test_relative_name_resolution[指向目录] · test_relative_name_resolution[指向文件]</span>
+  </p></div>
+  <div class="read"><span class="n">⑨</span><p>
+    <b>对照组：同一份文件，<code>name</code> 写对了就跑了。</b>排除「插件本身有毛病」这种可能——前面
+    所有失败都只跟 <code>name</code> 本身有关，不是文件的问题。
+    <span class="from">test_correct_relative_name_just_runs</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_name_resolution.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151143/</code>（<code>summary.md</code>、各 <code>witness-*.json</code>、
+<code>census-*.json</code> 与 <code>profiles/</code> 下 17 个 profile），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li class="shut"><button class="tw">abswin/</button>
+                <ul><li><button class="fl" data-k="abswin-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">bare/</button>
+                <ul>
+                  <li><button class="fl" data-k="bare-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="bare-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>census →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">cordisbad/</button>
+                <ul><li><button class="fl" data-k="cordisbad-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">declared/</button>
+                <ul>
+                  <li><button class="fl" data-k="declared-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>subpath-declared →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">fallback-pkg/</button>
+                <ul>
+                  <li><button class="fl" data-k="fbpkg-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>fallback →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">fallback-rel/</button>
+                <ul><li><button class="fl" data-k="fbrel-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">fileurl/</button>
+                <ul><li><button class="fl" data-k="fileurl-patch">cordis.patch.yml</button></li></ul></li>
+              <li><button class="tw">internal/</button>
+                <ul>
+                  <li><button class="fl" data-k="internal-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>name-resolution-probe →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">nopkg/</button>
+                <ul><li><button class="fl" data-k="nopkg-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">ok/</button>
+                <ul>
+                  <li><button class="fl" data-k="ok-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>lab-recorder →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">reldir/</button>
+                <ul><li><button class="fl" data-k="reldir-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">relfile/</button>
+                <ul><li><button class="fl" data-k="relfile-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">res-boundary-index-yes-0/</button>
+                <ul><li>cordis.patch.yml</li></ul></li>
+              <li class="shut"><button class="tw">res-boundary-index-yes-1/</button>
+                <ul><li>cordis.patch.yml</li></ul></li>
+              <li class="shut"><button class="tw">res-boundary-plugin-no-0/</button>
+                <ul><li>cordis.patch.yml</li></ul></li>
+              <li class="shut"><button class="tw">res-boundary-plugin-yes-1/</button>
+                <ul><li>cordis.patch.yml</li></ul></li>
+              <li class="shut"><button class="tw">undeclared/</button>
+                <ul>
+                  <li><button class="fl" data-k="undeclared-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>subpath-undeclared →</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li class="shut"><button class="tw">probe/</button>
+                <ul>
+                  <li><button class="fl" data-k="probe-idx">index.js</button></li>
+                  <li>package.json</li>
+                </ul></li>
+              <li class="shut"><button class="tw">census/</button>
+                <ul>
+                  <li><button class="fl" data-k="census-idx">index.js</button></li>
+                  <li>package.json</li>
+                </ul></li>
+              <li class="shut"><button class="tw">fallback/</button>
+                <ul>
+                  <li><button class="fl" data-k="fallback-js">plugin.js</button></li>
+                  <li><button class="fl" data-k="fallback-pkgjson">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">subpath-declared/</button>
+                <ul>
+                  <li>index.js</li>
+                  <li><button class="fl" data-k="declared-pkgjson">package.json</button></li>
+                  <li>tool.js</li>
+                </ul></li>
+              <li class="shut"><button class="tw">subpath-undeclared/</button>
+                <ul>
+                  <li>index.js</li>
+                  <li><button class="fl" data-k="undeclared-pkgjson">package.json</button></li>
+                  <li>tool.js</li>
+                </ul></li>
+              <li class="shut"><button class="tw">minimal/</button>
+                <ul>
+                  <li><button class="fl" data-k="minimal-idx">index.js</button></li>
+                  <li>package.json</li>
+                </ul></li>
+              <li class="shut"><button class="tw">toolbox/</button>
+                <ul><li>index.mjs</li></ul></li>
+              <li><button class="fl" data-k="toolmjs">tool.mjs</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-abswin-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/abswin/cordis.patch.yml"
+         data-why="name 写成 Windows 裸盘符路径，故意不 link——测这个字符串本身能不能被解析"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: probe
+      name: "D:\\dshfiles\\26081520anu\\dsh-mechanics-lab\\experiments\\01-entry\\name-resolution\\fixtures\\probe\\index.js"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-abswin.json"
+</pre>
+    </div>
+    <div id="fc-fileurl-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/fileurl/cordis.patch.yml"
+         data-why="同一份文件，name 换成 file:// URL——用来对照 Node 认不认这个字符串"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: probe
+      name: "file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/name-resolution/fixtures/probe/index.js"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-fileurl.json"
+</pre>
+    </div>
+    <div id="fc-internal-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/internal/cordis.patch.yml"
+         data-why="probe 走裸包名加载，用来测 ctx.loader.internal 是否激活，这个问题跟探针自己能不能加载正交"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: probe
+      name: "name-resolution-probe"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-internal.json"
+</pre>
+    </div>
+    <div id="fc-cordisbad-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/cordisbad/cordis.patch.yml"
+         data-why="name 写 cordis:nonexistent——内置表查不到，测 cordis 自己的报错文本"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: bad
+      name: "cordis:nonexistent"
+</pre>
+    </div>
+    <div id="fc-nopkg-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/nopkg/cordis.patch.yml"
+         data-why="name 写一个确定不存在的包名——测 Node 标准包解析失败的报错文本"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: missing
+      name: "name-resolution-definitely-does-not-exist"
+</pre>
+    </div>
+    <div id="fc-declared-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/declared/cordis.patch.yml"
+         data-why="name 写 subpath-declared/tool——子路径在 exports 里声明过"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: tool
+      name: "subpath-declared/tool"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-subpath-declared.json"
+</pre>
+    </div>
+    <div id="fc-undeclared-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/undeclared/cordis.patch.yml"
+         data-why="同一份 tool.js，name 也写成子路径，但这个包的 exports 没声明它"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: tool
+      name: "subpath-undeclared/tool"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-subpath-undeclared.json"
+</pre>
+    </div>
+    <div id="fc-fbrel-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/fallback-rel/cordis.patch.yml"
+         data-why="name 是相对路径，直指 fixtures/fallback/plugin.js——不看 package.json"><pre># name-resolution 活层
+- insert:
+    - id: plugin
+      name: "./../../../../../experiments/01-entry/name-resolution/fixtures/fallback/plugin.js"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-fallback-rel.json"
+</pre>
+    </div>
+    <div id="fc-fbpkg-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/fallback-pkg/cordis.patch.yml"
+         data-why="同一份 fallback 包，name 换成裸包名——这次要看 package.json 的回退链"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: plugin
+      name: "fallback"
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/witness-fallback-pkg.json"
+</pre>
+    </div>
+    <div id="fc-reldir-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/reldir/cordis.patch.yml"
+         data-why="name 是相对路径，指到 census 这个目录本身，不带文件名"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# 相对路径引用
+- insert:
+    - id: census
+      name: "./../../../../../experiments/01-entry/name-resolution/fixtures/census"
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/census-rel-dir.json"
+        delayMs: 2000
+</pre>
+    </div>
+    <div id="fc-relfile-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/relfile/cordis.patch.yml"
+         data-why="同一个目标，name 补上 /index.js——指到文件"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# 相对路径引用
+- insert:
+    - id: census
+      name: "./../../../../../experiments/01-entry/name-resolution/fixtures/census/index.js"
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/census-rel-file.json"
+        delayMs: 2000
+</pre>
+    </div>
+    <div id="fc-bare-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/bare/cordis.patch.yml"
+         data-why="只声明了 census 一条，timer/hmr 走基线默认（没被 link 进这个 profile）"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层
+- insert:
+    - id: census
+      name: census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/census-bare.json"
+        delayMs: 2000
+</pre>
+    </div>
+    <div id="fc-bare-pkg" data-name="package.json"
+         data-src="results/20260817-151143/profiles/bare/package.json"
+         data-why="dependencies 只 link 了 census——timer/hmr 不在这里，却照样激活"><pre>{
+  "name": "dsh-profile-bare",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/name-resolution/fixtures/census"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-ok-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151143/profiles/ok/cordis.patch.yml"
+         data-why="对照组：lab-recorder 采集事件，tool 用相对路径 ./tool.mjs 正常加载"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# name-resolution 活层：对照组
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/name-resolution/events-ok.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: tool
+      name: ./tool.mjs
+</pre>
+    </div>
+    <div id="fc-probe-idx" data-name="index.js"
+         data-src="experiments/01-entry/name-resolution/fixtures/probe/index.js"
+         data-why="探针在指纹之外多测一件事：ctx.get('loader').internal 是否存在"><pre>/**
+ * 通用探针：除了 marker / moduleLoadedAt / appliedAt 三个指纹，多探一件事——
+ * `ctx.get("loader").internal` 是否激活。
+ *
+ * 这件事优先级最高：`cordis-plugin-loader` 的 `EntryTree.import` 里，`internal`
+ * 分支排在最前面。如果它激活，相对路径 / 绝对路径 / 裸包名全部走同一条
+ * `internal.import(name, baseUrl, {})`（name 原样传入，不做任何前缀判断），
+ * 那"三条互不相通的解析路径"的说法就不成立——本项后面每一条用例的因果解释，
+ * 都要先看这个字段才知道该往哪个分支上挂。
+ *
+ * 这个插件本身通过裸包名被加载，所以它自己的加载成功与否不受这个问题影响，
+ * 可以放心当第一条用例。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "name-resolution-probe-v1";
+const moduleLoadedAt = new Date().toISOString();
+
+/** 观测点绝不抛错：拿不到就如实记 null。 */
+function safe(fn) {
+  try {
+    const v = fn();
+    return v === undefined ? null : v;
+  } catch {
+    return null;
+  }
+}
+
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) throw new Error("probe: config.witness 是必需的");
+
+  const loader = safe(() => ctx.get("loader"));
+
+  writeFileSync(
+    witness,
+    JSON.stringify(
+      {
+        marker: MARKER,
+        moduleLoadedAt,
+        appliedAt: new Date().toISOString(),
+        // ctx.loader.internal 是否激活——决定 name 解析走哪条分支
+        loaderInternal: loader ? safe(() => loader.internal !== undefined) : null,
+        // ctx.baseUrl 是相对路径解析的锚点，顺手记一笔
+        baseUrl: safe(() => String(ctx.baseUrl ?? "")),
+        config,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+</pre>
+    </div>
+    <div id="fc-census-idx" data-name="index.js"
+         data-src="experiments/01-entry/name-resolution/fixtures/census/index.js"
+         data-why="延后 delayMs 拍一张树快照，用原生 setTimeout 不用 ctx.setTimeout（避免拿被测对象当量具）"><pre>/**
+ * 拍一张运行时快照的教学插件：给「裸包名 / 相对路径的 name 到底解析到了
+ * 没有」这个问题提供一个比见证文件更直接的信号——settle 快照里能看到
+ * timer / hmr 是不是真的到了 ACTIVE。
+ *
+ * 延后用 Node 原生 setTimeout，不用 `ctx.setTimeout`——后者是 timer 服务
+ * 提供的，而 timer 在不在正是要测的东西，拿被测对象当测量工具会循环论证。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "census-v1";
+
+function censusEntry(entry) {
+  const fiber = entry.fiber;
+  return {
+    id: entry.options?.id ?? null,
+    name: entry.options?.name ?? null,
+    fiberState: fiber === undefined ? null : fiber.state,
+  };
+}
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("census: config.out 是必需的");
+  const delayMs = config?.delayMs ?? 1500;
+
+  const flush = (entries) =>
+    writeFileSync(out, JSON.stringify({ marker: MARKER, at: new Date().toISOString(), entries }, null, 2), "utf8");
+
+  const handle = setTimeout(() => {
+    const loader = ctx.get("loader");
+    flush(loader === undefined ? null : [...loader.entries()].map(censusEntry));
+  }, delayMs);
+  ctx.on("dispose", () => clearTimeout(handle));
+}
+</pre>
+    </div>
+    <div id="fc-fallback-js" data-name="plugin.js"
+         data-src="experiments/01-entry/name-resolution/fixtures/fallback/plugin.js"
+         data-why="包名恰好不叫 index.js，又没有 exports/main——回退路故意三条全断"><pre>/**
+ * 包解析的回退链是 exports["."] → main → 默认 index.js，三条路任意一条通就能
+ * 被包名 resolve 到。这个包故意三条全断——没有 exports、没有 main，真正的
+ * 代码又不叫 index.js（叫 plugin.js）。
+ *
+ * 用途：证明相对路径没有这条回退链。同一份代码：用包名引用（走 package.json
+ * 解析）应当失败；用相对路径直接指到这个文件（走纯 URL 解析，不看
+ * package.json）应当成功。
+ */
+import { writeFileSync } from "node:fs";
+
+const MARKER = "fallback-plugin-v1";
+
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) throw new Error("fallback/plugin: config.witness 是必需的");
+  writeFileSync(
+    witness,
+    JSON.stringify({ marker: MARKER, appliedAt: new Date().toISOString() }, null, 2),
+    "utf8",
+  );
+}
+</pre>
+    </div>
+    <div id="fc-fallback-pkgjson" data-name="package.json"
+         data-src="experiments/01-entry/name-resolution/fixtures/fallback/package.json"
+         data-why="没有 exports，也没有 main——包解析的三条回退路全断"><pre>{
+  "name": "fallback",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module"
+}
+</pre>
+    </div>
+    <div id="fc-declared-pkgjson" data-name="package.json"
+         data-src="experiments/01-entry/name-resolution/fixtures/subpath-declared/package.json"
+         data-why="exports 显式声明了 './tool' 这条子路径"><pre>{
+  "name": "subpath-declared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./tool": "./tool.js"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-undeclared-pkgjson" data-name="package.json"
+         data-src="experiments/01-entry/name-resolution/fixtures/subpath-undeclared/package.json"
+         data-why="exports 只声明了 '.'，没有 './tool'——tool.js 文件确实存在，包解析却看不到它"><pre>{
+  "name": "subpath-undeclared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-minimal-idx" data-name="index.js"
+         data-src="experiments/01-entry/name-resolution/fixtures/minimal/index.js"
+         data-why="最小插件：只有 apply()，边界矩阵的四个变体都复制这份代码到不同文件名"><pre>/**
+ * 最小构成的插件：只有 apply()，靠见证文件证明加载成功。
+ *
+ * 用于验证「Node 能不能 resolve 到入口」这条边界——测试代码会把这份代码
+ * 复制到不同名字的入口文件（`index.js` / `plugin.js`）并搭配不同的
+ * package.json 变体，验证 exports / main / 默认 index.js 三条回退路。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "name-resolution-minimal-v1";
+
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) {
+    throw new Error("minimal: config.witness 是必需的");
+  }
+
+  writeFileSync(
+    witness,
+    JSON.stringify({ marker: MARKER, appliedAt: new Date().toISOString() }, null, 2),
+    "utf8",
+  );
+}
+</pre>
+    </div>
+    <div id="fc-toolmjs" data-name="tool.mjs"
+         data-src="experiments/01-entry/name-resolution/fixtures/tool.mjs"
+         data-why="对照组插件：从头到尾没改过，变的只是条目上的 name"><pre>/**
+ * 对照组插件：从头到尾不改，每个用例都原样放进 profile 目录，变的只有条目
+ * 上那一行 `name`——所以凡是没跑起来的，问题都在 `name` 上。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("工具插件跑起来了");
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b><code>cordis:</code> 前缀</b><br>loader 有一张内置表 <code>loader.builtins</code>，出厂只有两项：
+   <code>cordis:include</code>（整棵配方树的根）和 <code>cordis:group</code>。<code>name</code> 写成
+   <code>cordis:xxx</code> 时直接查这张表，查不到就是 <code>undefined</code>，连文件系统都不碰——这是
+   独立的第一刀，跟后面几条完全不相干。`,
+  `<b>决定性前提：<code>ctx.loader.internal</code> 在不在</b><br>剩下所有字符串——不管长得像相对路径、
+   绝对路径还是包名——先看这一个条件。<b>本次实测：这台部署上它是激活的</b>（见下方「地基」一节），
+   激活时下面 ③④ 会被同一次 <code>internal.import(name, baseUrl, {})</code> 调用接管，
+   <code>name</code> 原样传入，internal 内部自己判断协议、走哪种解析。`,
+  `<b class="b-url">URL 解析</b><br><code>.</code> 开头的字符串走
+   <code>import(new URL(name, ctx.baseUrl))</code>，<code>ctx.baseUrl</code> 锚在 profile 目录。
+   这是纯 URL 解析，<b>不读 <code>package.json</code></b>——目录和文件是两种不同的 URL 目标，指到目录
+   会报 <code>ERR_UNSUPPORTED_DIR_IMPORT</code>。`,
+  `<b class="b-pkg">包解析</b><br>其它字符串交给 Node 标准的 <code>import(name)</code>。
+   <b>这条认 <code>package.json</code></b>：<code>exports["."]</code> → <code>main</code> → 默认
+   <code>index.js</code>，三条回退路任意一条通就能 resolve 到——写绝对路径字符串（不是合法 URL 时）
+   也会落进这条分支，Node 拿它当包名去找，自然找不到。`,
+  `<b>两条路各自的锚点</b><br><span class="b-url">URL 解析</span> 锚在 <code>ctx.baseUrl</code>（这个
+   profile 目录本身）；<span class="b-pkg">包解析</span> 走标准 Node parent-walk，从 profile 目录逐层
+   往上找 <code>node_modules</code>——<code>$DSH_HOME/profiles/node_modules</code> 那一层是 dsh 每次
+   启动时维护的共享符号链接农场，官方包（<code>@deepseek-ai/cordis-plugin-*</code>）都在那里，不用逐个
+   profile 单独 link；自己的教学插件不在农场里，仍要显式 link。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

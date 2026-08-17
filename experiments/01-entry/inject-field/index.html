@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>inject-field · 条目级 inject 是补充，不是覆盖</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+
+ --bmhit:#0891b2; --maybe:#94a3b8; --real:#0891b2;
+
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#22d3ee; --real:#22d3ee;
+}}
+:root[data-theme=dark]{
+ --bmhit:#22d3ee; --real:#22d3ee;
+}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.note code{font-family:var(--mono);font-size:12px}
+/* ── 舞台 ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 14px}
+.zone{margin-bottom:14px}
+.zone:last-child{margin-bottom:0}
+.zone-label{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:7px}
+.snip{margin:0;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;
+  word-break:break-word;background:color-mix(in srgb,var(--fg) 4%,transparent);
+  border-radius:8px;padding:12px 14px;color:var(--fg)}
+/* ── 两条假想路径 ── */
+#duopicker .pick.maybe{border-left:3px solid var(--maybe)}
+#duopicker .pick.real{border-left:3px solid var(--real)}
+#duopicker .pn{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rib{font-family:var(--mono);font-size:9.5px;padding:1px 6px;border-radius:99px;
+  border:1px solid color-mix(in srgb,var(--real) 45%,transparent);color:var(--real)}
+.duo-steps{margin:0;padding-left:18px;font-size:12.5px;line-height:1.85}
+.duo-steps code{font-family:var(--mono);font-size:11.5px}
+/* ── 账本回执 ── */
+.ledgercard{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+  font-family:var(--mono);font-size:12px;padding:10px 12px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.ledgercard .lk{color:var(--dim);margin-right:4px}
+.ledgercard .lv{color:var(--fg);font-weight:600}
+.aside{font-size:12.5px;color:var(--dim);margin-top:10px;padding:10px 13px;
+  background:var(--card);border:1px solid var(--line);border-radius:8px}
+.aside code{font-family:var(--mono);font-size:11.5px}
+.read.warn{border-color:color-mix(in srgb,var(--warn) 45%,transparent);
+  background:color-mix(in srgb,var(--warn) 9%,var(--card))}
+.read.warn .n{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">01-entry / inject-field</div>
+<h1>条目级 inject 是补充，不是覆盖</h1>
+<p class="sub">两处都能声明依赖、内容不一样时，dsh 听谁的——这一项拿一次实测钉死答案。</p>
+<div class="tags">
+  <span class="tag">档次 ②</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 1 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">一条条目（entry，见 <code>00-base/baseline-profile</code>）除了 <code>id</code> /
+<code>name</code> / <code>config</code>，还能写一个 <code>inject</code> 字段——一份服务名清单，
+管这条条目激活前要等哪些<b>服务（service）</b>先就位。插件包自己也能这样声明依赖：模块顶层
+<code>export const inject = [...]</code>，这是官方文档教的主流写法，好处是依赖跟着代码走，
+别人挂这条插件时不用记得在条目上重写一遍。两处都能写，内容不一样时 dsh 到底听谁的——这一项
+就是要把这件事钉死。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">条目级、代码级两处都能声明依赖——挨个点开看它们各自是什么、依赖门槛怎么生效、
+本项具体怎么把两处摆成冲突的。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">条目上的 inject</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">代码里的 inject</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">依赖门槛怎么生效</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">本项的安排</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>两条路，dsh 走了哪条</h2>
+<p class="note">条目上给 lab-alpha 写的是 <code>inject: []</code>（清空），代码里却声明着
+<code>["labRegistry"]</code>——点开两张卡看每条路径接下来会发生什么，<b>标着「✓ 实测」的
+那张才是真的发生过的</b>。用例 <code>test_entry_level_inject_is_additive_not_override</code>。</p>
+
+<div class="stage">
+  <div class="picker big" id="duopicker">
+    <button class="pick maybe">
+      <span class="pi">假想 A</span>
+      <span class="pn">条目级覆盖代码声明</span>
+      <span class="ps">没有发生，仅用于对照</span>
+    </button>
+    <button class="pick real">
+      <span class="pi">假想 B</span>
+      <span class="pn">条目级被合并／忽略<span class="rib">✓ 实测</span></span>
+      <span class="ps">代码里的依赖声明照常生效</span>
+    </button>
+  </div>
+  <div class="pickbody" id="duobody"></div>
+</div>
+
+<div class="stage">
+  <div class="zone">
+    <div class="zone-label">条目上写的（cordis.patch.yml 节选）</div>
+    <pre class="snip">    - id: lab-alpha
+      name: lab-alpha
+      inject: []</pre>
+  </div>
+  <div class="zone">
+    <div class="zone-label">账本记下的（ledger.json · entries[0]，归档 20260817-151109）</div>
+    <div class="ledgercard">
+      <span><span class="lk">who</span><span class="lv">"lab-alpha"</span></span>
+      <span><span class="lk">ms</span><span class="lv">5.4318</span></span>
+      <span><span class="lk">at</span><span class="lv">2026-08-17T07:11:08.638Z</span></span>
+    </div>
+  </div>
+</div>
+<p class="aside"><code>ms</code> 是相对 lab-registry 自己 <code>apply</code> 起算的耗时
+（<code>process.hrtime.bigint()</code> 打点，见右侧 <code>fixtures/lab-registry/index.js</code>）
+——量的是「provide 服务的插件」和「消费它的插件」之间隔了多久，不是绝对时钟。组合树里这条目的
+<code>inject</code> 字段也确实是 <code>[]</code>——用例另外用 <code>dump_config</code> 断言过
+（同一条用例第 84 行）。条目级声明没被静默吞掉，它原样进了组合树，只是没能削弱代码里的依赖声明。</p>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>条目上的 inject 是补充，不是覆盖。</b>组合树里 lab-alpha 的 <code>inject</code> 确实是
+    <code>[]</code>，但插件照常等 <code>labRegistry</code> 服务就位才 <code>apply</code>。
+    想靠条目级 <code>inject</code> 绕开代码里的依赖声明，行不通。
+    <span class="from">test_entry_level_inject_is_additive_not_override</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>判定看账本里有没有那一笔，不看进程死没死。</b>账本每登记一笔就整份落盘，顺序就是真实的
+    apply 先后；lab-alpha 拿不到服务时也不会抛错，而是照实记录 <code>gotRegistry: false</code>
+    ——这条口子探针留着，本次没触发，因为账本本身已经能把「inject 没满足→根本没 apply」和
+    「apply 了但服务是 undefined」这两种现象分开。
+    <span class="from">test_entry_level_inject_is_additive_not_override · 模块 docstring「观测方法」</span>
+  </p></div>
+  <div class="read warn"><span class="n">⚠</span><p>
+    <b>只有这一条用例撑着。</b>验的只是「条目级清空 + 代码级声明」这一种组合——条目级写非空数组
+    会不会追加、代码完全不声明依赖时条目级 inject 能不能单独生效，都还没验。看到「1 条用例」
+    要按这个量级读，不要当成跟满覆盖的项一样确凿。
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_inject_field.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+账本与文件内容取自归档 <code>results/20260817-151109/</code>（<code>ledger.json</code>、
+<code>summary.md</code>、<code>profiles/inject-additive/*</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="fl" data-k="ledger">ledger.json</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li>node_modules/</li>
+              <li><button class="tw">inject-additive/</button>
+                <ul>
+                  <li><button class="fl" data-k="pkg">package.json</button></li>
+                  <li><button class="fl" data-k="yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul>
+                      <li>lab-registry &rarr;</li>
+                      <li>lab-alpha &rarr;</li>
+                    </ul>
+                  </li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/lab-registry/</button>
+            <ul>
+              <li><button class="fl" data-k="regpkg">package.json</button></li>
+              <li><button class="fl" data-k="regidx">index.js</button></li>
+            </ul></li>
+          <li><button class="tw">fixtures/lab-alpha/</button>
+            <ul>
+              <li><button class="fl" data-k="alphapkg">package.json</button></li>
+              <li><button class="fl" data-k="alphaidx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-ledger" data-name="ledger.json"
+         data-src="results/20260817-151109/ledger.json"
+         data-why="lab-registry 提供的账本，每登记一笔就整份落盘，唯一一笔来自 lab-alpha"><pre>{
+  "marker": "lab-registry-v1",
+  "providedAt": "2026-08-17T07:11:08.638Z",
+  "entries": [
+    {
+      "who": "lab-alpha",
+      "note": null,
+      "ms": 5.4318,
+      "at": "2026-08-17T07:11:08.638Z"
+    }
+  ]
+}
+</pre>
+    </div>
+    <div id="fc-pkg" data-name="package.json"
+         data-src="results/20260817-151109/profiles/inject-additive/package.json"
+         data-why="dsh.profile.bundles 带上 @deepseek-ai/dsh-base，两个 fixture 插件走 link: 协议引入"><pre>{
+  "name": "dsh-profile-inject-additive",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-registry": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/inject-field/fixtures/lab-registry",
+    "lab-alpha": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/inject-field/fixtures/lab-alpha"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-yml" data-name="cordis.yml"
+         data-src="results/20260817-151109/profiles/inject-additive/cordis.yml"
+         data-why="恒为 []，每次启动被 profile-boot 重写"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151109/profiles/inject-additive/cordis.patch.yml"
+         data-why="活层——lab-registry 提供服务，lab-alpha 的条目上写了 inject: []"><pre># inject-field 活层
+- insert:
+    - id: lab-registry
+      name: lab-registry
+      config:
+        ledger: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/inject-field/ledger.json"
+
+    - id: lab-alpha
+      name: lab-alpha
+      inject: []
+</pre>
+    </div>
+    <div id="fc-regpkg" data-name="package.json"
+         data-src="experiments/01-entry/inject-field/fixtures/lab-registry/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-registry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-regidx" data-name="index.js"
+         data-src="experiments/01-entry/inject-field/fixtures/lab-registry/index.js"
+         data-why="provide(&quot;labRegistry&quot;)：账本每登记一笔就整份落盘，顺序即真实 apply 先后"><pre>/**
+ * 依赖链的根：提供 `labRegistry` 服务，一本「谁来登记过」的账本。
+ * 它自己不依赖任何人，是本项唯一需要的服务提供者。
+ *
+ * 账本每登记一笔就整份落盘，所以见证文件里的顺序就是实际的 apply 顺序。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-registry-v1";
+
+export function apply(ctx, config) {
+  const ledger = config?.ledger;
+  if (!ledger) throw new Error("lab-registry: config.ledger（账本落盘路径）是必需的");
+
+  const entries = [];
+  const t0 = process.hrtime.bigint();
+
+  const dump = () =>
+    writeFileSync(
+      ledger,
+      JSON.stringify({ marker: MARKER, providedAt: new Date().toISOString(), entries }, null, 2),
+      "utf8",
+    );
+
+  const book = {
+    sign(who, note) {
+      entries.push({
+        who,
+        note: note ?? null,
+        ms: Number(process.hrtime.bigint() - t0) / 1e6,
+        at: new Date().toISOString(),
+      });
+      dump();
+    },
+    list() {
+      return entries.slice();
+    },
+  };
+
+  // ctx.provide 返回一个 disposer；fiber 卸载时服务自动撤销，
+  // 所以这里不用自己 ctx.effect 包——provide 本身就是个 effect。
+  ctx.provide("labRegistry", book);
+
+  // 先落一次空账本：证明「服务提供者自己先到位」这件事
+  dump();
+}
+</pre>
+    </div>
+    <div id="fc-alphapkg" data-name="package.json"
+         data-src="experiments/01-entry/inject-field/fixtures/lab-alpha/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-alpha",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-alphaidx" data-name="index.js"
+         data-src="experiments/01-entry/inject-field/fixtures/lab-alpha/index.js"
+         data-why="export const inject = [&quot;labRegistry&quot;]：代码级声明，本项要验它跟条目级 inject: [] 谁说了算"><pre>/**
+ * 依赖 `labRegistry` 的消费者。依赖声明写在**插件代码里**——这是主流写法，
+ * 条目上也能写（本项就是要验条目级 `inject` 与代码级声明的关系）。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-alpha-v1";
+
+export const inject = ["labRegistry"];
+
+export function apply(ctx, config) {
+  const book = ctx.get("labRegistry");
+
+  // ⚠️ 拿不到服务时不抛错，如实记录。探针在观测点抛错会把两种完全不同的
+  // 现象混成一种：「inject 没满足 → 根本没 apply」 vs 「apply 了但服务是
+  // undefined」——前者见证文件不出现，后者见证文件出现且 gotRegistry=false，
+  // 必须能分开。
+  if (book) {
+    book.sign("lab-alpha", config?.note ?? null);
+  }
+
+  if (config?.witness) {
+    writeFileSync(
+      config.witness,
+      JSON.stringify(
+        {
+          marker: MARKER,
+          appliedAt: new Date().toISOString(),
+          gotRegistry: book !== undefined && book !== null,
+          config,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+// 机制怎么工作：①②条目/代码两处怎么声明依赖，③依赖门槛的通用机制，④本项把两处摆成
+// 冲突的具体安排——到这里为止不揭晓答案，答案在下面的两条路对照里用真实数据摊开。
+const MECH = [
+  `<b>条目上的 inject</b><br>一条<b>条目（entry）</b>除了 <code>id</code> / <code>name</code> /
+  <code>config</code>，还能写一个 <code>inject</code> 字段——一份<b>服务（service）</b>名清单，
+  管这条条目激活前要等谁先就位。这个字段住在活层 <code>cordis.patch.yml</code> 里，改它不用碰
+  插件包本身。`,
+  `<b>代码里的 inject</b><br>插件包自己也能声明依赖：模块顶层 <code>export const inject = [...]</code>
+  ——官方文档教的主流写法，依赖跟着代码走，别人挂这条插件时不用记得在条目上重写一遍。lab-alpha
+  就是这么写的：<code>export const inject = ["labRegistry"]</code>。`,
+  `<b>依赖门槛怎么生效</b><br>声明了 <code>inject</code> 的插件，它对应的 fiber 要等清单里的服务
+  全部 <code>provide</code> 出来才会激活、调用 <code>apply(ctx, config)</code>——这是依赖注入
+  通用的门槛机制。这一项要验的正是：条目上和代码里两处都写、内容还不一样，门槛到底按哪一份算。`,
+  `<b>本项的安排</b><br>条目上给 lab-alpha 写的是 <code>inject: []</code>（清空），代码里却声明着
+  <code>["labRegistry"]</code>。两处冲突，理论上有两条路：条目级赢（覆盖）——alpha 不再等
+  labRegistry；代码级赢（条目级被合并／忽略）——alpha 照常等。哪条是真的，下面用真实数据摊开看。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+
+// 两条假想路径：A 没有发生，只用来对照；B 是实测走的那条——两张卡各自展开接下来会发生什么。
+const DUO = [
+  `<p class="pt">假想 A · 条目级覆盖代码声明（没有发生，仅用于对照）</p>
+   <ol class="duo-steps">
+     <li>alpha 的 fiber 不再等 <code>labRegistry</code>，按 <code>inject: []</code> 直接激活</li>
+     <li><code>ctx.get("labRegistry")</code> 在服务就位前就被调用，拿到 <code>undefined</code></li>
+     <li><code>book</code> 是 <code>undefined</code>，<code>if (book)</code> 不成立，
+       <code>book.sign()</code> 不会执行</li>
+     <li>结局：<code>ledger.json</code> 里不会多出 lab-alpha 那一笔</li>
+   </ol>`,
+  `<p class="pt">假想 B · 条目级被合并／忽略（实测走的是这条）</p>
+   <ol class="duo-steps">
+     <li>alpha 的 fiber 照常按代码里 <code>export const inject = ["labRegistry"]</code> 等服务就位</li>
+     <li><code>ctx.get("labRegistry")</code> 拿到 lab-registry provide 出来的账本对象</li>
+     <li><code>book.sign("lab-alpha")</code> 执行，账本整份落盘</li>
+     <li>结局：<code>ledger.json</code> 的 <code>entries</code> 里恰好一笔，<code>who</code> 是
+       <code>"lab-alpha"</code>——上面就是这份归档</li>
+   </ol>`,
+];
+initPicker(document.getElementById('duopicker'), (body, i) => {
+  body.innerHTML = DUO[i];
+});
+</script>
+</body>
+</html>
