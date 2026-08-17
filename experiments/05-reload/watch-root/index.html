@@ -75,11 +75,22 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
   font-size:10.5px;color:var(--warn);font-family:var(--mono);
   white-space:nowrap;font-weight:600}
 
-.ctl{display:flex;gap:10px;align-items:center;margin-top:14px;
-  padding-top:13px;border-top:1px solid var(--line)}
-button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:12px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--warn)}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover{border-color:var(--dim)}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 .legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
   font-size:11px;color:var(--dim);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
@@ -133,8 +144,12 @@ footer a{color:inherit}
     <div class="overlap" id="ov"><b>重叠 0.3ms · 旧的还没拆完，新的已经在建</b></div>
     <div class="gap" id="gap"><span>⋯ 1.3s ⋯</span></div>
   </div>
+  <div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
   <div class="ctl">
-    <button id="play">▶ 播放</button>
+    <button id="prev">← 上一步</button>
+    <span class="pos" id="pos"></span>
+    <button id="next">下一步 →</button>
+    <span class="hint">← → 键也行</span>
     <div class="legend">
       <span><i style="background:var(--pending)"></i>PENDING</span>
       <span><i style="background:var(--loading)"></i>LOADING</span>
@@ -234,26 +249,43 @@ const ov = document.getElementById('ov');
 ov.style.left = (posOf[4] - 3) + '%';
 ov.style.width = (posOf[7] - posOf[4] + 6) + '%';
 
-let timers = [];
-function play(){
-  timers.forEach(clearTimeout); timers = [];
-  nodes.forEach(n => n.classList.remove('on'));
-  ov.classList.remove('on');
-  // 段内按真实间隔铺开（放慢到看得清），跨段之间固定停顿
-  let t = 250;
-  EV.forEach((e,i) => {
-    if (i > 0) {
-      const p = EV[i-1];
-      t += (e.seg !== p.seg) ? 900 : Math.max(160, (e.ms - p.ms) * 700);
-    }
-    timers.push(setTimeout(() => {
-      nodes[i].classList.add('on');
-      if (e.nm === 'DISPOSED') ov.classList.add('on');
-    }, t));
-  });
+// 每一步一句话。自动播放的毛病是读者还在读标题、动画已经放完了，
+// 而且想看清某一步只能重放整段——所以节奏归读者。
+const CAP = [
+  '条目建好了，但还没开始加载。',
+  '开始加载。',
+  '<b>插件说话了——此刻它还是 LOADING。</b>apply 跑在「加载中」，不是「加载完」，所以插件在自己的 apply 里看不到自己是 ACTIVE。',
+  '这才算真的活了。中间静置 1.3 秒，然后改一行代码。',
+  '旧的开始拆。',
+  '<b>新的已经开始建了——而旧的还没拆完。</b>重叠从这里开始。',
+  'hmr 这时才报「重新加载了」，此刻旧的仍然活着。',
+  '<b>旧的到这里才真正拆完。</b>重叠窗口 0.3ms，「拆干净再建」是错觉。',
+  '新的跑起来了，说了同一句话——同一个条目的第二次生命。',
+];
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let cur = 0;
+
+function goto(i){
+  cur = Math.max(0, Math.min(EV.length - 1, i));
+  nodes.forEach((n, k) => n.classList.toggle('on', k <= cur));
+  // 重叠成为事实，是在「新的开始 LOADING」那一刻（索引 5）
+  ov.classList.toggle('on', cur >= 5);
+  posEl.textContent = `${cur + 1} / ${EV.length}`;
+  capT.textContent = EV[cur].ms.toFixed(1) + 'ms';
+  capT.style.color = `var(${EV[cur].c})`;
+  capD.innerHTML = CAP[cur];
+  prev.disabled = cur === 0;
+  next.disabled = cur === EV.length - 1;
 }
-document.getElementById('play').addEventListener('click', play);
-play();
+prev.addEventListener('click', () => goto(cur - 1));
+next.addEventListener('click', () => goto(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ goto(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
+});
+goto(0);
 </script>
 </body>
 </html>

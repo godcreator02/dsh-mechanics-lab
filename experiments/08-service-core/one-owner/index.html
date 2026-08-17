@@ -43,9 +43,6 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 /* ── 舞台 ── */
 .stage{position:relative;background:var(--card);border:1px solid var(--line);
   border-radius:12px;padding:24px 20px 18px;overflow:hidden}
-.cap{font-family:var(--mono);font-size:12px;color:var(--dim);min-height:2.4em;
-  display:flex;align-items:center;margin-bottom:14px;padding:0 4px}
-.cap b{color:var(--fg);font-weight:600;margin-right:6px}
 .row{display:flex;align-items:center;justify-content:center;gap:0;height:150px;position:relative}
 
 .entry{width:132px;flex:none;text-align:center;padding:12px 8px;border-radius:10px;
@@ -103,11 +100,21 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .crash span{background:var(--card);border:1px solid var(--failed);color:var(--failed);
   padding:7px 16px;border-radius:99px;font-family:var(--mono);font-size:12px;font-weight:600}
 
-.ctl{display:flex;gap:10px;align-items:center;margin-top:14px;
-  padding-top:13px;border-top:1px solid var(--line)}
-button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:14px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover{border-color:var(--dim)}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 .legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
   font-size:11px;color:var(--dim);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
@@ -173,7 +180,6 @@ footer a{color:inherit}
 </div>
 
 <div class="stage" id="stage1">
-  <div class="cap" id="cap1"><b>▶</b> 点下面播放，看两边抢 <code>labSeat</code> 这个名字。</div>
   <div class="row">
     <div class="entry" id="ea">
       <div class="st">PENDING</div>
@@ -192,11 +198,15 @@ footer a{color:inherit}
       <div class="way" id="eb-way">裸对象</div>
     </div>
     <div class="bubble" id="bubble1"></div>
-    <!-- 只做泛红蒙版，不放文字——判词由上方字幕承担，写两遍反而会被中间的座位切开 -->
+    <!-- 只做泛红蒙版，不放文字——判词由下方字幕承担，写两遍反而会被中间的座位切开 -->
     <div class="crash" id="crash1"></div>
   </div>
+  <div class="cap"><span class="t" id="cap1-t"></span><span class="d" id="cap1-d"></span></div>
   <div class="ctl">
-    <button id="play1">▶ 播放</button>
+    <button id="prev1">← 上一步</button>
+    <span class="pos" id="pos1"></span>
+    <button id="next1">下一步 →</button>
+    <span class="hint">← → 键也行</span>
     <div class="legend">
       <span><i style="background:var(--loading)"></i>LOADING</span>
       <span><i style="background:var(--active)"></i>ACTIVE</span>
@@ -236,7 +246,13 @@ footer a{color:inherit}
   </div>
   <span class="tag2" id="alive2" style="opacity:0">● 实例存活</span>
 </div>
-<div class="ctl"><button id="play2">▶ 播放</button></div>
+<div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
+<div class="ctl">
+  <button id="prev2">← 上一步</button>
+  <span class="pos" id="pos2"></span>
+  <button id="next2">下一步 →</button>
+  <span class="hint">← → 键也行</span>
+</div>
 
 <h2>三条用例，一张表</h2>
 <table>
@@ -328,7 +344,9 @@ const ebNm = document.getElementById('eb-nm'), ebWay = document.getElementById('
 const ba = document.getElementById('ba'), bb = document.getElementById('bb');
 const seat1 = document.getElementById('seat1'), seat1owner = document.getElementById('seat1-owner');
 const bubble1 = document.getElementById('bubble1'), crashEl1 = document.getElementById('crash1');
-const cap1 = document.getElementById('cap1');
+const cap1t = document.getElementById('cap1-t'), cap1d = document.getElementById('cap1-d');
+const pos1 = document.getElementById('pos1');
+const prev1 = document.getElementById('prev1'), next1 = document.getElementById('next1');
 
 function setEntry(id, state){
   const el = document.getElementById(id);
@@ -345,12 +363,15 @@ function reach1(side){
   const beam = side === 'a' ? ba : bb;
   beam.classList.add('reject');
 }
+// 抖动是一次性动画反馈，goto1() 每次都会重放 0..cur1 的全部 fn，
+// 所以计时器要收进 shakeTimers1，换步之前先清空，别让旧的抖动尾巴留下来
+let shakeTimers1 = [];
 function bounce1(side){
   const el = side === 'a' ? ea : eb;
   el.className = 'entry unloading';
   el.querySelector('.st').textContent = 'UNLOADING';
   el.classList.add('failed'); // 触发一次抖动
-  setTimeout(() => el.classList.remove('failed'), 400);
+  shakeTimers1.push(setTimeout(() => el.classList.remove('failed'), 400));
 }
 function fail1(side){
   const el = side === 'a' ? ea : eb;
@@ -367,10 +388,12 @@ function crash1(){
   crashEl1.classList.add('on');
 }
 
+// 节奏归读者：goto1(i) 每次都从初始态重放第 0..i 步的 fn——beats 里的 fn
+// 大多是「在上一步基础上改」的增量动作（claim1/bounce1 尤其如此），
+// 跳步必须先归零再重放，不能只跑单独一步
 let mode = 'bare';
-let timers1 = [];
-function resetStage1(){
-  timers1.forEach(clearTimeout); timers1 = [];
+let cur1 = 0;
+function resetVisuals1(){
   const cfg = MODES[mode];
   eaNm.textContent = cfg.nmA; eaWay.textContent = cfg.wayA;
   ebNm.textContent = cfg.nmB; ebWay.textContent = cfg.wayB;
@@ -380,65 +403,87 @@ function resetStage1(){
   seat1.className = 'seat empty'; seat1owner.textContent = '';
   bubble1.classList.remove('on');
   crashEl1.classList.remove('on');
-  cap1.innerHTML = '<b>▶</b> 点下面播放，看两边抢 <code>' + cfg.seat + '</code> 这个名字。';
 }
-function play1(){
-  resetStage1();
+function goto1(i){
   const cfg = MODES[mode];
-  let t = 300;
-  cfg.beats.forEach((b, i) => {
-    if (i > 0) t += Math.max(180, (b.ms - cfg.beats[i - 1].ms) * 700);
-    timers1.push(setTimeout(() => {
-      b.fn();
-      cap1.innerHTML = `<b>${b.ms.toFixed(2)}ms</b> ${b.cap}`;
-    }, t));
-  });
+  cur1 = Math.max(0, Math.min(cfg.beats.length - 1, i));
+  shakeTimers1.forEach(clearTimeout); shakeTimers1 = [];
+  resetVisuals1();
+  for (let k = 0; k <= cur1; k++) cfg.beats[k].fn();
+  const b = cfg.beats[cur1];
+  cap1t.textContent = b.ms.toFixed(2) + 'ms';
+  cap1d.innerHTML = b.cap;
+  pos1.textContent = `${cur1 + 1} / ${cfg.beats.length}`;
+  prev1.disabled = cur1 === 0;
+  next1.disabled = cur1 === cfg.beats.length - 1;
 }
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
     mode = btn.dataset.mode;
-    resetStage1();
+    activeStage = 1;
+    goto1(0); // 切换模式（并置对比）时步数重置到第 1 步
   });
 });
-document.getElementById('play1').addEventListener('click', play1);
-resetStage1();
+prev1.addEventListener('click', () => { activeStage = 1; goto1(cur1 - 1); });
+next1.addEventListener('click', () => { activeStage = 1; goto1(cur1 + 1); });
 
 // ── 舞台二：不撞名（事件时间取自归档 events-no-collision.jsonl） ──
 const ca = document.getElementById('ca'), cb = document.getElementById('cb');
 const cba = document.getElementById('cba'), cbb = document.getElementById('cbb');
 const seatA = document.getElementById('seatA'), seatB = document.getElementById('seatB');
 const alive2 = document.getElementById('alive2');
+const cap2t = document.getElementById('cap2-t'), cap2d = document.getElementById('cap2-d');
+const pos2 = document.getElementById('pos2');
+const prev2 = document.getElementById('prev2'), next2 = document.getElementById('next2');
 
 const BEATS2 = [
-  {ms:1.04, fn:() => setEntry('ca', 'loading')},
-  {ms:1.19, fn:() => setEntry('cb', 'loading')},
-  {ms:1.50, fn:() => { cba.classList.add('on'); seatA.className = 'seat filled'; }},
-  {ms:2.00, fn:() => { cbb.classList.add('on'); seatB.className = 'seat filled'; }},
-  {ms:2.53, fn:() => setEntry('ca', 'active')},
-  {ms:2.60, fn:() => { setEntry('cb', 'active'); alive2.style.opacity = 1; }},
+  {ms:1.04, cap:'裸的 PENDING → LOADING', fn:() => setEntry('ca', 'loading')},
+  {ms:1.19, cap:'基类的 PENDING → LOADING', fn:() => setEntry('cb', 'loading')},
+  {ms:1.50, cap:'裸的调用 ctx.provide("labSeatA", …) —— 占上 labSeatA', fn:() => { cba.classList.add('on'); seatA.className = 'seat filled'; }},
+  {ms:2.00, cap:'基类的构造函数里 super(ctx, "labSeatB") —— 占上 labSeatB，名字不同，没人跟它抢', fn:() => { cbb.classList.add('on'); seatB.className = 'seat filled'; }},
+  {ms:2.53, cap:'裸的 LOADING → ACTIVE', fn:() => setEntry('ca', 'active')},
+  {ms:2.60, cap:'基类的 LOADING → ACTIVE —— 两个都活着，实例存活', fn:() => { setEntry('cb', 'active'); alive2.style.opacity = 1; }},
 ];
-let timers2 = [];
-function resetStage2(){
-  timers2.forEach(clearTimeout); timers2 = [];
+let cur2 = 0;
+function resetVisuals2(){
   [ca, cb].forEach(el => { el.className = 'entry'; el.querySelector('.st').textContent = 'PENDING'; });
   [cba, cbb].forEach(b => b.classList.remove('on'));
   seatA.className = 'seat empty'; seatB.className = 'seat empty';
   alive2.style.opacity = 0;
 }
-function play2(){
-  resetStage2();
-  let t = 300;
-  BEATS2.forEach((b, i) => {
-    if (i > 0) t += Math.max(180, (b.ms - BEATS2[i - 1].ms) * 700);
-    timers2.push(setTimeout(b.fn, t));
-  });
+function goto2(i){
+  cur2 = Math.max(0, Math.min(BEATS2.length - 1, i));
+  resetVisuals2();
+  for (let k = 0; k <= cur2; k++) BEATS2[k].fn();
+  const b = BEATS2[cur2];
+  cap2t.textContent = b.ms.toFixed(2) + 'ms';
+  cap2d.textContent = b.cap;
+  pos2.textContent = `${cur2 + 1} / ${BEATS2.length}`;
+  prev2.disabled = cur2 === 0;
+  next2.disabled = cur2 === BEATS2.length - 1;
 }
-document.getElementById('play2').addEventListener('click', play2);
-resetStage2();
-play1();
-play2();
+prev2.addEventListener('click', () => { activeStage = 2; goto2(cur2 - 1); });
+next2.addEventListener('click', () => { activeStage = 2; goto2(cur2 + 1); });
+
+// 两个舞台各自的步进独立，键盘方向键作用于最近交互（或悬停）的那一个
+let activeStage = 1;
+document.getElementById('stage1').addEventListener('mouseenter', () => activeStage = 1);
+document.getElementById('stage2').addEventListener('mouseenter', () => activeStage = 2);
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){
+    if (activeStage === 1) goto1(cur1 - 1); else goto2(cur2 - 1);
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowRight'){
+    if (activeStage === 1) goto1(cur1 + 1); else goto2(cur2 + 1);
+    e.preventDefault();
+  }
+});
+
+goto1(0);
+goto2(0);
 </script>
 </body>
 </html>

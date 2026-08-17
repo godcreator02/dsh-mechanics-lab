@@ -71,10 +71,22 @@ h2{font-size:15px;margin:38px 0 4px}
   color:var(--fg)}
 .verdict b{color:var(--ok)}
 
-.ctl{display:flex;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:14px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600;color:var(--dim)}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--ok)}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
 button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover{border-color:var(--dim)}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 
 .reads{display:grid;gap:10px;margin-top:16px}
 .read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
@@ -129,7 +141,8 @@ footer a{color:inherit}
 </div>
 
 <h2>两份 patch，顺序相反，落地顺序一样</h2>
-<p class="note">左边正着写（registry → alpha → beta），右边倒着写（beta → alpha → registry）。播放看两边真正 apply 的先后。</p>
+<p class="note">左边正着写（registry → alpha → beta），右边倒着写（beta → alpha → registry）。
+<b>一步步走下去</b>，看两边真正 apply 的先后。</p>
 
 <div class="dual">
   <div class="col">
@@ -168,11 +181,17 @@ footer a{color:inherit}
   </div>
 </div>
 
+<div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
+<div class="ctl">
+  <button id="prev">← 上一步</button>
+  <span class="pos" id="pos"></span>
+  <button id="next">下一步 →</button>
+  <span class="hint">← → 键也行</span>
+</div>
+
 <div class="verdict" id="verdict">
   两边书写顺序相反，实际 apply 顺序都是 <b>registry → alpha → beta</b>——一模一样。
 </div>
-
-<div class="ctl"><button id="play">▶ 播放</button></div>
 
 <div class="reads">
   <div class="read"><span class="n">①</span><p>
@@ -208,34 +227,51 @@ const SEQ = [
 
 const cols = [...document.querySelectorAll('.plist')];
 const verdict = document.getElementById('verdict');
-let timers = [];
 
 function rowsFor(id){
   return cols.map(col => col.querySelector(`.prow[data-id="${id}"]`));
 }
 
-function play(){
-  timers.forEach(clearTimeout); timers = [];
+// 左右两栏本来就同步点亮——每一步讲清「这一步两边同时发生了什么、为什么顺序一致」。
+const CAP = [
+  '两栏同时点亮 <b>lab-registry</b>——它谁都不依赖，两份 patch 不管从哪一行读起，registry 都是最先备齐的那个，记为 t0。',
+  '两栏同时点亮 <b>lab-alpha</b>——它在正着写的 patch 里排第二、倒着写的 patch 里也排第二（但整份顺序是反的）。两边落地都在 t0 + 0.78ms，跟书写位置无关。',
+  '<b>两栏同时点亮 lab-beta，它拿到了 alpha 提供的 labAlpha.greet()（gotAlpha: true）。</b>倒着写的 patch 里 beta 明明写在最前面，却是最后一个真正 apply 的——顺序由「谁的依赖先就位」决定，不由行序决定。',
+];
+const CIRCLED = ['①','②','③'];
+
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let cur = 0;
+
+function goto(i){
+  cur = Math.max(0, Math.min(SEQ.length - 1, i));
   document.querySelectorAll('.prow').forEach(r => {
     r.classList.remove('on');
     r.querySelector('.badge').textContent = '';
   });
-  verdict.classList.remove('on');
-
-  let t = 300;
-  SEQ.forEach((e, i) => {
-    if (i > 0) t += Math.max(400, (e.ms - SEQ[i-1].ms) * 700);
-    timers.push(setTimeout(() => {
-      rowsFor(e.id).forEach(r => {
-        r.classList.add('on');
-        r.querySelector('.badge').textContent = e.badge;
-      });
-    }, t));
-  });
-  timers.push(setTimeout(() => verdict.classList.add('on'), t + 550));
+  for (let k = 0; k <= cur; k++){
+    const e = SEQ[k];
+    rowsFor(e.id).forEach(r => {
+      r.classList.add('on');
+      r.querySelector('.badge').textContent = e.badge;
+    });
+  }
+  verdict.classList.toggle('on', cur === SEQ.length - 1);
+  posEl.textContent = `${cur + 1} / ${SEQ.length}`;
+  capT.textContent = CIRCLED[cur];
+  capD.innerHTML = CAP[cur];
+  prev.disabled = cur === 0;
+  next.disabled = cur === SEQ.length - 1;
 }
-document.getElementById('play').addEventListener('click', play);
-play();
+prev.addEventListener('click', () => goto(cur - 1));
+next.addEventListener('click', () => goto(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ goto(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
+});
+goto(0);
 </script>
 </body>
 </html>

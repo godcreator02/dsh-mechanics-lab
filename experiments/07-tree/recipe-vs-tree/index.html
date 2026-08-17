@@ -74,10 +74,22 @@ h2{font-size:15px;margin:38px 0 4px}
 .miss{margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);
   font-size:11.5px;color:var(--ghost);text-align:center;font-family:var(--mono)}
 
-.ctl{display:flex;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:12px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--ghost)}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
 button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover{border-color:var(--dim)}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 
 .reads{display:grid;gap:10px;margin-top:16px}
 .read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
@@ -152,7 +164,13 @@ footer a{color:inherit}
   </p>
 </div>
 
-<div class="ctl"><button id="play">▶ 依次指一遍</button></div>
+<div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
+<div class="ctl">
+  <button id="prev">← 上一步</button>
+  <span class="pos" id="pos"></span>
+  <button id="next">下一步 →</button>
+  <span class="hint">← → 键也行</span>
+</div>
 
 <div class="reads">
   <div class="read"><span class="n">①</span><p>
@@ -189,14 +207,31 @@ const yaml = document.querySelector('.yaml');
 const hunt = document.getElementById('hunt');
 const nodeOf = i => nodes.find(n => n.dataset.n == i);
 
-function clear(){
+const LAST = nodes.length - 1;
+// 每一步一句话：这一条在配方里写了什么、树上找不找得到对应物
+const STEP_T = ['timer', 'hmr', 'census', 'include'];
+const CAP = [
+  '配方第一条：<code>timer</code>。树上有它的节点，位置对得上。',
+  '第二条：<code>hmr</code>。同样在树上找得到。',
+  '第三条：<code>census</code>。三条配方，三个节点，一一对应。',
+  '<b>树上第四个节点：<code>include</code>——配方里翻遍了也没有它。</b>它是承载整份配方的容器本身，不出现在配方里，因为出现就是自指。',
+];
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let cur = LAST;
+
+function clearHighlight(){
   rows.forEach(r => r.classList.remove('lit'));
   nodes.forEach(n => n.classList.remove('lit'));
   yaml.classList.remove('hunting');
   hunt.classList.remove('on');
 }
-function link(i){
-  clear();
+
+/** 渲染第 i 条的联动高亮 + 文案。hover 与分步共用这个函数：
+    hover 只调它做临时预览，不碰 cur。 */
+function render(i){
+  clearHighlight();
   nodeOf(i).classList.add('lit');
   if (i === 3){
     // 幽灵条目：另一侧没有对应物，这正是本项要说的事
@@ -205,19 +240,32 @@ function link(i){
   } else {
     rows[i].classList.add('lit');
   }
+  capT.textContent = STEP_T[i];
+  capD.innerHTML = CAP[i];
+  posEl.textContent = `${i + 1} / ${nodes.length}`;
 }
 
-rows.forEach((r, i) => r.addEventListener('mouseenter', () => link(i)));
-nodes.forEach(n => n.addEventListener('mouseenter', () => link(+n.dataset.n)));
-document.querySelector('.cmp').addEventListener('mouseleave', clear);
+/** 分步指针真的挪动——由按钮/键盘驱动，会持久化 cur。 */
+function gotoStep(i){
+  cur = Math.max(0, Math.min(LAST, i));
+  render(cur);
+  prev.disabled = cur === 0;
+  next.disabled = cur === LAST;
+}
 
-// 给不想动鼠标的人留一条：依次指一遍，最后停在幽灵条目上
-let t = [];
-document.getElementById('play').addEventListener('click', () => {
-  t.forEach(clearTimeout); t = [];
-  [0,1,2,3].forEach((i, k) => t.push(setTimeout(() => link(i), 250 + k * 800)));
+rows.forEach((r, i) => r.addEventListener('mouseenter', () => render(i)));
+nodes.forEach(n => n.addEventListener('mouseenter', () => render(+n.dataset.n)));
+// 移开鼠标回到分步指针所在的那一步，不是全清
+document.querySelector('.cmp').addEventListener('mouseleave', () => render(cur));
+
+prev.addEventListener('click', () => gotoStep(cur - 1));
+next.addEventListener('click', () => gotoStep(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ gotoStep(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ gotoStep(cur + 1); e.preventDefault(); }
 });
-link(3);
+
+gotoStep(LAST);
 </script>
 </body>
 </html>

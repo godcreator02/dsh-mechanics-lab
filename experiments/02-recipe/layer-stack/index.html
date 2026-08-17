@@ -65,10 +65,22 @@ h2{font-size:15px;margin:38px 0 4px}
   font-size:11px;color:var(--ghost);line-height:1.6;opacity:0;transition:opacity .4s}
 .rnote.on{opacity:1}
 
-.ctl{display:flex;gap:10px;align-items:center;margin-top:14px}
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:12px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--ghost)}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
 button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover{border-color:var(--dim)}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 .legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
   font-size:11px;color:var(--dim);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;
@@ -183,8 +195,12 @@ footer a{color:inherit}
       <code>shared</code> 还是 overlay 层给的那个值。</div>
   </div>
 </div>
+<div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
 <div class="ctl">
-  <button id="play">▶ 从头走一遍</button>
+  <button id="prev">← 上一步</button>
+  <span class="pos" id="pos"></span>
+  <button id="next">下一步 →</button>
+  <span class="hint">← → 键也行</span>
   <div class="legend">
     <span><i style="background:var(--bundle)"></i>bundle</span>
     <span><i style="background:var(--profile)"></i>profile</span>
@@ -239,8 +255,23 @@ const COLORS = {0:'--bundle',1:'--profile',2:'--home',3:'--overlay',4:'--ghost'}
 
 const LAST = LAYERS.length - 1;
 
-/** 读出「只叠到第 i 层为止」的结果——往前找最后一个真的改了 shared 的层。 */
-function showUpTo(i){
+// 每一步一句话：只叠到这一层为止，shared.config 变成了什么
+const STEP_T = ['① bundle 层', '② profile 活层', '③ home 层', '④ overlay 层', '⑤ 内置 overlay（待验）'];
+const CAP = [
+  '组合包自带的基线值先垫底：<code>layer: bundle, seq: 1</code>。',
+  'profile 活层写了同一个 id，覆盖成 <code>layer: profile</code>——后叠的赢。',
+  'home 层再覆盖一次，变成 <code>layer: home</code>；这层对该 home 下每个 profile 都生效，不只这一个。',
+  '<code>--patch</code> overlay 覆盖成 <code>layer: overlay</code>——四层里最后叠上的一层。',
+  '框架内置的第五层追加在这里，但它不认 <code>shared</code> 这个 id，值原样留在 overlay 层给的那个。<b>「四层」是文档说法，源码层面其实是五层。</b>',
+];
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let cur = LAST;
+
+/** 渲染「只叠到第 i 层为止」的结果——往前找最后一个真的改了 shared 的层。
+    hover 与分步共用这个函数：hover 只调它做临时预览，不碰 cur。 */
+function render(i){
   let val = null, color = null;
   for (let k = 0; k <= i; k++){
     if (LAYERS[k].dataset.val){ val = LAYERS[k].dataset.val; color = COLORS[k]; }
@@ -253,24 +284,36 @@ function showUpTo(i){
   if (color) readout.style.setProperty('--flash-c', `var(${color})`);
   // 第五层只在轮到它时才提示——它压根不碰 shared，所以值不会变
   rnote.classList.toggle('on', i === LAST);
+  capT.textContent = STEP_T[i];
+  capT.style.color = `var(${COLORS[i]})`;
+  capD.innerHTML = CAP[i];
+  posEl.textContent = `${i + 1} / ${LAYERS.length}`;
+}
+
+/** 分步指针真的挪动——由按钮/键盘驱动，会持久化 cur。 */
+function gotoStep(i){
+  cur = Math.max(0, Math.min(LAST, i));
+  render(cur);
+  prev.disabled = cur === 0;
+  next.disabled = cur === LAST;
 }
 
 LAYERS.forEach((layer, i) => {
-  layer.addEventListener('mouseenter', () => showUpTo(i));
-  layer.addEventListener('focus', () => showUpTo(i));
+  layer.addEventListener('mouseenter', () => render(i));
+  layer.addEventListener('focus', () => render(i));
   layer.tabIndex = 0;
 });
-// 移开鼠标回到终态：五层全叠完
-document.querySelector('.layers').addEventListener('mouseleave', () => showUpTo(LAST));
+// 移开鼠标回到分步指针所在的那一步，不是回到终态
+document.querySelector('.layers').addEventListener('mouseleave', () => render(cur));
 
-// 给不想动鼠标的人留一条：从头依次走一遍，走完停在终态
-let timers = [];
-document.getElementById('play').addEventListener('click', () => {
-  timers.forEach(clearTimeout); timers = [];
-  LAYERS.forEach((_, i) => timers.push(setTimeout(() => showUpTo(i), 200 + i * 700)));
+prev.addEventListener('click', () => gotoStep(cur - 1));
+next.addEventListener('click', () => gotoStep(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ gotoStep(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ gotoStep(cur + 1); e.preventDefault(); }
 });
 
-showUpTo(LAST);
+gotoStep(LAST);
 </script>
 </body>
 </html>

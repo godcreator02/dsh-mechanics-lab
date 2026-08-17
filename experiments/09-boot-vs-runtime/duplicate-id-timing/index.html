@@ -81,10 +81,22 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .branch.boot .verdict{color:var(--fatal)}
 .branch.run .verdict{color:var(--alive)}
 
-.ctl{display:flex;gap:10px;margin-top:16px;padding-top:13px;border-top:1px solid var(--line)}
+/* ── 分步控件：节奏归读者，不自动播 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:16px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600;color:var(--dim)}
+.cap .d{font-size:12.5px;line-height:1.55}
+.cap .d b{color:var(--wall)}
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
 button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover{border-color:var(--dim)}
+button:hover:not(:disabled){border-color:var(--dim)}
+button:disabled{opacity:.35;cursor:default}
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
 
 /* ── 为什么不同 ── */
 .why{margin-top:16px;background:color-mix(in srgb,var(--wall) 8%,var(--card));
@@ -198,8 +210,12 @@ footer a{color:inherit}
   </div>
 </div>
 
+<div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
 <div class="ctl">
-  <button id="play">▶ 播放</button>
+  <button id="prev">← 上一步</button>
+  <span class="pos" id="pos"></span>
+  <button id="next">下一步 →</button>
+  <span class="hint">← → 键也行</span>
 </div>
 
 <div class="why">
@@ -277,20 +293,42 @@ boot 侧的退出码与死亡时刻取自归档 <code>results/20260817-151026/su
 <script>
 const bootSteps = [...document.querySelectorAll('#stepsBoot .step')];
 const runSteps = [...document.querySelectorAll('#stepsRun .step')];
-let timers = [];
-function play(){
-  timers.forEach(clearTimeout); timers = [];
-  bootSteps.forEach(s => s.classList.remove('on'));
-  runSteps.forEach(s => s.classList.remove('on'));
-  bootSteps.forEach(s => {
-    timers.push(setTimeout(() => s.classList.add('on'), +s.dataset.t));
-  });
-  runSteps.forEach(s => {
-    timers.push(setTimeout(() => s.classList.add('on'), +s.dataset.t));
-  });
+// boot 5 步、run 6 步——两栏同步步进，步数以长的为准；boot 提前走完就停在终态。
+const N = Math.max(bootSteps.length, runSteps.length);
+
+// 每一步把两栏并排讲一遍：同一步里左边 boot 期发生了什么、右边运行期发生了什么。
+const CAP = [
+  '起点不同：左边 boot 期，进程刚开始组装 include 子树，什么都还没建；右边运行期，greeter 早已 ACTIVE，跑的是代码第一版。',
+  '左边这一步就撞车了——查重循环命中 id 重复，此刻一个条目都还没 create() 过。右边还没到撞车的时候，只是活层 patch 被改了，插进一条同 id 的 insert 块，把撞车的种子种下。',
+  '<b>两边都撞上了同一堵墙</b>——左边此刻直接 throw TypeError，右边这一步也命中了同一段查重循环，判词一模一样。',
+  '<b>撞上之后，谁接着，天差地别。</b>左边没有人兜底，boot() 直接判失败，dispose() 把刚搭一半的树整个回滚；右边有 refreshConfig 的 try/catch 接着，记两条 warn、发一个 hmr-failed 事件，不回滚也不退出。',
+  '<b>终局：左边进程退出（exit code 1，实测死于 +0.52s）；右边 greeter 状态停在 [&#39;LOADING&#39;,&#39;ACTIVE&#39;]，没有被 DISPOSED——旧树全须全尾地留在那儿。</b>',
+  '左边到上一步就是终局，没有更多可看。右边继续验证：撞车之后再改一次代码，照样热重载出代码第二版——证明这次撞车没有把热重载这条路悄悄弄坏。',
+];
+const CIRCLED = ['①','②','③','④','⑤','⑥'];
+
+const posEl = document.getElementById('pos');
+const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
+const prev = document.getElementById('prev'), next = document.getElementById('next');
+let cur = 0;
+
+function goto(i){
+  cur = Math.max(0, Math.min(N - 1, i));
+  bootSteps.forEach((s, k) => s.classList.toggle('on', k <= cur));
+  runSteps.forEach((s, k) => s.classList.toggle('on', k <= cur));
+  posEl.textContent = `${cur + 1} / ${N}`;
+  capT.textContent = CIRCLED[cur];
+  capD.innerHTML = CAP[cur];
+  prev.disabled = cur === 0;
+  next.disabled = cur === N - 1;
 }
-document.getElementById('play').addEventListener('click', play);
-play();
+prev.addEventListener('click', () => goto(cur - 1));
+next.addEventListener('click', () => goto(cur + 1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'){ goto(cur - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight'){ goto(cur + 1); e.preventDefault(); }
+});
+goto(0);
 </script>
 </body>
 </html>
