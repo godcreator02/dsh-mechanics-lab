@@ -41,14 +41,22 @@ h2{font-size:15px;margin:38px 0 4px}
 .yaml{font-family:var(--mono);font-size:11.5px;line-height:1.85;
   background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 13px}
 .yaml .k{color:var(--dim)}
-.row{border-radius:4px;padding:0 3px;margin:0 -3px;transition:background .3s}
-.row.lit{background:color-mix(in srgb,var(--normal) 18%,transparent)}
+.row{border-radius:4px;padding:0 3px;margin:0 -3px;cursor:default;
+  transition:background .2s}
+.row.lit{background:color-mix(in srgb,var(--normal) 20%,transparent)}
+/* hover 那个幽灵条目时，整个配方框亮一下边——好让「它不在这儿」看得见 */
+.yaml{transition:box-shadow .2s}
+.yaml.hunting{box-shadow:0 0 0 2px color-mix(in srgb,var(--ghost) 45%,transparent)}
+.hunt{margin-top:7px;font-size:10.5px;color:var(--ghost);text-align:center;
+  opacity:0;transition:opacity .2s}
+.hunt.on{opacity:1}
 
 /* 树一侧 */
 .tree{font-family:var(--mono);font-size:12px;line-height:2.1}
-.node{display:flex;align-items:center;gap:7px;border-radius:5px;
-  padding:1px 5px;transition:all .35s;opacity:.2}
-.node.on{opacity:1}
+.node{display:flex;align-items:center;gap:7px;border-radius:5px;cursor:default;
+  padding:1px 5px;transition:box-shadow .2s,background .2s}
+.node.lit{box-shadow:0 0 0 2px color-mix(in srgb,var(--normal) 45%,transparent)}
+.node.g.lit{box-shadow:0 0 0 2px color-mix(in srgb,var(--ghost) 55%,transparent)}
 .node .b{width:7px;height:7px;border-radius:2px;flex:none}
 .node.g{background:color-mix(in srgb,var(--ghost) 13%,transparent)}
 .node .tip{font-size:10.5px;color:var(--ghost);margin-left:auto}
@@ -98,7 +106,8 @@ footer a{color:inherit}
 </div>
 
 <h2>你写了三条，树上有四个</h2>
-<p class="note">左边是 patch 文件写的，右边是普查员在进程里数出来的。</p>
+<p class="note">左边是 patch 文件写的，右边是普查员在进程里数出来的。
+<b>指任意一条，另一侧会点出它的对应物</b>——只有 <code>include</code> 指不到。</p>
 
 <div class="cmp">
   <div class="col">
@@ -109,6 +118,7 @@ footer a{color:inherit}
       <div class="row" data-r="1">&nbsp;&nbsp;- id: hmr</div>
       <div class="row" data-r="2">&nbsp;&nbsp;- id: census</div>
     </div>
+    <div class="hunt" id="hunt">↑ 这里翻遍了也没有 include</div>
   </div>
   <div class="arrow">→</div>
   <div class="col">
@@ -142,7 +152,7 @@ footer a{color:inherit}
   </p>
 </div>
 
-<div class="ctl"><button id="play">▶ 重放</button></div>
+<div class="ctl"><button id="play">▶ 依次指一遍</button></div>
 
 <div class="reads">
   <div class="read"><span class="n">①</span><p>
@@ -171,27 +181,43 @@ footer a{color:inherit}
 </div>
 
 <script>
+// 配方与树是**同时存在的两个视图**，不是先后发生的两步——所以这里是联动查询，
+// 不是播放：指哪一条，就在另一侧把它的对应物点出来。
 const rows = [...document.querySelectorAll('.row')];
 const nodes = [...document.querySelectorAll('.node')];
-let t = [];
-function play(){
-  t.forEach(clearTimeout); t = [];
+const yaml = document.querySelector('.yaml');
+const hunt = document.getElementById('hunt');
+const nodeOf = i => nodes.find(n => n.dataset.n == i);
+
+function clear(){
   rows.forEach(r => r.classList.remove('lit'));
-  nodes.forEach(n => n.classList.remove('on'));
-  // 配方三条依次飞上树
-  [0,1,2].forEach((i, k) => {
-    t.push(setTimeout(() => {
-      rows[i].classList.add('lit');
-      nodes.find(n => n.dataset.n == i).classList.add('on');
-    }, 400 + k * 520));
-  });
-  // 最后 include 从天而降
-  t.push(setTimeout(() => {
-    nodes.find(n => n.dataset.n == 3).classList.add('on');
-  }, 400 + 3 * 520 + 400));
+  nodes.forEach(n => n.classList.remove('lit'));
+  yaml.classList.remove('hunting');
+  hunt.classList.remove('on');
 }
-document.getElementById('play').addEventListener('click', play);
-play();
+function link(i){
+  clear();
+  nodeOf(i).classList.add('lit');
+  if (i === 3){
+    // 幽灵条目：另一侧没有对应物，这正是本项要说的事
+    yaml.classList.add('hunting');
+    hunt.classList.add('on');
+  } else {
+    rows[i].classList.add('lit');
+  }
+}
+
+rows.forEach((r, i) => r.addEventListener('mouseenter', () => link(i)));
+nodes.forEach(n => n.addEventListener('mouseenter', () => link(+n.dataset.n)));
+document.querySelector('.cmp').addEventListener('mouseleave', clear);
+
+// 给不想动鼠标的人留一条：依次指一遍，最后停在幽灵条目上
+let t = [];
+document.getElementById('play').addEventListener('click', () => {
+  t.forEach(clearTimeout); t = [];
+  [0,1,2,3].forEach((i, k) => t.push(setTimeout(() => link(i), 250 + k * 800)));
+});
+link(3);
 </script>
 </body>
 </html>

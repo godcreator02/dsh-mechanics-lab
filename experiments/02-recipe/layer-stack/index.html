@@ -36,11 +36,13 @@ h2{font-size:15px;margin:38px 0 4px}
   background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:20px 18px}
 .layers{display:flex;flex-direction:column;gap:9px}
-.layer{display:flex;align-items:center;gap:11px;padding:9px 12px;
+/* 五层默认全部可见——叠加不是一个随时间发生的过程，是 compose 一次算出来的。
+   鼠标停在哪一层，就把「叠到这一层为止」的结果读出来。 */
+.layer{display:flex;align-items:center;gap:11px;padding:9px 12px;cursor:default;
   border:1px solid var(--line);border-left:3px solid var(--c);border-radius:8px;
-  opacity:.22;transform:translateX(-10px);transition:all .4s;background:var(--bg)}
-.layer.on{opacity:1;transform:translateX(0);
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--c) 35%,transparent)}
+  transition:opacity .22s,box-shadow .22s;background:var(--bg)}
+.layer.dim{opacity:.26}
+.layer.cur{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent)}
 .layer.ghost{border-style:dashed;border-left-style:solid}
 .layer .num{font-family:var(--mono);font-size:13px;color:var(--c);flex:none;width:16px}
 .layer .body{flex:1;min-width:0}
@@ -112,7 +114,8 @@ footer a{color:inherit}
 </div>
 
 <h2>id 叫 <code>shared</code>，四层各写一次</h2>
-<p class="note">点播放，一层层落下来。右边的读数框实时显示叠到这一步时 <code>shared.config</code> 变成了什么。</p>
+<p class="note"><b>鼠标停在任意一层</b>，右边读出「只叠到这一层为止」时 <code>shared.config</code> 是什么。
+叠加不是随时间发生的过程，是 compose 一次算出来的——所以这里是查询，不是播放。</p>
 
 <div class="stackbox">
   <div class="layers" id="layers">
@@ -181,7 +184,7 @@ footer a{color:inherit}
   </div>
 </div>
 <div class="ctl">
-  <button id="play">▶ 播放</button>
+  <button id="play">▶ 从头走一遍</button>
   <div class="legend">
     <span><i style="background:var(--bundle)"></i>bundle</span>
     <span><i style="background:var(--profile)"></i>profile</span>
@@ -234,30 +237,40 @@ const readout = document.getElementById('readout');
 const rnote = document.getElementById('rnote');
 const COLORS = {0:'--bundle',1:'--profile',2:'--home',3:'--overlay',4:'--ghost'};
 
-let timers = [];
-function play(){
-  timers.forEach(clearTimeout); timers = [];
-  LAYERS.forEach(l => l.classList.remove('on'));
-  rnote.classList.remove('on');
-  valOut.textContent = '（还没叠）';
-  readout.style.removeProperty('--flash-c');
+const LAST = LAYERS.length - 1;
 
-  let t = 250;
-  LAYERS.forEach((layer, i) => {
-    timers.push(setTimeout(() => {
-      layer.classList.add('on');
-      readout.style.setProperty('--flash-c', `var(${COLORS[i]})`);
-      if (layer.dataset.val) {
-        valOut.textContent = layer.dataset.val;
-      } else {
-        rnote.classList.add('on');
-      }
-    }, t));
-    t += 750;
+/** 读出「只叠到第 i 层为止」的结果——往前找最后一个真的改了 shared 的层。 */
+function showUpTo(i){
+  let val = null, color = null;
+  for (let k = 0; k <= i; k++){
+    if (LAYERS[k].dataset.val){ val = LAYERS[k].dataset.val; color = COLORS[k]; }
+  }
+  LAYERS.forEach((l, k) => {
+    l.classList.toggle('dim', k > i);
+    l.classList.toggle('cur', k === i);
   });
+  valOut.textContent = val ?? '（还没叠）';
+  if (color) readout.style.setProperty('--flash-c', `var(${color})`);
+  // 第五层只在轮到它时才提示——它压根不碰 shared，所以值不会变
+  rnote.classList.toggle('on', i === LAST);
 }
-document.getElementById('play').addEventListener('click', play);
-play();
+
+LAYERS.forEach((layer, i) => {
+  layer.addEventListener('mouseenter', () => showUpTo(i));
+  layer.addEventListener('focus', () => showUpTo(i));
+  layer.tabIndex = 0;
+});
+// 移开鼠标回到终态：五层全叠完
+document.querySelector('.layers').addEventListener('mouseleave', () => showUpTo(LAST));
+
+// 给不想动鼠标的人留一条：从头依次走一遍，走完停在终态
+let timers = [];
+document.getElementById('play').addEventListener('click', () => {
+  timers.forEach(clearTimeout); timers = [];
+  LAYERS.forEach((_, i) => timers.push(setTimeout(() => showUpTo(i), 200 + i * 700)));
+});
+
+showUpTo(LAST);
 </script>
 </body>
 </html>

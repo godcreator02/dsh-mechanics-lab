@@ -61,9 +61,12 @@ a.it:hover{background:color-mix(in srgb,var(--t1) 7%,var(--card))}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .it .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none}
 .dot{width:7px;height:7px;border-radius:50%;flex:none}
-.tier{font-family:var(--mono);font-size:10.5px;flex:none;width:13px;text-align:center}
-.pg{font-size:10px;flex:none;opacity:.5}
-.it.no{opacity:.62}
+.tier{font-size:13px;flex:none;width:15px;text-align:center;font-weight:600}
+.pg{font-size:11px;flex:none;width:9px}
+/* 没配图的项不调暗——58 项都是实验，只是 6 项配了图，别让人误以为其余的次要 */
+a.it .nm{text-decoration:underline;text-decoration-color:var(--line);
+  text-underline-offset:3px}
+a.it:hover .nm{text-decoration-color:currentColor}
 
 footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);
   font-size:12px;color:var(--dim);line-height:2}
@@ -206,7 +209,7 @@ G.forEach(([no, name, desc, items]) => {
         const link = HAS_PAGE.has(nm);
         const tag = link ? "a" : "div";
         const href = link ? ` href="${dir}index.html"` : "";
-        return `<${tag} class="it${link ? "" : " no"}"${href} data-t="${tier}" data-s="${st}">`
+        return `<${tag} class="it"${href} data-t="${tier}" data-s="${st}">`
           + `<span class="dot" style="background:${COLOR[st]}"></span>`
           + `<span class="tier" style="color:${TIERC[tier]}">${"①②③"[tier-1]}</span>`
           + `<span class="nm">${nm}</span>`

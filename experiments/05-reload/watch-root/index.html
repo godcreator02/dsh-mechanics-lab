@@ -42,35 +42,38 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
   padding:20px 18px 14px}
 .seg-label{font-family:var(--mono);font-size:11px;color:var(--dim);
   margin:0 0 8px;display:flex;justify-content:space-between}
-.track{position:relative;height:118px;margin-bottom:6px}
-.lane{position:absolute;left:0;right:0;height:26px;border-radius:6px;
-  border:1px dashed var(--line)}
-.lane.a{top:16px} .lane.b{top:60px}
-.lane-tag{position:absolute;left:8px;top:50%;transform:translateY(-50%);
+.track{position:relative;height:206px;margin:10px 0 4px}
+.lane{position:absolute;left:0;right:0;height:24px;border-radius:6px;
+  background:color-mix(in srgb,var(--fg) 4.5%,transparent);z-index:1}
+.lane.a{top:30px} .lane.b{top:120px}
+.lane-tag{position:absolute;left:10px;top:50%;transform:translateY(-50%);
   font-size:11px;color:var(--dim);font-family:var(--mono);pointer-events:none}
-.ev{position:absolute;transform:translate(-50%,0);text-align:center;
-  opacity:.18;transition:opacity .25s}
+.ev{position:absolute;transform:translateX(-50%);text-align:center;
+  opacity:.16;transition:opacity .3s;z-index:2;width:96px}
 .ev.on{opacity:1}
 .dot{width:11px;height:11px;border-radius:50%;margin:0 auto;
-  box-shadow:0 0 0 3px var(--card)}
+  box-shadow:0 0 0 3.5px var(--card)}
+.ev .nm{font-size:11px;white-space:nowrap;margin-top:7px;font-weight:600}
 .ev .ms{font-family:var(--mono);font-size:10px;color:var(--dim);
-  margin-top:3px;white-space:nowrap}
-.ev .nm{font-size:11px;white-space:nowrap;margin-top:1px;font-weight:600}
-.ev.up{bottom:auto} .ev.up .dot{order:-1}
-.gap{position:absolute;top:8px;bottom:8px;border-left:1px dashed var(--line)}
+  margin-top:1px;white-space:nowrap}
+/* 上排事件（第一版泳道）dot 中心落在 y=42，下排落在 y=132 */
+.ev.a{top:36.5px} .ev.b{top:126.5px}
+
+.gap{position:absolute;top:22px;bottom:14px;border-left:1px dashed var(--line);z-index:1}
 .gap span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   background:var(--card);padding:2px 8px;font-size:10.5px;color:var(--dim);
   font-family:var(--mono);white-space:nowrap}
 
-/* 重叠窗口高亮 */
-.overlap{position:absolute;top:10px;height:98px;border-radius:6px;
-  background:color-mix(in srgb,var(--warn) 12%,transparent);
-  border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);
+/* 重叠窗口高亮：垫在事件点底下，别盖住它们 */
+.overlap{position:absolute;top:4px;height:146px;border-radius:8px;z-index:0;
+  background:color-mix(in srgb,var(--warn) 13%,transparent);
+  border:1px solid color-mix(in srgb,var(--warn) 38%,transparent);
   opacity:0;transition:opacity .35s}
 .overlap.on{opacity:1}
-.overlap b{position:absolute;top:-9px;left:50%;transform:translateX(-50%);
-  background:var(--bg);padding:0 7px;font-size:10.5px;color:var(--warn);
-  font-family:var(--mono);white-space:nowrap;font-weight:600}
+/* 标题收在框内顶端——第一版泳道从 30px 起，这里有 26px 净空 */
+.overlap b{position:absolute;top:5px;left:50%;transform:translateX(-50%);
+  font-size:10.5px;color:var(--warn);font-family:var(--mono);
+  white-space:nowrap;font-weight:600}
 
 .ctl{display:flex;gap:10px;align-items:center;margin-top:14px;
   padding-top:13px;border-top:1px solid var(--line)}
@@ -119,7 +122,8 @@ footer a{color:inherit}
 </div>
 
 <h2>改一行代码，那一瞬间</h2>
-<p class="note">时间轴按真实归档数据画。两段之间省略了 1.3 秒的静置。</p>
+<p class="note">毫秒数取自真实归档。<b>横轴按事件顺序等距摊开，不按时间比例</b>——
+段内几个事件只差零点几毫秒，按比例画会挤成一团。</p>
 
 <div class="tl">
   <div class="seg-label"><span>启动</span><span>改文件之后</span></div>
@@ -186,28 +190,35 @@ footer a{color:inherit}
 <script>
 // 真实事件（ms 取自上述归档）。lane: a=第一版 b=第二版
 const EV = [
-  {ms:1.2,  seg:0, lane:'a', nm:'PENDING',   c:'--pending'},
-  {ms:1.7,  seg:0, lane:'a', nm:'LOADING',   c:'--loading'},
-  {ms:2.2,  seg:0, lane:'a', nm:'说话',      c:'--say'},
-  {ms:2.7,  seg:0, lane:'a', nm:'ACTIVE',    c:'--active'},
-  {ms:1322.1, seg:1, lane:'a', nm:'UNLOADING', c:'--unloading'},
-  {ms:1322.6, seg:1, lane:'b', nm:'LOADING',   c:'--loading'},
-  {ms:1322.8, seg:1, lane:'b', nm:'hmr 报重载', c:'--hmr'},
-  {ms:1322.9, seg:1, lane:'a', nm:'DISPOSED',  c:'--disposed'},
-  {ms:1323.0, seg:1, lane:'b', nm:'说话+ACTIVE', c:'--active'},
+  {ms:1.2,    seg:0, lane:'a', nm:'PENDING',    c:'--pending'},
+  {ms:1.7,    seg:0, lane:'a', nm:'LOADING',    c:'--loading'},
+  {ms:2.2,    seg:0, lane:'a', nm:'说话',       c:'--say'},
+  {ms:2.7,    seg:0, lane:'a', nm:'ACTIVE',     c:'--active'},
+  {ms:1322.1, seg:1, lane:'a', nm:'UNLOADING',  c:'--unloading'},
+  {ms:1322.6, seg:1, lane:'b', nm:'LOADING',    c:'--loading'},
+  {ms:1322.8, seg:1, lane:'b', nm:'hmr 重载',   c:'--hmr'},
+  {ms:1322.9, seg:1, lane:'a', nm:'DISPOSED',   c:'--disposed'},
+  {ms:1323.0, seg:1, lane:'b', nm:'说话·ACTIVE', c:'--active'},
 ];
-// 两段各占一半宽度，段内按 ms 线性铺开
-const SEG = [{lo:1.0, hi:3.0, x0:6, x1:42}, {lo:1321.9, hi:1323.2, x0:56, x1:95}];
+// ⚠️ 横轴按事件顺序等距摊开，不按时间比例——两段之间差着 1.3 秒，
+// 而段内几个事件只差零点几毫秒，按真实比例画会挤成一团、标签互相压。
+// 真实 ms 全部标在每个点下面，先后关系不受影响。
+const SEG = [{x0:9, x1:40}, {x0:55, x1:93}];
 const track = document.getElementById('track');
 const nodes = [];
+const posOf = [];
+
+[0,1].forEach(si => {
+  const inSeg = EV.map((e,i) => ({e,i})).filter(o => o.e.seg === si);
+  const s = SEG[si];
+  const step = inSeg.length > 1 ? (s.x1 - s.x0) / (inSeg.length - 1) : 0;
+  inSeg.forEach((o,k) => { posOf[o.i] = s.x0 + step * k; });
+});
 
 EV.forEach((e,i) => {
-  const s = SEG[e.seg];
-  const pct = s.x0 + (e.ms - s.lo) / (s.hi - s.lo) * (s.x1 - s.x0);
   const d = document.createElement('div');
-  d.className = 'ev';
-  d.style.left = pct + '%';
-  d.style.top = (e.lane === 'a' ? 46 : 90) + 'px';
+  d.className = 'ev ' + e.lane;
+  d.style.left = posOf[i] + '%';
   d.innerHTML = `<div class="dot" style="background:var(${e.c})"></div>`
               + `<div class="nm" style="color:var(${e.c})">${e.nm}</div>`
               + `<div class="ms">${e.ms.toFixed(1)}</div>`;
@@ -216,17 +227,12 @@ EV.forEach((e,i) => {
 });
 
 // 断轴标记落在两段之间
-const gap = document.getElementById('gap');
-gap.style.left = ((SEG[0].x1 + SEG[1].x0) / 2) + '%';
+document.getElementById('gap').style.left = ((SEG[0].x1 + SEG[1].x0) / 2) + '%';
 
-// 重叠窗口：1322.1(UNLOADING) → 1322.9(DISPOSED)
+// 重叠窗口：UNLOADING(索引 4) → DISPOSED(索引 7)
 const ov = document.getElementById('ov');
-{
-  const s = SEG[1];
-  const px = m => s.x0 + (m - s.lo) / (s.hi - s.lo) * (s.x1 - s.x0);
-  ov.style.left = px(1322.05) + '%';
-  ov.style.width = (px(1322.95) - px(1322.05)) + '%';
-}
+ov.style.left = (posOf[4] - 3) + '%';
+ov.style.width = (posOf[7] - posOf[4] + 6) + '%';
 
 let timers = [];
 function play(){

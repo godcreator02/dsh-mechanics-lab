@@ -95,7 +95,8 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
   font-size:11px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;z-index:3}
 .bubble.on{opacity:1;transform:translate(-50%,0)}
 
-.crash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+/* 纯蒙版：全场泛红表示实例整个垮了。判词归上方字幕，这里不放文字 */
+.crash{position:absolute;inset:0;border-radius:inherit;
   background:color-mix(in srgb,var(--failed) 10%,transparent);opacity:0;
   transition:opacity .5s;pointer-events:none}
 .crash.on{opacity:1}
@@ -191,7 +192,8 @@ footer a{color:inherit}
       <div class="way" id="eb-way">裸对象</div>
     </div>
     <div class="bubble" id="bubble1"></div>
-    <div class="crash" id="crash1"><span>撞车拖垮整个实例 · 退出码 1</span></div>
+    <!-- 只做泛红蒙版，不放文字——判词由上方字幕承担，写两遍反而会被中间的座位切开 -->
+    <div class="crash" id="crash1"></div>
   </div>
   <div class="ctl">
     <button id="play1">▶ 播放</button>
