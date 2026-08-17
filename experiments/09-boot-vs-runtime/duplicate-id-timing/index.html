@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>duplicate-id-timing · 同一堵墙，两个时机</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --fatal:#ef4444; --alive:#22c55e; --wall:#f59e0b; --pending:#94a3b8;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:32px 20px 72px}
+
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--alive);border-color:color-mix(in srgb,var(--alive) 40%,transparent)}
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 顶部：共享的查重代码 ── */
+.wallbox{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;text-align:center}
+.wallbox .wtitle{font-family:var(--mono);font-size:11.5px;color:var(--wall);
+  font-weight:600;margin-bottom:9px}
+.code{font-family:var(--mono);font-size:11.5px;line-height:1.75;text-align:left;
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:10px 13px;display:inline-block;color:var(--dim)}
+.code .hl{color:var(--wall);font-weight:600}
+.code .cm{opacity:.6}
+.wallbox .wnote{font-size:12px;color:var(--dim);margin-top:9px}
+
+/* ── 分岔箭头 ── */
+.fork{display:flex;justify-content:space-between;padding:10px 10% 0;
+  color:var(--dim);font-size:12px}
+.fork span{display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--mono)}
+.fork .arr{font-size:18px;line-height:1}
+
+/* ── 左右两栏 ── */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+.branch{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 16px 14px;border-top-width:3px}
+.branch.boot{border-top-color:var(--fatal)}
+.branch.run{border-top-color:var(--alive)}
+.b-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.b-head b{font-size:13.5px}
+.branch.boot .b-head b{color:var(--fatal)}
+.branch.run .b-head b{color:var(--alive)}
+.b-head .when{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:9px;align-items:flex-start;opacity:.16;transition:opacity .3s;
+  padding:6px 0;position:relative}
+.step.on{opacity:1}
+.step .dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:4px;
+  background:var(--pending)}
+.step.fatal .dot{background:var(--fatal)}
+.step.alive .dot{background:var(--alive)}
+.step.wall .dot{background:var(--wall)}
+.step:not(:last-child)::before{content:'';position:absolute;left:4px;top:19px;
+  width:1px;height:100%;background:var(--line)}
+.step .txt{font-size:12.5px}
+.step .txt b{font-weight:600}
+.step .ms{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:1px}
+
+.verdict{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);
+  font-family:var(--mono);font-size:12px;text-align:center;font-weight:600}
+.branch.boot .verdict{color:var(--fatal)}
+.branch.run .verdict{color:var(--alive)}
+
+.ctl{display:flex;gap:10px;margin-top:16px;padding-top:13px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--dim)}
+
+/* ── 为什么不同 ── */
+.why{margin-top:16px;background:color-mix(in srgb,var(--wall) 8%,var(--card));
+  border:1px solid color-mix(in srgb,var(--wall) 35%,transparent);
+  border-radius:10px;padding:13px 16px;font-size:13.5px}
+.why b{color:var(--wall)}
+
+/* ── 三种撞法 ── */
+.collisions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cc{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:13px 12px}
+.cc .ct{font-size:12px;font-weight:600;margin-bottom:9px;text-align:center}
+.cc .cd{display:flex;align-items:center;justify-content:center;gap:5px;
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-bottom:9px;flex-wrap:wrap}
+.cc .src{border:1px solid var(--line);border-radius:5px;padding:3px 6px;text-align:center;
+  background:var(--bg)}
+.cc .src small{display:block;color:var(--wall)}
+.cc .wallmini{font-size:14px}
+.cc .cr{text-align:center;font-family:var(--mono);font-size:11px;color:var(--fatal);font-weight:600}
+.cc .ctest{text-align:center;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  margin-top:5px;word-break:break-all}
+
+/* ── reads ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+.warn{border-color:color-mix(in srgb,var(--wall) 40%,transparent);
+  background:color-mix(in srgb,var(--wall) 7%,var(--card))}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+
+@media (max-width:640px){
+  .split{grid-template-columns:1fr}
+  .collisions{grid-template-columns:1fr}
+  .fork{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">09-boot-vs-runtime / duplicate-id-timing</div>
+<h1>同一个错误，两个时机，两种下场</h1>
+<p class="sub">往树上塞一个已经存在的 <code>id</code>——「致不致命」这个问题，得先问「什么时候」。</p>
+<div class="tags">
+  <span class="tag">档次 ③</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 4 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>同一段查重代码，两处触发</h2>
+<p class="note"><code>EntryGroup.update()</code> 的查重循环写在 <code>try</code> 块之外——两侧撞见的是同一句判词。</p>
+
+<div class="wallbox">
+  <div class="wtitle">🧱 EntryGroup.update()</div>
+  <div class="code"><span class="cm">for (const options of config) {</span><br>
+&nbsp;&nbsp;const id = this.tree.ensureId(options)<br>
+&nbsp;&nbsp;<span class="hl">if (seen.has(id)) throw new TypeError(`duplicate loader entry id: ${id}`)</span><br>
+&nbsp;&nbsp;seen.add(id)<br>
+<span class="cm">}</span></div>
+  <div class="wnote">这个循环不管调用它的是「首次挂载」还是「热重放」——它自己不认时机</div>
+</div>
+
+<div class="fork">
+  <span><span class="arr">↙</span>首次挂载 include 子树</span>
+  <span>热重放 <code>refreshConfig</code>触发<span class="arr">↘</span></span>
+</div>
+
+<div class="split">
+  <div class="branch boot">
+    <div class="b-head"><b>boot 期</b><span class="when">首次 <code>await this.update()</code></span></div>
+    <div class="steps" id="stepsBoot">
+      <div class="step" data-t="0"><span class="dot"></span><div class="txt">
+        进程启动，开始组装 <code>include</code> 子树</div></div>
+      <div class="step wall" data-t="500"><span class="dot"></span><div class="txt">
+        查重循环命中：<b>id 重复</b><span class="ms">循环还在 try 之外，没有条目被 create() 过</span></div></div>
+      <div class="step fatal" data-t="950"><span class="dot"></span><div class="txt">
+        <code>throw TypeError: duplicate loader entry id</code></div></div>
+      <div class="step fatal" data-t="1350"><span class="dot"></span><div class="txt">
+        <code>boot()</code> 失败 → <code>ctx.fiber.dispose()</code> 回滚整棵树</div></div>
+      <div class="step fatal" data-t="1750"><span class="dot"></span><div class="txt">
+        <b>进程退出，exit code 1</b><span class="ms">实测死于 +0.52s（同层撞车用例）</span></div></div>
+    </div>
+    <div class="verdict">没有「上一个好状态」可退</div>
+  </div>
+
+  <div class="branch run">
+    <div class="b-head"><b>运行期</b><span class="when">热重放触发的那次 <code>update()</code></span></div>
+    <div class="steps" id="stepsRun">
+      <div class="step alive" data-t="0"><span class="dot"></span><div class="txt">
+        greeter 已 ACTIVE（代码第一版）<span class="ms">+1.7ms</span></div></div>
+      <div class="step" data-t="500"><span class="dot"></span><div class="txt">
+        活层 patch 改了：插入一条同 id 的 <code>insert</code><span class="ms">+1440.6ms hmr-change</span></div></div>
+      <div class="step wall" data-t="950"><span class="dot"></span><div class="txt">
+        查重循环命中：<b>同样是 id 重复</b></div></div>
+      <div class="step" data-t="1350"><span class="dot"></span><div class="txt">
+        被 <code>refreshConfig</code> 的 try/catch 兜住 → 发 <code>hmr-failed</code> 事件<span class="ms">+1445.5ms</span></div></div>
+      <div class="step alive" data-t="1750"><span class="dot"></span><div class="txt">
+        <b>greeter 状态停在 ['LOADING','ACTIVE']，没有 DISPOSED</b></div></div>
+      <div class="step alive" data-t="2200"><span class="dot"></span><div class="txt">
+        撞完之后再改一次代码——照样热重载出<b>代码第二版</b><span class="ms">+16555.1ms report</span></div></div>
+    </div>
+    <div class="verdict">有一份挂载完好的旧树可退</div>
+  </div>
+</div>
+
+<div class="ctl">
+  <button id="play">▶ 播放</button>
+</div>
+
+<div class="why">
+  <b>为什么下场不同：</b>运行期撞车时，实例手上有一份挂载完好的旧树，失败的配置更新可以整体作废、退回那份旧树；
+  boot 期第一次挂载就撞车，没有旧树可退，只能让整个 <code>boot()</code> 失败，进程退出。
+</div>
+
+<h2>三种撞法，撞的是同一堵墙</h2>
+<p class="note">撞车双方来自哪一层、哪一处文件不重要——查重只看合成数组里 id 有没有重复。</p>
+
+<div class="collisions">
+  <div class="cc">
+    <div class="ct">同一层内两次 insert</div>
+    <div class="cd">
+      <span class="src">insert 块 A<small>id: dup</small></span>+
+      <span class="src">insert 块 B<small>id: dup</small></span>
+      → <span class="wallmini">🧱</span>
+    </div>
+    <div class="cr">exit code 1 · 死于 +0.52s</div>
+    <div class="ctest">test_duplicate_id_within_one_layer_kills_boot</div>
+  </div>
+  <div class="cc">
+    <div class="ct">bundle 层 × 活层</div>
+    <div class="cd">
+      <span class="src">bundle 层<small>id: greeter</small></span>+
+      <span class="src">活层 patch<small>id: greeter</small></span>
+      → <span class="wallmini">🧱</span>
+    </div>
+    <div class="cr">exit code 1 · 死于 +0.5s</div>
+    <div class="ctest">test_duplicate_id_across_bundle_and_live_layer_kills_boot</div>
+  </div>
+  <div class="cc">
+    <div class="ct">profile 层 × home 层</div>
+    <div class="cd">
+      <span class="src">profile patch<small>id: dup</small></span>+
+      <span class="src">home patch<small>id: dup</small></span>
+      → <span class="wallmini">🧱</span>
+    </div>
+    <div class="cr">exit code 1 · 死于 +0.5s</div>
+    <div class="ctest">test_duplicate_id_across_profile_and_home_layer_kills_boot</div>
+  </div>
+</div>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>撞车前，一个条目都没建过。</b>查重循环在 <code>try</code> 块之外，抛错时 <code>create()</code> 一次都没调用——
+    不是「挂到一半回滚」，是那次 <code>update()</code> 从未成功过。
+    <span class="from">静态 dump 先证明两条同 id 的条目原样进了组合数组，再验挂载期致命；witness 文件全都不存在</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>三种撞法共享同一次判定。</b>同层两次 insert、bundle 层与活层跨层、profile 与 home 跨处——
+    走的是同一段查重循环、同一句判词 <code>duplicate loader entry id: &lt;id&gt;</code>、同一个退出码 1。
+  </p></div>
+  <div class="read warn"><span class="n">③</span><p>
+    <b>运行期「被兜住」不是「没撞上」，是撞上了但有人接着。</b>同样命中查重循环，但这次是热重放触发的
+    <code>update()</code>，被 <code>refreshConfig</code> 的 try/catch 兜着：记两条 warn、发一个
+    <code>hmr/config-update-failed</code> 事件，不回滚也不退出。
+    <span class="from">test_duplicate_id_added_while_running_is_rolled_back</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>撞完之后还得验健康，不能只看「进程没死」。</b>一次失败的配置更新如果让代码热重载这条路悄悄坏掉，
+    比直接退出还糟——所以撞车之后接着改一次代码，看它还认不认。实测照样从「代码第一版」热重载到「代码第二版」。
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_duplicate_id_timing.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+boot 侧的退出码与死亡时刻取自归档 <code>results/20260817-151026/summary.md</code>。<br>
+运行期时间线取自归档 <code>results/20260817-151026/events-dup-while-running.jsonl</code>，是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+const bootSteps = [...document.querySelectorAll('#stepsBoot .step')];
+const runSteps = [...document.querySelectorAll('#stepsRun .step')];
+let timers = [];
+function play(){
+  timers.forEach(clearTimeout); timers = [];
+  bootSteps.forEach(s => s.classList.remove('on'));
+  runSteps.forEach(s => s.classList.remove('on'));
+  bootSteps.forEach(s => {
+    timers.push(setTimeout(() => s.classList.add('on'), +s.dataset.t));
+  });
+  runSteps.forEach(s => {
+    timers.push(setTimeout(() => s.classList.add('on'), +s.dataset.t));
+  });
+}
+document.getElementById('play').addEventListener('click', play);
+play();
+</script>
+</body>
+</html>

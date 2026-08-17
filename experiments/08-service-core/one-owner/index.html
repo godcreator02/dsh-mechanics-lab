@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>one-owner · 一个名字一个主人</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e;
+  --unloading:#f59e0b; --failed:#ef4444; --say:#a855f7;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
+
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
+
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 模式切换 ── */
+.modes{display:flex;gap:6px;margin-bottom:14px}
+.mode-btn{font:inherit;font-size:12.5px;padding:5px 13px;border-radius:99px;
+  border:1px solid var(--line);background:var(--card);color:var(--dim);cursor:pointer;
+  font-family:var(--mono)}
+.mode-btn.on{color:var(--fg);border-color:var(--fg)}
+
+/* ── 舞台 ── */
+.stage{position:relative;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:24px 20px 18px;overflow:hidden}
+.cap{font-family:var(--mono);font-size:12px;color:var(--dim);min-height:2.4em;
+  display:flex;align-items:center;margin-bottom:14px;padding:0 4px}
+.cap b{color:var(--fg);font-weight:600;margin-right:6px}
+.row{display:flex;align-items:center;justify-content:center;gap:0;height:150px;position:relative}
+
+.entry{width:132px;flex:none;text-align:center;padding:12px 8px;border-radius:10px;
+  border:2px solid var(--line);background:var(--bg);transition:border-color .35s,background .35s,transform .35s;
+  position:relative;z-index:2}
+.entry .st{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+.entry .nm{font-weight:700;margin-top:3px;font-size:14px}
+.entry .way{font-size:10.5px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+.entry.loading{border-color:var(--loading)}
+.entry.loading .st{color:var(--loading)}
+.entry.active{border-color:var(--active);background:color-mix(in srgb,var(--active) 8%,var(--bg))}
+.entry.active .st{color:var(--active)}
+.entry.unloading{border-color:var(--unloading)}
+.entry.unloading .st{color:var(--unloading)}
+.entry.failed{border-color:var(--failed);animation:shake .38s}
+.entry.failed .st{color:var(--failed)}
+.entry.disposed{border-color:var(--line);background:var(--bg);opacity:.4}
+.entry.disposed .st{color:var(--dim)}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-9px)}
+  40%{transform:translateX(7px)}
+  60%{transform:translateX(-5px)}
+  80%{transform:translateX(3px)}
+}
+
+.beam{flex:1;height:2px;background:var(--line);position:relative;min-width:40px;max-width:120px}
+.beam i{position:absolute;top:-4px;left:0;height:10px;width:0;border-radius:2px;
+  background:var(--dim);transition:width .5s ease,background .3s}
+.beam.on i{width:100%;background:var(--active)}
+.beam.reject i{width:60%;background:var(--failed)}
+
+.seat{width:118px;height:118px;flex:none;border-radius:50%;border:2px dashed var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:border-color .4s,background .4s;position:relative;z-index:2}
+.seat .nm{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.seat .owner{font-weight:700;margin-top:5px;font-size:13px;opacity:0;transition:opacity .3s;color:var(--active)}
+.seat.filled{border-style:solid;border-color:var(--active);
+  background:color-mix(in srgb,var(--active) 10%,var(--bg))}
+.seat.filled .owner{opacity:1}
+.seat.empty{border-color:var(--line);background:var(--bg)}
+.seat.empty .owner{opacity:0}
+
+.bubble{position:absolute;left:50%;bottom:6px;transform:translate(-50%,8px);
+  max-width:340px;text-align:center;background:var(--bg);border:1px solid var(--failed);
+  color:var(--failed);border-radius:8px;padding:7px 12px;font-family:var(--mono);
+  font-size:11px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;z-index:3}
+.bubble.on{opacity:1;transform:translate(-50%,0)}
+
+.crash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb,var(--failed) 10%,transparent);opacity:0;
+  transition:opacity .5s;pointer-events:none}
+.crash.on{opacity:1}
+.crash span{background:var(--card);border:1px solid var(--failed);color:var(--failed);
+  padding:7px 16px;border-radius:99px;font-family:var(--mono);font-size:12px;font-weight:600}
+
+.ctl{display:flex;gap:10px;align-items:center;margin-top:14px;
+  padding-top:13px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--dim)}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:3px;vertical-align:middle}
+
+/* ── 对照舞台（不撞名） ── */
+.stage2{display:flex;justify-content:space-around;align-items:center;gap:14px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:24px 16px 20px;flex-wrap:wrap}
+.pair{display:flex;align-items:center;gap:0}
+.pair .entry{width:114px}
+.pair .beam{max-width:64px;min-width:34px}
+.pair .seat{width:96px;height:96px}
+.tag2{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--active);
+  border:1px solid color-mix(in srgb,var(--active) 40%,transparent);border-radius:99px;
+  padding:2.5px 10px}
+
+/* ── 表 ── */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:11.5px;color:var(--dim);font-weight:500;font-family:var(--mono)}
+td code{font-family:var(--mono);font-size:12px}
+.win{color:var(--active);font-weight:600} .lose{color:var(--failed)}
+
+/* ── 读出来的几条 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+
+.next{margin-top:34px;padding:14px 16px;border:1px dashed var(--line);border-radius:10px;
+  font-size:13px;color:var(--dim)}
+.next code{font-family:var(--mono);color:var(--fg)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">08-service-core / one-owner</div>
+<h1>一个名字一个主人</h1>
+<p class="sub">两个插件伸手去抢同一个 <code>ctx.provide</code> 名字，谁先到谁得，后到的当场撞回来。</p>
+<div class="tags">
+  <span class="tag">档次 ③</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>抢同一个名字</h2>
+<p class="note">切换下面两种写法组合，撞车的动画和报错原文都会跟着换——唯独那句
+<code>service "labSeat" has been registered</code> 一字不差。</p>
+
+<div class="modes">
+  <button class="mode-btn on" data-mode="bare">裸对象 vs 裸对象</button>
+  <button class="mode-btn" data-mode="class">裸对象 vs 服务基类</button>
+</div>
+
+<div class="stage" id="stage1">
+  <div class="cap" id="cap1"><b>▶</b> 点下面播放，看两边抢 <code>labSeat</code> 这个名字。</div>
+  <div class="row">
+    <div class="entry" id="ea">
+      <div class="st">PENDING</div>
+      <div class="nm" id="ea-nm">裸甲</div>
+      <div class="way" id="ea-way">裸对象</div>
+    </div>
+    <div class="beam left" id="ba"><i></i></div>
+    <div class="seat empty" id="seat1">
+      <div class="nm">labSeat</div>
+      <div class="owner" id="seat1-owner"></div>
+    </div>
+    <div class="beam" id="bb"><i></i></div>
+    <div class="entry" id="eb">
+      <div class="st">PENDING</div>
+      <div class="nm" id="eb-nm">裸乙</div>
+      <div class="way" id="eb-way">裸对象</div>
+    </div>
+    <div class="bubble" id="bubble1"></div>
+    <div class="crash" id="crash1"><span>撞车拖垮整个实例 · 退出码 1</span></div>
+  </div>
+  <div class="ctl">
+    <button id="play1">▶ 播放</button>
+    <div class="legend">
+      <span><i style="background:var(--loading)"></i>LOADING</span>
+      <span><i style="background:var(--active)"></i>ACTIVE</span>
+      <span><i style="background:var(--unloading)"></i>UNLOADING</span>
+      <span><i style="background:var(--failed)"></i>FAILED</span>
+    </div>
+  </div>
+</div>
+
+<h2>名字不同就不撞</h2>
+<p class="note">同样两个插件、同样两种写法，只把名字改开：两个都占上、都活到最后。</p>
+
+<div class="stage2" id="stage2">
+  <div class="pair">
+    <div class="entry" id="ca">
+      <div class="st">PENDING</div>
+      <div class="nm">裸的</div>
+      <div class="way">裸对象</div>
+    </div>
+    <div class="beam left" id="cba"><i></i></div>
+    <div class="seat empty" id="seatA">
+      <div class="nm">labSeatA</div>
+      <div class="owner">裸的</div>
+    </div>
+  </div>
+  <div class="pair">
+    <div class="seat empty" id="seatB">
+      <div class="nm">labSeatB</div>
+      <div class="owner">基类的</div>
+    </div>
+    <div class="beam" id="cbb"><i></i></div>
+    <div class="entry" id="cb">
+      <div class="st">PENDING</div>
+      <div class="nm">基类的</div>
+      <div class="way">服务基类</div>
+    </div>
+  </div>
+  <span class="tag2" id="alive2" style="opacity:0">● 实例存活</span>
+</div>
+<div class="ctl"><button id="play2">▶ 播放</button></div>
+
+<h2>三条用例，一张表</h2>
+<table>
+  <tr><th>场景</th><th>甲</th><th>乙</th><th>名字</th><th>结局</th><th>用例</th></tr>
+  <tr>
+    <td>裸 vs 裸</td><td>裸甲 · 裸对象</td><td class="lose">裸乙 · 裸对象</td>
+    <td><code>labSeat</code> / <code>labSeat</code></td>
+    <td>乙撞车，<span class="lose">整实例退出</span></td>
+    <td><code>test_two_bare_owners_collide</code></td>
+  </tr>
+  <tr>
+    <td>裸 vs 基类</td><td>裸的 · 裸对象</td><td class="lose">基类的 · 服务基类</td>
+    <td><code>labSeat</code> / <code>labSeat</code></td>
+    <td>基类的撞车，报错<b>一字不差</b></td>
+    <td><code>test_bare_and_class_collide_too</code></td>
+  </tr>
+  <tr>
+    <td>不撞名</td><td class="win">裸的 · 裸对象</td><td class="win">基类的 · 服务基类</td>
+    <td><code>labSeatA</code> / <code>labSeatB</code></td>
+    <td class="win">两个都 ACTIVE，实例存活</td>
+    <td><code>test_different_names_both_live</code></td>
+  </tr>
+</table>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>名字被占的时刻，是 <code>ctx.provide()</code> 被调用那一刻</b>，不是这个条目
+    自己变 ACTIVE 的时刻。裸甲「占上了」发生在 1.5ms，比它自己变 ACTIVE 早了近 2ms——
+    裸乙 2.5ms 才伸手，那时名字早就没了。
+    <span class="from">events-bare-vs-bare.jsonl · seq 15 / 22</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>连赢家也陪葬。</b>撞车不是「输的死、赢的没事」——裸甲占上名字、变过 ACTIVE
+    之后，还是被 <code>UNLOADING → DISPOSED</code>，整个实例退出码 1。启动期的撞车
+    拖垮的是整棵树，不只是撞名的那一个条目。
+    <span class="from">events-bare-vs-bare.jsonl · 6.2ms 裸甲 ACTIVE→UNLOADING</span>
+  </p></div>
+</div>
+
+<div class="next">下一项 <code>registry</code>：铁律不能破，但「想让多个实现并存」另有活路。</div>
+
+<footer>
+判定与证据出处在 <code>test_one_owner.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+动画数据取自归档 <code>results/20260817-151035/</code>
+（<code>events-bare-vs-bare.jsonl</code> · <code>events-bare-vs-class.jsonl</code> ·
+<code>events-no-collision.jsonl</code> · 各 <code>witness-*.json</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+// ── 舞台一：抢名字（两种写法可切换，事件时间取自归档 events-bare-vs-*.jsonl） ──
+const MODES = {
+  bare: {
+    nmA:'裸甲', wayA:'裸对象', nmB:'裸乙', wayB:'裸对象', seat:'labSeat',
+    beats:[
+      {ms:1.09, cap:'裸甲 PENDING → LOADING', fn:()=>setEntry('ea','loading')},
+      {ms:1.12, cap:'裸乙 PENDING → LOADING', fn:()=>setEntry('eb','loading')},
+      {ms:1.49, cap:'裸甲调用 ctx.provide("labSeat", …) —— 名字这一刻起是它的', fn:()=>claim1('a')},
+      {ms:2.46, cap:'裸乙也调用 ctx.provide("labSeat", …)', fn:()=>reach1('b')},
+      {ms:3.08, cap:'裸乙 LOADING → UNLOADING —— provide() 抛错，apply 中断', fn:()=>bounce1('b')},
+      {ms:3.28, cap:'裸甲 LOADING → ACTIVE，服务 labSeat 正式出现', fn:()=>setEntry('ea','active')},
+      {ms:3.33, cap:'裸乙 UNLOADING → FAILED', fn:()=>fail1('b')},
+      {ms:6.20, cap:'撞车拖垮整个实例：裸甲 ACTIVE → UNLOADING', fn:()=>setEntry('ea','unloading')},
+      {ms:6.28, cap:'裸甲 UNLOADING → DISPOSED，进程退出，退出码 1', fn:()=>crash1()},
+    ],
+  },
+  class: {
+    nmA:'裸的', wayA:'裸对象', nmB:'基类的', wayB:'服务基类', seat:'labSeat',
+    beats:[
+      {ms:1.03, cap:'裸的 PENDING → LOADING', fn:()=>setEntry('ea','loading')},
+      {ms:1.18, cap:'基类的 PENDING → LOADING', fn:()=>setEntry('eb','loading')},
+      {ms:1.49, cap:'裸的调用 ctx.provide("labSeat", …) —— 名字这一刻起是它的', fn:()=>claim1('a')},
+      {ms:1.90, cap:'基类的构造函数里 super(ctx, "labSeat")，同一条注册通道', fn:()=>reach1('b')},
+      {ms:2.72, cap:'基类的 LOADING → UNLOADING —— 同样是 provide() 抛错', fn:()=>bounce1('b')},
+      {ms:2.95, cap:'裸的 LOADING → ACTIVE，服务 labSeat 正式出现', fn:()=>setEntry('ea','active')},
+      {ms:3.00, cap:'基类的 UNLOADING → FAILED', fn:()=>fail1('b')},
+      {ms:6.48, cap:'撞车照样拖垮整个实例：裸的 ACTIVE → UNLOADING', fn:()=>setEntry('ea','unloading')},
+      {ms:6.56, cap:'裸的 UNLOADING → DISPOSED，进程退出，退出码 1', fn:()=>crash1()},
+    ],
+  },
+};
+const COLLIDE = 'service "labSeat" has been registered at <Include>';
+
+const ea = document.getElementById('ea'), eb = document.getElementById('eb');
+const eaNm = document.getElementById('ea-nm'), eaWay = document.getElementById('ea-way');
+const ebNm = document.getElementById('eb-nm'), ebWay = document.getElementById('eb-way');
+const ba = document.getElementById('ba'), bb = document.getElementById('bb');
+const seat1 = document.getElementById('seat1'), seat1owner = document.getElementById('seat1-owner');
+const bubble1 = document.getElementById('bubble1'), crashEl1 = document.getElementById('crash1');
+const cap1 = document.getElementById('cap1');
+
+function setEntry(id, state){
+  const el = document.getElementById(id);
+  el.className = 'entry ' + state;
+  el.querySelector('.st').textContent = state.toUpperCase();
+}
+function claim1(side){
+  const beam = side === 'a' ? ba : bb;
+  beam.classList.add('on');
+  seat1.className = 'seat filled';
+  seat1owner.textContent = side === 'a' ? eaNm.textContent : ebNm.textContent;
+}
+function reach1(side){
+  const beam = side === 'a' ? ba : bb;
+  beam.classList.add('reject');
+}
+function bounce1(side){
+  const el = side === 'a' ? ea : eb;
+  el.className = 'entry unloading';
+  el.querySelector('.st').textContent = 'UNLOADING';
+  el.classList.add('failed'); // 触发一次抖动
+  setTimeout(() => el.classList.remove('failed'), 400);
+}
+function fail1(side){
+  const el = side === 'a' ? ea : eb;
+  el.className = 'entry failed';
+  el.querySelector('.st').textContent = 'FAILED';
+  bubble1.textContent = COLLIDE;
+  bubble1.classList.add('on');
+}
+function crash1(){
+  ea.className = 'entry disposed';
+  ea.querySelector('.st').textContent = 'DISPOSED';
+  seat1.className = 'seat empty';
+  seat1owner.textContent = '';
+  crashEl1.classList.add('on');
+}
+
+let mode = 'bare';
+let timers1 = [];
+function resetStage1(){
+  timers1.forEach(clearTimeout); timers1 = [];
+  const cfg = MODES[mode];
+  eaNm.textContent = cfg.nmA; eaWay.textContent = cfg.wayA;
+  ebNm.textContent = cfg.nmB; ebWay.textContent = cfg.wayB;
+  document.querySelector('#seat1 .nm').textContent = cfg.seat;
+  [ea, eb].forEach(el => { el.className = 'entry'; el.querySelector('.st').textContent = 'PENDING'; });
+  [ba, bb].forEach(b => b.classList.remove('on', 'reject'));
+  seat1.className = 'seat empty'; seat1owner.textContent = '';
+  bubble1.classList.remove('on');
+  crashEl1.classList.remove('on');
+  cap1.innerHTML = '<b>▶</b> 点下面播放，看两边抢 <code>' + cfg.seat + '</code> 这个名字。';
+}
+function play1(){
+  resetStage1();
+  const cfg = MODES[mode];
+  let t = 300;
+  cfg.beats.forEach((b, i) => {
+    if (i > 0) t += Math.max(180, (b.ms - cfg.beats[i - 1].ms) * 700);
+    timers1.push(setTimeout(() => {
+      b.fn();
+      cap1.innerHTML = `<b>${b.ms.toFixed(2)}ms</b> ${b.cap}`;
+    }, t));
+  });
+}
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    mode = btn.dataset.mode;
+    resetStage1();
+  });
+});
+document.getElementById('play1').addEventListener('click', play1);
+resetStage1();
+
+// ── 舞台二：不撞名（事件时间取自归档 events-no-collision.jsonl） ──
+const ca = document.getElementById('ca'), cb = document.getElementById('cb');
+const cba = document.getElementById('cba'), cbb = document.getElementById('cbb');
+const seatA = document.getElementById('seatA'), seatB = document.getElementById('seatB');
+const alive2 = document.getElementById('alive2');
+
+const BEATS2 = [
+  {ms:1.04, fn:() => setEntry('ca', 'loading')},
+  {ms:1.19, fn:() => setEntry('cb', 'loading')},
+  {ms:1.50, fn:() => { cba.classList.add('on'); seatA.className = 'seat filled'; }},
+  {ms:2.00, fn:() => { cbb.classList.add('on'); seatB.className = 'seat filled'; }},
+  {ms:2.53, fn:() => setEntry('ca', 'active')},
+  {ms:2.60, fn:() => { setEntry('cb', 'active'); alive2.style.opacity = 1; }},
+];
+let timers2 = [];
+function resetStage2(){
+  timers2.forEach(clearTimeout); timers2 = [];
+  [ca, cb].forEach(el => { el.className = 'entry'; el.querySelector('.st').textContent = 'PENDING'; });
+  [cba, cbb].forEach(b => b.classList.remove('on'));
+  seatA.className = 'seat empty'; seatB.className = 'seat empty';
+  alive2.style.opacity = 0;
+}
+function play2(){
+  resetStage2();
+  let t = 300;
+  BEATS2.forEach((b, i) => {
+    if (i > 0) t += Math.max(180, (b.ms - BEATS2[i - 1].ms) * 700);
+    timers2.push(setTimeout(b.fn, t));
+  });
+}
+document.getElementById('play2').addEventListener('click', play2);
+resetStage2();
+play1();
+play2();
+</script>
+</body>
+</html>

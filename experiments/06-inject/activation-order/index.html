@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>activation-order · 书写顺序不决定加载顺序</title>
+<style>
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --c-registry:#3b82f6; --c-alpha:#a855f7; --c-beta:#22c55e; --ok:#22c55e;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:32px 20px 72px}
+.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
+h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
+  border-radius:99px;color:var(--dim);font-family:var(--mono)}
+.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+h2{font-size:15px;margin:38px 0 4px}
+.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 依赖链 ── */
+.chain{display:flex;align-items:stretch;gap:0;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:18px 16px;
+  overflow-x:auto}
+.cbox{flex:1;min-width:140px;border:1.5px solid var(--cc);border-radius:10px;
+  padding:10px 12px;text-align:center}
+.cbox .nm{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--cc)}
+.cbox .ds{font-size:11px;color:var(--dim);margin-top:4px;line-height:1.5}
+.carrow{flex:none;width:52px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:var(--dim)}
+.carrow .gl{font-size:18px;line-height:1}
+.carrow .lb{font-size:10px;font-family:var(--mono);margin-top:2px;white-space:nowrap}
+
+/* ── 双栏对照 ── */
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px}
+.col{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px 16px 14px}
+.col h3{font-size:11.5px;color:var(--dim);font-family:var(--mono);
+  margin:0 0 12px;font-weight:500;text-align:center;letter-spacing:.02em}
+.plist{display:flex;flex-direction:column;gap:7px}
+.prow{--c:var(--dim);display:flex;align-items:center;gap:9px;padding:8px 11px;
+  border-radius:8px;border:1px dashed var(--line);transition:all .3s;
+  background:var(--bg)}
+.prow.on{border-color:var(--c);border-style:solid;
+  background:color-mix(in srgb,var(--c) 12%,var(--bg))}
+.prow .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--c);
+  opacity:.35;transition:opacity .3s}
+.prow.on .dot{opacity:1}
+.prow .nm{font-family:var(--mono);font-size:12.5px}
+.prow .badge{margin-left:auto;font-family:var(--mono);font-size:10.5px;
+  color:var(--c);opacity:0;transform:translateY(-2px);white-space:nowrap;
+  transition:all .3s}
+.prow.on .badge{opacity:1;transform:none}
+
+.verdict{margin-top:16px;text-align:center;padding:12px 14px;border-radius:10px;
+  border:1px solid var(--line);font-size:13px;color:var(--dim);opacity:0;
+  transform:translateY(-4px);transition:all .4s}
+.verdict.on{opacity:1;transform:none;border-color:color-mix(in srgb,var(--ok) 45%,transparent);
+  color:var(--fg)}
+.verdict b{color:var(--ok)}
+
+.ctl{display:flex;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--dim)}
+
+.reads{display:grid;gap:10px;margin-top:16px}
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
+.read p{margin:0;font-size:13.5px}
+.read code{font-family:var(--mono);font-size:12px}
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+footer a{color:inherit}
+
+@media (max-width:600px){
+  .dual{grid-template-columns:1fr}
+  .chain{flex-direction:column}
+  .carrow{width:auto;flex-direction:row;padding:2px 0}
+  .carrow .gl{transform:rotate(90deg)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="crumb">06-inject / activation-order</div>
+<h1>书写顺序不决定加载顺序</h1>
+<p class="sub">patch 文件里三条怎么排都不影响谁先真正 apply——谁先备齐依赖，谁先跑。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 2 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>三个教学插件的依赖链</h2>
+<p class="note">箭头指向被依赖者。</p>
+<div class="chain">
+  <div class="cbox" style="--cc:var(--c-beta)">
+    <div class="nm">lab-beta</div>
+    <div class="ds">依赖 labRegistry<br>+ labAlpha</div>
+  </div>
+  <div class="carrow"><span class="gl">←</span><span class="lb">依赖</span></div>
+  <div class="cbox" style="--cc:var(--c-alpha)">
+    <div class="nm">lab-alpha</div>
+    <div class="ds">依赖 labRegistry<br>提供 labAlpha</div>
+  </div>
+  <div class="carrow"><span class="gl">←</span><span class="lb">依赖</span></div>
+  <div class="cbox" style="--cc:var(--c-registry)">
+    <div class="nm">lab-registry</div>
+    <div class="ds">提供 labRegistry<br>不依赖任何人</div>
+  </div>
+</div>
+
+<h2>两份 patch，顺序相反，落地顺序一样</h2>
+<p class="note">左边正着写（registry → alpha → beta），右边倒着写（beta → alpha → registry）。播放看两边真正 apply 的先后。</p>
+
+<div class="dual">
+  <div class="col">
+    <h3>正着写的 patch</h3>
+    <div class="plist" data-side="fwd">
+      <div class="prow" data-id="registry" style="--c:var(--c-registry)">
+        <span class="dot"></span><span class="nm">lab-registry</span>
+        <span class="badge"></span>
+      </div>
+      <div class="prow" data-id="alpha" style="--c:var(--c-alpha)">
+        <span class="dot"></span><span class="nm">lab-alpha</span>
+        <span class="badge"></span>
+      </div>
+      <div class="prow" data-id="beta" style="--c:var(--c-beta)">
+        <span class="dot"></span><span class="nm">lab-beta</span>
+        <span class="badge"></span>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <h3>倒着写的 patch</h3>
+    <div class="plist" data-side="rev">
+      <div class="prow" data-id="beta" style="--c:var(--c-beta)">
+        <span class="dot"></span><span class="nm">lab-beta</span>
+        <span class="badge"></span>
+      </div>
+      <div class="prow" data-id="alpha" style="--c:var(--c-alpha)">
+        <span class="dot"></span><span class="nm">lab-alpha</span>
+        <span class="badge"></span>
+      </div>
+      <div class="prow" data-id="registry" style="--c:var(--c-registry)">
+        <span class="dot"></span><span class="nm">lab-registry</span>
+        <span class="badge"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="verdict" id="verdict">
+  两边书写顺序相反，实际 apply 顺序都是 <b>registry → alpha → beta</b>——一模一样。
+</div>
+
+<div class="ctl"><button id="play">▶ 播放</button></div>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>顺序由服务就位驱动，不由行序驱动。</b>账本文件每登记一笔就整份落盘，落盘顺序即真实 apply 先后；
+    正着写和倒着写两次跑下来，账本记的都是 <code>["lab-alpha", "lab-beta"]</code>。
+    <span class="from">test_dependency_chain_applies_in_service_order · test_write_order_does_not_decide_load_order</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>beta 真的拿到了 alpha 提供的服务，不只是顺序凑巧对。</b>
+    beta 的见证文件里 <code>gotAlpha: true</code>，登记时的 note 是「alpha 在这儿」——
+    这是 alpha 提供的 <code>labAlpha.greet()</code> 的返回值，证明 beta 是等 alpha 就位后才跑的。
+    <span class="from">w-beta.json · gotRegistry / gotAlpha 均为 true</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_activation_order.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+时序数据取自归档 <code>results/20260817-151055/ledger.json</code> 与 <code>w-beta.json</code>：
+lab-alpha 登记于账本计时起点后 0.7846ms，lab-beta 登记于 1.3769ms（note 为「alpha 在这儿」）。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</div>
+
+<script>
+// 真实相对时间（ms，取自归档）。registry 提供账本时把自己的 apply 时刻定为计时原点 t0，
+// 所以它自己是 0ms；alpha / beta 的 ms 是相对 t0 的真实偏移。
+const SEQ = [
+  {id:'registry', ms:0,      badge:'t0 · 基准'},
+  {id:'alpha',    ms:0.7846, badge:'0.78ms'},
+  {id:'beta',     ms:1.3769, badge:'1.38ms · 拿到 labAlpha ✓'},
+];
+
+const cols = [...document.querySelectorAll('.plist')];
+const verdict = document.getElementById('verdict');
+let timers = [];
+
+function rowsFor(id){
+  return cols.map(col => col.querySelector(`.prow[data-id="${id}"]`));
+}
+
+function play(){
+  timers.forEach(clearTimeout); timers = [];
+  document.querySelectorAll('.prow').forEach(r => {
+    r.classList.remove('on');
+    r.querySelector('.badge').textContent = '';
+  });
+  verdict.classList.remove('on');
+
+  let t = 300;
+  SEQ.forEach((e, i) => {
+    if (i > 0) t += Math.max(400, (e.ms - SEQ[i-1].ms) * 700);
+    timers.push(setTimeout(() => {
+      rowsFor(e.id).forEach(r => {
+        r.classList.add('on');
+        r.querySelector('.badge').textContent = e.badge;
+      });
+    }, t));
+  });
+  timers.push(setTimeout(() => verdict.classList.add('on'), t + 550));
+}
+document.getElementById('play').addEventListener('click', play);
+play();
+</script>
+</body>
+</html>
