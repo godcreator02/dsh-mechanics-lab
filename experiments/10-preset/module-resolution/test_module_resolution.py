@@ -11,8 +11,10 @@
   `test_unknown_bare_specifier_fails_at_mount` 里 Node 自己报的 base：
 
       Cannot find package 'no-such-package-anywhere' imported from
-      …\out\testhome\module-resolution\profiles\unknown\
-      (…\out\testhome\module-resolution\.agent-presets\reso-unknown\agent.cordis.yml)
+      .../out/testhome/module-resolution/profiles/unknown/
+      (.../out/testhome/module-resolution/.agent-presets/reso-unknown/agent.cordis.yml)
+
+  （原文是 Windows 反斜杠路径，这里改成正斜杠以免撞上 Python 的转义序列。）
 
   `imported from` 后面那个正是 **profile 目录**，而组合文件本身住在
   `$DSH_HOME/.agent-presets/` 下——两个路径分属两处，正说明解析基准不是
@@ -118,9 +120,7 @@ def test_specifier_forms_resolve_from_their_own_base(lab_home: LabHome, fixtures
     （文件只在 preset 自己的目录里）、Windows 绝对路径（带盘符）。
     """
     witness = lab_home.root / "witness-resolution.jsonl"
-    profile = lab_home.make_profile(
-        "resolution", web=True, patch=probe_patch([BARE_ID, RELATIVE_ID, ABSOLUTE_ID])
-    )
+    profile = lab_home.make_profile("resolution", web=True, patch=probe_patch([BARE_ID, RELATIVE_ID, ABSOLUTE_ID]))
     profile.link_plugin("preset-probe", fixtures_dir / "preset-probe")
     # 裸包名那条的全部依据：这个包只在 profile 的 node_modules 里，
     # preset 目录（$DSH_HOME/.agent-presets/）往上走永远够不着它。
@@ -176,15 +176,14 @@ def test_specifier_forms_resolve_from_their_own_base(lab_home: LabHome, fixtures
         )
 
     rows = inst.wait_for(
-        lambda: (r if (r := witness_rows(witness)) and len(r) >= 3 else None),
+        lambda: r if (r := witness_rows(witness)) and len(r) >= 3 else None,
         timeout=20.0,
         what="三个插件都往见证文件写过",
     )
     labels = sorted(row["label"] for row in rows)
     print(f"\n见证文件：{json.dumps(rows, ensure_ascii=False, indent=2)}")
     assert labels == ["absolute", "bare", "relative"], (
-        f"三种 specifier 的 apply 都应当真跑过，实际只有 {labels}——"
-        "mount 没抛只说明组合成功，见证文件才说明代码执行了"
+        f"三种 specifier 的 apply 都应当真跑过，实际只有 {labels}——mount 没抛只说明组合成功，见证文件才说明代码执行了"
     )
 
 
