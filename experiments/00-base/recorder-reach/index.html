@@ -7,25 +7,22 @@
 <link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
-  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
-  --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e; --miss:#ef4444; --say:#a855f7;
+
+ --say:#a855f7;
   --bmhit:#b45309;
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+
   --bmhit:#fbbf24;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+
   --bmhit:#fbbf24;
 }
 .pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .ft li.br{color:var(--dim);margin-top:7px;font-weight:600}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
-h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .usecase{font-size:12px;color:var(--dim);font-family:var(--mono);margin:10px 0 0}
 .usecase code{color:var(--fg)}
 /* ── 板块 0：机制怎么工作（五步链条，picker 驱动）── */
@@ -48,15 +45,10 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
   border:1px solid var(--line);background:var(--bg);cursor:default;
   transition:border-color .2s,transform .2s}
 .chip:hover{transform:translateY(-1px)}
-.chip.mine{border-color:color-mix(in srgb,var(--active) 45%,transparent);color:var(--active)}
-.chip.mine:hover{border-color:var(--active)}
-.chip.fw:hover{border-color:var(--loading);color:var(--loading)}
+.chip.mine{border-color:color-mix(in srgb,var(--ok) 45%,transparent);color:var(--ok)}
+.chip.mine:hover{border-color:var(--ok)}
+.chip.fw:hover{border-color:var(--st-loading);color:var(--st-loading)}
 .chip.more{color:var(--dim);border-style:dashed}
-.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
-  padding:8px 12px;margin-top:14px;border-radius:8px;
-  background:color-mix(in srgb,var(--fg) 4%,transparent)}
-.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
-.cap .d{font-size:12.5px;line-height:1.55}
 .cap .d b{color:var(--say)}
 .quote{margin-top:12px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:8px}
 .quote i{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
@@ -98,39 +90,13 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .blind.on{opacity:1}
 .blind b{position:absolute;top:-18px;left:0;font-size:10px;color:var(--dim);
   font-family:var(--mono);white-space:nowrap;font-weight:600}
-.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
-  padding-top:12px;border-top:1px solid var(--line)}
-button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
-  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover:not(:disabled){border-color:var(--dim)}
-button:disabled{opacity:.35;cursor:default}
-.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
-  min-width:52px;text-align:center}
-.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
-.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
-  font-size:11px;color:var(--dim);font-family:var(--mono)}
-.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
-  margin-right:3px;vertical-align:middle}
-/* ── 读出来的两条 ── */
-.reads{display:grid;gap:10px;margin-top:16px}
-.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px}
-.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);
-  flex:none;padding-top:2px}
-.read p{margin:0;font-size:13.5px}
-.read code{font-family:var(--mono);font-size:12px}
-.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);
-  font-family:var(--mono)}
 /* ── 表 ── */
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
 th{font-size:11.5px;color:var(--dim);font-weight:500;font-family:var(--mono)}
 td code{font-family:var(--mono);font-size:12px}
-.win{color:var(--active);font-weight:600}
-.lose{color:var(--miss)}
-footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
-  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-</style>
+.win{color:var(--ok);font-weight:600}
+.lose{color:var(--miss)}</style>
 </head>
 <body>
 <div class="layout">
@@ -215,9 +181,9 @@ footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
     <button id="next2">下一步 →</button>
     <span class="hint">← → 键也行</span>
     <div class="legend">
-      <span><i style="background:var(--pending)"></i>PENDING</span>
-      <span><i style="background:var(--loading)"></i>LOADING</span>
-      <span><i style="background:var(--active)"></i>ACTIVE</span>
+      <span><i style="background:var(--st-pending)"></i>PENDING</span>
+      <span><i style="background:var(--st-loading)"></i>LOADING</span>
+      <span><i style="background:var(--ok)"></i>ACTIVE</span>
     </div>
   </div>
   <div class="seg-label"><span>它睁眼之前是黑的</span><span>它睁眼之后才有记录</span></div>
@@ -915,15 +881,15 @@ initPicker(document.getElementById('hearPicker'), (body, i) => {
 const EV2 = [
   { ms: 0.34, kind: 'marker', seq: 0,
     cap: '（这不是它的第一个动作，是它睁眼的那一刻。）从这一行起，事件流才开始有记录。' },
-  { ms: 0.97, lane: 'a', nm: 'LOADING', c: '--loading', seq: 80,
+  { ms: 0.97, lane: 'a', nm: 'LOADING', c: '--st-loading', seq: 80,
     cap: '起点快照按下快门：它自己也在这份名单里——此刻是 <b>LOADING</b>。它没有特权，跟树上其他条目受同样的规则约束。' },
-  { ms: 0.98, lane: 'b', nm: 'PENDING', c: '--pending', seq: 81,
+  { ms: 0.98, lane: 'b', nm: 'PENDING', c: '--st-pending', seq: 81,
     cap: '陪衬插件这时也被拍进快照，此刻还是 <b>PENDING</b>——它的整条链会被完整记录。' },
-  { ms: 2.56, lane: 'a', nm: 'ACTIVE', c: '--active', seq: 121,
+  { ms: 2.56, lane: 'a', nm: 'ACTIVE', c: '--st-active', seq: 121,
     cap: '<b>这一跳，它是自己把自己记下来的：</b>LOADING → ACTIVE。' },
-  { ms: 2.62, lane: 'b', nm: 'LOADING', c: '--loading', seq: 122,
+  { ms: 2.62, lane: 'b', nm: 'LOADING', c: '--st-loading', seq: 122,
     cap: '陪衬插件走出第一跳：PENDING → LOADING，从被造出来那一刻就没漏过。' },
-  { ms: 8.24, lane: 'b', nm: 'ACTIVE', c: '--active', seq: 203,
+  { ms: 8.24, lane: 'b', nm: 'ACTIVE', c: '--st-active', seq: 203,
     cap: '陪衬插件走完全程——<b>PENDING → LOADING → ACTIVE，一跳不缺</b>。这是对照组：它没有像 lab-recorder 自己那样，被截掉开头那一跳。' },
 ];
 const track2 = document.getElementById('track2');

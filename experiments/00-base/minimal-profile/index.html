@@ -7,41 +7,37 @@
 <link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
-  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
-  --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e; --failed:#ef4444;
-  --warn:#b45309; --warnbg:#fffbeb; --bmhit:#7c3aed;
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+
+ --bmhit:#7c3aed;
+
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --warn:#fbbf24; --warnbg:#221a08; --bmhit:#a78bfa;
+
+ --bmhit:#a78bfa;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --warn:#fbbf24; --warnbg:#221a08; --bmhit:#a78bfa;
+
+ --bmhit:#a78bfa;
 }
 .pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .ft .flabel{display:block;padding:1px 5px;color:inherit}
 .ft .same{color:var(--dim)}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
-h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 /* ── 开篇立机制的一段话 ── */
 .lead{font-size:14px;line-height:1.85;margin:0 0 8px}
 .lead code{font-family:var(--mono);font-size:12.5px}
 /* ── 卡片摘要：picker.big 卡面上的 chip 与结果点，五个 profile 共用 ── */
 .chips{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
 .chip{font-size:10px;font-family:var(--mono);padding:1.5px 6px;border-radius:99px;
-  border:1px solid color-mix(in srgb,var(--active) 40%,transparent);
-  color:var(--active);background:color-mix(in srgb,var(--active) 8%,transparent)}
+  border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);
+  color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,transparent)}
 .outcome{margin-top:9px;font-size:11px;font-family:var(--mono);
   display:flex;align-items:center;gap:5px}
 .outcome i{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
-.outcome.ok{color:var(--active)}
-.outcome.ok i{background:var(--active)}
-.outcome.bad{color:var(--failed)}
-.outcome.bad i{background:var(--failed)}
+.outcome.ok{color:var(--ok)}
+.outcome.ok i{background:var(--ok)}
+.outcome.bad{color:var(--miss)}
+.outcome.bad i{background:var(--miss)}
 #picks1 .pn{font-family:var(--mono)}
 #pb1{min-height:250px}
 /* ── pickbody 详情格式：五个 profile 展开内容用 ── */
@@ -55,19 +51,7 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
   border-radius:7px;font-family:var(--mono);font-size:11px;line-height:1.6;
   overflow-x:auto;white-space:pre}
 .pickbody b{color:var(--fg)}
-.pickbody .bad-note{color:var(--failed);font-weight:600}
-/* ── 分步控件：节奏归读者，不自动播 ── */
-button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
-  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover:not(:disabled){border-color:var(--dim)}
-button:disabled{opacity:.35;cursor:default}
-.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
-  min-width:52px;text-align:center}
-.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
-.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
-  font-size:11px;color:var(--dim);font-family:var(--mono)}
-.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
-  margin-right:3px;vertical-align:middle}
+.pickbody .bad-note{color:var(--miss);font-weight:600}
 /* ── 时序舞台：timer → hmr 的硬依赖 ── */
 .stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:22px 18px 16px}
@@ -78,31 +62,15 @@ button:disabled{opacity:.35;cursor:default}
   transition:border-color .3s,background .3s}
 .tentry .st{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .tentry .nm{font-weight:700;margin-top:4px;font-size:14px}
-.tentry.loading{border-color:var(--loading)}
-.tentry.loading .st{color:var(--loading)}
-.tentry.active{border-color:var(--active);background:color-mix(in srgb,var(--active) 8%,var(--bg))}
-.tentry.active .st{color:var(--active)}
+.tentry.loading{border-color:var(--st-loading)}
+.tentry.loading .st{color:var(--st-loading)}
+.tentry.active{border-color:var(--st-active);background:color-mix(in srgb,var(--st-active) 8%,var(--bg))}
+.tentry.active .st{color:var(--st-active)}
 .arrow{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:center;
   min-width:120px}
 .arrow .ar{font-size:22px;display:block;margin-bottom:3px;transition:color .3s}
-.arrow.open{color:var(--active)}
-.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
-  padding:8px 12px;margin-top:14px;border-radius:8px;
-  background:color-mix(in srgb,var(--fg) 4%,transparent)}
-.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
-.cap .d{font-size:12.5px;line-height:1.55}
-.cap .d b{color:var(--warn)}
-/* ── 读出来的 ── */
-.reads{display:grid;gap:10px;margin-top:16px}
-.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px}
-.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
-.read p{margin:0;font-size:13.5px}
-.read code{font-family:var(--mono);font-size:12px}
-.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
-footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
-  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-</style>
+.arrow.open{color:var(--st-active)}
+.cap .d b{color:var(--warn)}</style>
 </head>
 <body>
 <div class="layout">
@@ -165,9 +133,9 @@ footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
     <button id="next2">下一步 →</button>
     <span class="hint">← → 键也行</span>
     <div class="legend">
-      <span><i style="background:var(--pending)"></i>PENDING</span>
-      <span><i style="background:var(--loading)"></i>LOADING</span>
-      <span><i style="background:var(--active)"></i>ACTIVE</span>
+      <span><i style="background:var(--st-pending)"></i>PENDING</span>
+      <span><i style="background:var(--st-loading)"></i>LOADING</span>
+      <span><i style="background:var(--ok)"></i>ACTIVE</span>
     </div>
   </div>
   <div class="pair">

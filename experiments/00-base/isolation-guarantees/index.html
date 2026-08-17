@@ -7,31 +7,27 @@
 <link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
-  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
-  --gap:#b45309; --gapbg:#fffbeb;
+
   --m1:#8b5cf6; --m2:#0ea5e9; --m3:#e11d48; --m4:#d97706;
   --bmhit:#c026d3;
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --gap:#fbbf24; --gapbg:#241c08;
+
   --m1:#a78bfa; --m2:#38bdf8; --m3:#fb7185; --m4:#fbbf24;
   --bmhit:#e879f9;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --gap:#fbbf24; --gapbg:#241c08;
+
   --m1:#a78bfa; --m2:#38bdf8; --m3:#fb7185; --m4:#fbbf24;
   --bmhit:#e879f9;
 }
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
-.tag.todo{color:var(--gap);border:1px dashed color-mix(in srgb,var(--gap) 55%,transparent);
+.tag.todo{color:var(--warn);border:1px dashed color-mix(in srgb,var(--warn) 55%,transparent);
   font-weight:600}
 /* ── 顶部横幅：这页没有证据 ── */
 .banner{display:flex;gap:10px;align-items:flex-start;padding:13px 16px;
-  margin-bottom:22px;border:1px dashed color-mix(in srgb,var(--gap) 55%,transparent);
-  border-radius:10px;background:var(--gapbg);color:var(--gap);font-size:13px;
+  margin-bottom:22px;border:1px dashed color-mix(in srgb,var(--warn) 55%,transparent);
+  border-radius:10px;background:var(--warnbg);color:var(--warn);font-size:13px;
   line-height:1.65}
 .banner b{font-weight:700}
 .banner code{font-family:var(--mono);font-size:12px;opacity:.9}
@@ -39,14 +35,13 @@
 .gapwrap{border:1.5px dashed var(--line);border-radius:14px;padding:6px 22px 20px}
 .pane{background:var(--card);border:1.5px dashed var(--line);border-radius:10px;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
-h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
 /* ── 详情面板通用样式：pickbody 里渲染「谁实现／没验证什么／补上要造什么」用 ── */
 .hd{display:flex;align-items:baseline;gap:9px;margin-bottom:10px}
 .hd .nm{font-weight:700;font-size:14.5px}
 .st{display:inline-block;font-size:10.5px;font-family:var(--mono);
   color:var(--dim);border:1px dashed var(--line);border-radius:99px;padding:1.5px 8px}
-.hd .st{font-size:11px;color:var(--gap);
-  border-color:color-mix(in srgb,var(--gap) 55%,transparent)}
+.hd .st{font-size:11px;color:var(--warn);
+  border-color:color-mix(in srgb,var(--warn) 55%,transparent)}
 .drow{display:flex;gap:11px;padding:9px 0;border-top:1px solid var(--line)}
 .drow:first-of-type{border-top:none}
 .drow .k{flex:none;width:112px;font-size:11px;color:var(--dim);
@@ -55,11 +50,6 @@ h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
 .drow .v code{font-family:var(--mono);font-size:12px;
   background:color-mix(in srgb,var(--fg) 6%,transparent);
   padding:1px 5px;border-radius:4px}
-/* ── 按钮基础重置（卡片、树窗折叠按钮都是 button） ── */
-button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
-  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover:not(:disabled){border-color:var(--dim)}
-button:disabled{opacity:.35;cursor:default}
 /* ── 三态小结 ── */
 .legend3{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 4px;
   font-size:11.5px;color:var(--dim)}
@@ -67,10 +57,7 @@ button:disabled{opacity:.35;cursor:default}
 .legend3 i{width:8px;height:8px;border-radius:50%;border:1.5px dashed var(--dim)}
 /* 这一项最长那两段（五步说明、四条机制的详情）比默认高，就地调大，切换时不跳 */
 #pb-mech{min-height:190px}
-#pb-mech2{min-height:230px}
-footer{margin-top:38px;padding-top:16px;border-top:1px solid var(--line);
-  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-</style>
+#pb-mech2{min-height:230px}</style>
 </head>
 <body>
 <div class="layout">
@@ -430,7 +417,6 @@ const M = [
         +'只是多打一行归档警告。',
   },
 ];
-
 
 /* 枚举选择器：一排可选项 ＋ 一个详情面板。点哪个看哪个——能跳着看的内容
    不该逼读者按序经过，所以这里没有上一步／下一步。

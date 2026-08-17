@@ -1,7 +1,31 @@
-/* 实验说明页的骨架样式——五页逐字相同的那部分抽在这里。
-   各页自己的调色板（:root 与 prefers-color-scheme 那两套）仍留在页内，
-   因为每页的强调色不同；抽出来会把这份差异抹平。
-   页内 <style> 排在本文件之后，所以同特异度时页内规则胜出。*/
+/* 实验说明页的骨架样式。页内 <style> 排在本文件之后，同特异度时页内规则胜出。
+
+   调色板分三层，只有第三层留在页内：
+     结构色  --bg --fg --dim --line --card --mono  各页取值本来就一致
+     语义色  --st-*（fiber 六态）与 --ok / --warn / --miss（判定与好坏）
+     图用色  本页专有的那几个（--pkg --m1 --say 之类），留在页内
+
+   --st-* 与 --ok 系值目前相同，但**不许互相顶替**：--st-active 说的是一条 fiber
+   活着，--ok 说的是一条判定通过。合用一个变量会让「给已验证换个色」连带改掉
+   时间线上的 ACTIVE 点。*/
+
+:root{
+  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+
+  --st-pending:#94a3b8; --st-loading:#3b82f6; --st-active:#22c55e;
+  --st-unloading:#f59e0b; --st-disposed:#ef4444; --st-failed:#ef4444;
+
+  --ok:#22c55e; --warn:#b45309; --warnbg:#fffbeb; --miss:#ef4444;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}}
+:root[data-theme=dark]{
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --warn:#fbbf24; --warnbg:#221a08;
+}
 
 *{box-sizing:border-box}
 
@@ -82,10 +106,69 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 
 .sub{color:var(--dim);margin:0 0 14px}
 
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+
 .tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
   border-radius:99px;color:var(--dim);font-family:var(--mono)}
 
+.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+
+h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
+
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 按钮 ── */
+button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+
+button:hover:not(:disabled){border-color:var(--dim)}
+
+button:disabled{opacity:.35;cursor:default}
+
+/* ── 分步控件 ── */
+.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
+  padding-top:12px;border-top:1px solid var(--line)}
+
+.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  min-width:52px;text-align:center}
+
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
+
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
+  font-size:11px;color:var(--dim);font-family:var(--mono)}
+
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:3px;vertical-align:middle}
+
+/* ── 字幕：每步一句说明 ── */
+.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
+  padding:8px 12px;margin-top:14px;border-radius:8px;
+  background:color-mix(in srgb,var(--fg) 4%,transparent)}
+
+.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
+
+.cap .d{font-size:12.5px;line-height:1.55}
+
+/* ── 判定结论卡：这一项读出来的东西，常显不折叠 ── */
+.reads{display:grid;gap:10px;margin-top:16px}
+
+.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px}
+
+.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);
+  flex:none;padding-top:2px}
+
+.read p{margin:0;font-size:13.5px}
+
+.read code{font-family:var(--mono);font-size:12px}
+
+.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);
+  font-family:var(--mono)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
+
+footer a{color:inherit}
 
 /* ── 枚举：一排可选项 ＋ 一个详情面板。全组同一套，不再各页各造 ── */
 .sbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:9px;

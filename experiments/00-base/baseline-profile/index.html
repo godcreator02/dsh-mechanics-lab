@@ -7,27 +7,22 @@
 <link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
-  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
+
   --pkg:#3b82f6; --yml:#f59e0b; --infra:#22c55e; --caller:#ec4899;
-  --dflt:#06b6d4; --rooted:#a855f7; --ok:#22c55e; --warn:#b45309; --warnbg:#fffbeb;
+  --dflt:#06b6d4; --rooted:#a855f7;
   --bmhit:#6366f1;
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --warn:#fbbf24; --warnbg:#221a08;
+
   --bmhit:#a5b4fc;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --warn:#fbbf24; --warnbg:#221a08;
+
   --bmhit:#a5b4fc;
 }
 .pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
-h2{font-size:15px;margin:38px 0 4px}
 .testref{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 /* ── 主图：三件套 → 树 ── */
 .diagram{display:grid;grid-template-columns:1fr 1fr;gap:16px;
@@ -56,15 +51,11 @@ h2{font-size:15px;margin:38px 0 4px}
   border-color:color-mix(in srgb,var(--c) 55%,transparent)}
 .node .id{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--c)}
 .node .nm{font-size:11px;color:var(--dim);margin-left:6px}
-.node .badge{float:right;font-family:var(--mono);font-size:10px;color:var(--ok)}
+.node .badge{float:right;font-family:var(--mono);font-size:10px;color:var(--st-active)}
 .node .inj{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px}
 .stem{width:1px;height:12px;background:var(--line);margin:0 auto}
 .children{border-left:2px solid var(--line);margin-left:12px;padding-left:12px;
   display:flex;flex-direction:column;gap:7px;margin-top:2px}
-.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
-  font-size:11px;color:var(--dim);font-family:var(--mono)}
-.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;
-  margin-right:3px;vertical-align:middle}
 /* ── 变体对比 ── */
 .variant{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
 .vrow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -74,19 +65,9 @@ h2{font-size:15px;margin:38px 0 4px}
 #vstage .pickbody .vv b{color:var(--fg);background:color-mix(in srgb,var(--c) 16%,transparent);
   padding:1px 3px;border-radius:3px}
 #vstage .pickbody .vshape{margin-top:6px;font-size:11px;color:var(--dim)}
-/* ── reads / 覆盖边界 ── */
-.reads{display:grid;gap:10px;margin-top:16px}
-.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px}
-.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
-.read p{margin:0;font-size:13.5px}
-.read code{font-family:var(--mono);font-size:12px}
-.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
 .read.warn{border-color:color-mix(in srgb,var(--warn) 45%,transparent);
   background:color-mix(in srgb,var(--warn) 9%,var(--card))}
 .read.warn .n{color:var(--warn)}
-footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
-  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
 @media (max-width:620px){
   .diagram{grid-template-columns:1fr}
   .vrow{grid-template-columns:1fr}
