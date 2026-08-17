@@ -33,8 +33,9 @@
 .banner code{font-family:var(--mono);font-size:12px;opacity:.9}
 /* ── 全内容区虚线框：跟已验项在视觉上分开 ── */
 .gapwrap{border:1.5px dashed var(--line);border-radius:14px;padding:6px 22px 20px}
-.pane{background:var(--card);border:1.5px dashed var(--line);border-radius:10px;
-  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+/* 未覆盖页的三层信号之一：内容区套虚线框（page-writing 第八节）。
+   其余属性走 lab.css 的 .pane，这里只写跟它不同的那半句。 */
+.pane{border:1.5px dashed var(--line)}
 /* ── 详情面板通用样式：pickbody 里渲染「谁实现／没验证什么／补上要造什么」用 ── */
 .hd{display:flex;align-items:baseline;gap:9px;margin-bottom:10px}
 .hd .nm{font-weight:700;font-size:14.5px}
