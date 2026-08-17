@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import time
@@ -26,7 +27,7 @@ sys.path.insert(0, str(LAB_ROOT / "experiments"))
 
 from lab import LabHome, acquire_lock, release_lock, start_instance  # noqa: E402
 
-FIXTURE = LAB_ROOT / "experiments" / "l01_minimal_plugin" / "fixtures" / "lab-minimal"
+FIXTURE = LAB_ROOT / "experiments" / "01-entry" / "apply-runs" / "fixtures" / "lab-minimal"
 
 #: 改完活层等多久。hmr 的 debounce 默认 100ms，再加上 chokidar 的文件事件延迟
 #: 与条目重挂本身，3 秒足够落定；这类「验证应该发生的事」也可以轮询，
@@ -63,10 +64,9 @@ def read_events(path: Path) -> list[dict]:
     out = []
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         if line.strip():
-            try:
+            # 可能正写到一半，跳过这一行就是
+            with contextlib.suppress(json.JSONDecodeError):
                 out.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
     return out
 
 

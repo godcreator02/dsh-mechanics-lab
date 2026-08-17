@@ -1,7 +1,0 @@
-# route-c 自带的 bundle 层。profile 把 route-c 列进 dsh.profile.bundles 时，
-# 这一叠 patch 会在 boot 时被读一次、叠进配方。
-- insert:
-    - id: route-c
-      name: route-c
-      config:
-        层版本: c-r1

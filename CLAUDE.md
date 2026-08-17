@@ -271,24 +271,23 @@ god-settings.json  god 系列项目级配置：root-id（留空，本项目不�
   settings.json    plansDirectory 指向 .god-flow/plans/
 .god-flow/         god-flow 机制的工作目录——当前真相文档归 docs/，这里只装过程态
   drafts/          待实现池：还没有用例覆盖的观察与方案，走 god-flow 的 draft 规则。
-                   验过之后结论进 SYLLABUS 和课 README，这里对应那段清掉
+                   验过之后结论进那一项的 docstring，这里对应那段清掉
                    NOTES.md 是一轮打磨期间的临时载体，不进 git
   plans/           计划落盘处（Plan Mode 自动落这）
   reports/         留档报告（审查／盘点／调研）：写完冻结，进 git
 docs/
   GLOSSARY.md      术语表：按 Cordis / Loader / DSH / 自造 四层分组，标注哪些已实测
-  SYLLABUS.md      课程大纲：六部分十七课，每课的性质／实验设计／依赖与开销
+  SYLLABUS.md      覆盖清单：十组每项的档次与状态。**判定不在这里，在各项 docstring**
   trajectory/      ⚠️ 探索历史（冻结）：转向、走死、推翻的判断
                    跟现状文档的分工与写法见其 README.md
-  official/        ⚠️ 官方 docs 的纯净快照（版本钉 47f9438）。**开课前先 grep 这里**
+  official/        ⚠️ 官方 docs 的纯净快照（版本钉 47f9438）。**开工前先 grep 这里**
     zh/            中文 105 篇  ← 平时看这个
     en/            英文 110 篇；`en/AGENTS.md` 是官方对这套文档自己的说明
                    两侧目录结构一致，同一路径即同一篇的两个语言版本
                    最值钱的三处：cordis-api/（从源码注释生成，带行号）、
                    subsystems/（每个子系统一篇）、postmortem/（官方事故报告）
-observatory/       观测台：lab-recorder（注入式采集）+ 看板（独立只读服务）
-site/              教材：一课一页，自包含 HTML（目前只有 l00.html）
-index.html         旧教材（结构早于当前梯度，含已被推翻的判定，待处置）
+observatory/       观测台：lab-recorder（注入式采集，provide labObserver）
+                   + board/（独立只读看板）
 pyproject.toml     依赖与 pytest 配置
 .python-version    3.12.10，uv 据此建 venv
 uv.lock            依赖锁定，进 git 保证可复现
@@ -296,25 +295,33 @@ experiments/
   conftest.py      pytest 装置：假 home、端口、实例回收、**产物归档**
   lab/             公共脚手架（包）
     core.py        路径常量、junction 安全删除、LabHome / LabProfile、基线 profile
-    dump.py        --dump-config 真解析（含 !!js 方言）
+    dump.py        --dump-config 真解析（含 !!js 方言）、load_yaml
+    events.py      读事件流
     instance.py    实例起停、并发锁、HTTP 探测
-  l00_minimal_environment/   一课一目录，各自完全自包含
-    README.md      这一课讲什么、实测到了什么
-    test_l00.py    pytest 用例
-    fixtures/      本课专用教学插件（允许跨课重复，那是特性）
-  l01_… l02_… l09_…（编号即教学顺序，见 docs/SYLLABUS.md）
-out/               全部运行产物，整个 gitignore（跑一次就能再生）
-  testhome/        假 home，一课一个子目录；跑那一课时先清空再重建
-  results/         每次跑的归档（summary.md + 见证文件 + 事件流）
+  00-base/                          组 = 机制的归属面，编号只提供稳定排序
+    minimal-profile/                项 = 一个能单独跑的实验
+      test_minimal_profile.py       用例 + **模块 docstring：判定的家**
+      fixtures/                     本项专用教学插件（允许跨项重复，那是特性）
+      results/                      归档，gitignore，留最近三次
+    …
+  01-entry/ 02-recipe/ 03-supply/ 04-replay/ 05-reload/
+  06-inject/ 07-tree/ 08-service-core/ 09-boot-vs-runtime/
+out/               运行现场，整个 gitignore（跑一次就能再生）
+  testhome/        假 home，一项一个子目录；跑那一项时先清空再重建。
+                   ⚠️ 它住这儿不住实验目录下——理由见 lab/core.py 的 TESTHOME_ROOT
 .venv/             虚拟环境，gitignore
 ```
+
+⚠️ **⬜ 未覆盖的项也有目录**，里面是一个光有 docstring、没有用例函数的 `test_*.py`。
+所以「目录数」不等于「有用例的项数」，`--collect-only` 收不到它们。
 
 跑法一律经 uv，不激活也不碰全局解释器：
 
 ```powershell
-uv sync                              # 首次或依赖变更后
-uv run pytest -m static              # 只跑不起进程的实验
-uv run pytest experiments/l01_minimal_plugin/   # 单跑一课
+uv sync                                          # 首次或依赖变更后
+uv run pytest -m static                          # 只跑不起进程的实验
+uv run pytest experiments/01-entry/              # 单跑一组
+uv run pytest experiments/01-entry/disabled/     # 单跑一项
 ```
 
 ---

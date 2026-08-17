@@ -34,6 +34,9 @@ skip-magic-trailing-comma = true
 # 档位钉死不随上游默认漂移；pythonVersion 按 requires-python 下界分析、随其联动改
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
+# `lab` 不是安装的包，靠 sys.path.insert 加载（conftest 与 observatory 的脚本各自插一次）。
+# 不告诉 pyright 这件事，它对每个 `import lab` 都报 reportMissingImports。
+extraPaths = ["experiments"]
 
 
 

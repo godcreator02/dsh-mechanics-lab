@@ -41,6 +41,15 @@
 要展示的正是「四条路挂出来的条目没有区别」，途径③不真的走一遍安装命令就验不到
 途径③本身，只是在验途径②的另一份拷贝。边界：不许对生产 home（`~/.dsh`）跑这条
 命令，不许装会联网拉取的包（写公网包名而不是本地目录）。
+
+## 对比表里寄居着一条单独的判定
+
+`test_four_ways_mount_the_same_entry` 里 `assert got["apply 早于 ACTIVE"]` 这行，
+断言的不只是「四条路一致」，它顺带保住了「同条目内 `apply` 说话的时刻早于该条目
+变 `ACTIVE`——apply 是跑在 `LOADING` 期间，不是等到 `ACTIVE` 之后」这个判定。
+这条原本有一条专门演示它的独立用例（`test_apply_runs_while_loading`），现在寄居
+在这张四条路的横向对比表里，靠 `look()` 里的 `"apply 早于 ACTIVE"` 一列产出。
+以后要找这条判定，grep `apply 早于 ACTIVE`。
 """
 
 from __future__ import annotations

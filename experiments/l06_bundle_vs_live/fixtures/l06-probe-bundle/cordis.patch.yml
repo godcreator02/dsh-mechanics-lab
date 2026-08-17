@@ -1,6 +1,0 @@
-# 由 test_l06.py 在用例开头写入，内容以此为准。
-- insert:
-    - id: probe
-      name: l06-probe-bundle
-      config:
-        revision: dup

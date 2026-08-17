@@ -26,7 +26,7 @@ sys.path.insert(0, str(LAB_ROOT / "experiments"))
 from lab import LabHome, acquire_lock, release_lock, start_instance  # noqa: E402
 
 #: 借 L1 的教学插件当「平级兄弟」——它零依赖，行为完全可预测
-L1_FIXTURE = LAB_ROOT / "experiments" / "l01_minimal_plugin" / "fixtures" / "lab-minimal"
+L1_FIXTURE = LAB_ROOT / "experiments" / "01-entry" / "apply-runs" / "fixtures" / "lab-minimal"
 
 #: dsh-base 自带的几个条目，用来判断能否听见整棵树
 BASE_ENTRIES = {"timer", "llm", "session", "agent", "hmr"}
@@ -86,7 +86,6 @@ def main() -> int:
 
         by_kind = Counter(e["kind"] for e in events)
         by_scope = Counter(e.get("scope") for e in events if e["kind"] != "recorder")
-        entry_names = {e.get("name") for e in events if e.get("scope") == "entry" and e.get("name")}
         entry_ids = {e.get("id") for e in events if e.get("scope") == "entry" and e.get("id")}
 
         print(f"  按种类：{dict(by_kind)}")

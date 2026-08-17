@@ -12,9 +12,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
-from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -67,10 +67,9 @@ def read_events(label: str) -> list[dict]:
         line = line.strip()
         if not line:
             continue
-        try:
+        # 可能正写到一半，跳过这一行就是
+        with contextlib.suppress(json.JSONDecodeError):
             out.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass  # 可能正写到一半，跳过这一行就是
     return out
 
 
@@ -114,7 +113,8 @@ def _safe_label(raw: str | None) -> str | None:
 class BoardHandler(BaseHTTPRequestHandler):
     server_version = "LabObservatory/0.1"
 
-    def log_message(self, fmt: str, *args) -> None:  # 别把控制台刷满
+    def log_message(self, format: str, *args) -> None:  # noqa: A002  别把控制台刷满
+        # 参数名必须跟基类一致（`format`），改名会让子类无法按关键字调用基类签名
         pass
 
     def _send(self, status: int, body: bytes, ctype: str) -> None:

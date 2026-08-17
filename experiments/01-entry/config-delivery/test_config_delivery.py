@@ -6,9 +6,9 @@
 
 - **`config:` 底下写什么，`apply(ctx, config)` 的第二个参数就收到什么。** 键名、
   值、类型一个不差，中文键也一样——已实测（`test_config_reaches_apply_unchanged`）
-- **`config` 不限于扁平键值。** 嵌套对象、数组、`null`、浮点原样送达；loader 对
-  `config` 的结构不做任何约束，约束（如果有）来自插件自己声明的 schema——
-  已实测（`test_nested_shapes_survive`）
+- **`config` 不限于扁平键值，深度也不受限。** 三层深的嵌套字典、数组里套字典（元素
+  本身是复杂结构）、`null`、浮点，全部原样送达；loader 对 `config` 的结构不做任何
+  约束，约束（如果有）来自插件自己声明的 schema——已实测（`test_nested_shapes_survive`）
 - **没写 `config`、和把键名拼错（如 `cofnig`）——两种情况结果完全一样。** 插件
   照常跑起来，第二个参数是 `undefined`，全程没有任何报错或警告——已实测
   （`test_missing_or_mistyped_config_is_undefined`，两个变体）。所以写插件时
@@ -84,9 +84,13 @@ def test_config_reaches_apply_unchanged(lab_home, fixtures_dir, launch):
 
 
 def test_nested_shapes_survive(lab_home, fixtures_dir, launch):
-    """嵌套对象、数组、null、小数原样送达——写 config 不用迁就任何形状。
+    """嵌套对象、数组、数组里套字典、三层深字典、null、浮点原样送达——写 config
+    不用迁就任何形状。
 
     loader 对 config 的结构不做任何约束；约束（如果有）来自插件自己声明的 schema。
+    `服务器` 是两层字典，`嵌套` 深到三层（`嵌套.层一.层二`），`数组` 是数组里套
+    字典（元素本身是复杂结构，不是单纯标量）——三种形状分开摆，浅一层测不出
+    「任意深度」，纯标量数组测不出「数组元素本身也能是复杂结构」。
     """
     profile = _build(
         lab_home,
@@ -99,6 +103,11 @@ def test_nested_shapes_survive(lab_home, fixtures_dir, launch):
         名单: [甲, 乙]
         空值: null
         小数: 3.14
+        嵌套:
+          层一:
+            层二: [1, 2, {深处: 到底了}]
+        数组: [甲, 乙, 丙]
+        浮点: 3.14
 """,
     )
 
@@ -113,6 +122,9 @@ def test_nested_shapes_survive(lab_home, fixtures_dir, launch):
         "名单": ["甲", "乙"],
         "空值": None,
         "小数": 3.14,
+        "嵌套": {"层一": {"层二": [1, 2, {"深处": "到底了"}]}},
+        "数组": ["甲", "乙", "丙"],
+        "浮点": 3.14,
     }
     print(f"\n  嵌套 config 原样送达：{json.dumps(got['config'], ensure_ascii=False)}")
 

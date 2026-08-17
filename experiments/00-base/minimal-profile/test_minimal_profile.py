@@ -1,6 +1,6 @@
 """minimal-profile · 一个实例最少需要什么
 
-档次 ① ｜ 性质 🔬 ｜ 状态 ✅ ｜ 4 条用例 ｜ 不需要 web
+档次 ① ｜ 性质 🔬 ｜ 状态 ✅ ｜ 5 条用例 ｜ 不需要 web
 
 ## 判定
 
@@ -11,11 +11,17 @@
 - **bundle 名单能为空。** `bundles: []`、活层里只挂基础设施两条和自己的插件，
   实例照跑不误——插件系统的基础设施不由任何 bundle 提供，是框架自带的。
   「空」说的是 **bundle 名单**，不是「patch 可以不写 timer/hmr」：那两条是承重的
-  （见下一条）。用例：`test_empty_bundle_list_boots`
+  （见下两条）。用例：`test_empty_bundle_list_boots`
 - **`timer` 与 `hmr` 是硬性捆绑，不是「写上更好」。** hmr 包级声明
   `services.required: ["timer"]`；只声明 hmr、不声明 timer，boot 末尾审计判定
   启动失败，日志点名 `waiting for service: timer`。用例：
   `test_hmr_without_timer_wont_start`
+- **两条都在时，捆绑体现为时序：`hmr` 开始 `LOADING`，必须等 `timer` 先到
+  `ACTIVE`。** 这不是「timer 和 hmr 都在树上」那种弱判定，而是「`hmr` 的加载
+  被 `timer` 的就位挡住了」——`services.required` 这条 inject 硬依赖在最小环境
+  里能直接观测到的效果，也是「加载顺序由服务就位驱动、不由 patch 里的书写顺序
+  驱动」这条结论最早的证据。上一条只验证了「缺了 timer，hmr 连启动都不成」，
+  这一条验证的是两条都在时背后的**机制**。用例：`test_hmr_loading_waits_for_timer_active`
 - **空树谁保持进程活着**：没有 web 服务、没有任何业务插件，树上只有
   `include`+`timer`+`hmr`+普查员——这一条只做**观察**，不做断言（先看会发生
   什么，避免先入为主判定「应当活/应当死」）。用例：`test_who_keeps_process_alive`
@@ -28,6 +34,11 @@
 `setTimeout`，不用 `ctx.setTimeout`——后者是被测的 timer 服务自己提供的，拿被测
 对象当测量工具就是循环论证。
 
+时序那一条例外：普查员只拍两张静态快照，看不出「谁先谁后」，要看时序得换
+`observatory/lab-recorder`——它订阅 Cordis 的状态迁移事件，把每一跳都打上
+相对采集器挂载时刻的 `ms` 戳写进事件流（见 `00-base/recorder-reach`）。
+`test_hmr_loading_waits_for_timer_active` 单独换用它。
+
 已知的坑：验证「该发生」（`cordis.yml` 该出现）要用轮询——机器负载高时框架
 写文件会晚到，固定窗口会假失败；验证「不该发生」（只写 hmr 时进程不该活着）
 要用固定等待，不能轮询提前退出。
@@ -39,7 +50,18 @@ import json
 import time
 from pathlib import Path
 
-from lab import BUNDLE_BASE, PKG_HMR, PKG_TIMER, Instance, LabHome, dump_config
+from lab import (
+    BUNDLE_BASE,
+    LAB_ROOT,
+    PKG_HMR,
+    PKG_TIMER,
+    Instance,
+    LabHome,
+    dump_config,
+    read_events,
+    states_of,
+    timeline,
+)
 
 #: 拉起后观察多久。框架把 dsh-base 拿掉之后没有别的噪声，但仍要给
 #: 普查员的 settle 快照留足延后窗口。
@@ -224,6 +246,73 @@ def test_hmr_without_timer_wont_start(lab_home: LabHome, launch):
     assert verdict, f"应当有 waiting for service 的判词：\n{logs}"
     assert any("timer" in ln for ln in verdict), f"判词该点名 timer：{verdict}"
     assert f"'{PKG_TIMER}'" not in profile.read_patch(), "前提：patch 里真的没写 timer"
+
+
+def wait_for_timer_then_hmr(inst: Instance, path: Path, *, timeout: float = 40.0) -> list[dict]:
+    """等到判定要用的两个信号都到齐：`timer` 走到 `ACTIVE`，`hmr` 走到 `LOADING`。
+
+    不是等事件条数、也不是等文件存在——那两个都会因框架自带条目的多少浮动。
+    """
+    deadline = time.monotonic() + timeout
+    events: list[dict] = []
+    while time.monotonic() < deadline:
+        events = read_events(path)
+        if "ACTIVE" in states_of(events, "timer") and "LOADING" in states_of(events, "hmr"):
+            time.sleep(0.2)  # 给 flush 定时器留一拍，把尾巴带上
+            return read_events(path)
+        if not inst.alive():
+            break
+        time.sleep(0.3)
+    return events
+
+
+def test_hmr_loading_waits_for_timer_active(lab_home: LabHome, launch):
+    """问题 3b：两条都在时，捆绑在时序上是什么样子？
+
+    `test_hmr_without_timer_wont_start` 验的是「缺了 timer，hmr 连启动都不成」；
+    这一条验的是两条都在时背后的**机制**——`hmr` 开始 `LOADING` 的那一刻，必须
+    晚于 `timer` 到 `ACTIVE` 的那一刻。这不是「两个都在树上」那种弱判定，而是
+    「`hmr` 的加载被 `timer` 的就位挡住了」：hmr 包级 `services.required:
+    ["timer"]` 这条 inject 硬依赖，在最小环境里能直接观测到的效果，也是「加载
+    顺序由服务就位驱动、不由 patch 里的书写顺序驱动」这条结论最早的证据。
+
+    普查员的两张静态快照看不出「谁先谁后」，换用 `lab-recorder`——它把每一跳
+    状态迁移打上相对自己挂载时刻的 `ms` 戳记下来。
+    """
+    events_path = lab_home.root / "events-timing.jsonl"
+    recorder_patch = f"""# 挂一台采集器，看 timer 与 hmr 谁先谁后
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: {json.dumps(events_path.as_posix())}
+        flushMs: 100
+"""
+    profile = lab_home.make_minimal_profile("timing", patch=recorder_patch)
+    profile.link_plugin("lab-recorder", LAB_ROOT / "observatory" / "lab-recorder")
+
+    inst = launch(profile, wait_http=False)
+    events = wait_for_timer_then_hmr(inst, events_path)
+
+    print("\n══ timer 与 hmr 谁先谁后 ══════════════════════════════════")
+    print(timeline(events))
+
+    def first_ms(entry_id: str, to: str) -> float | None:
+        for e in events:
+            if e.get("kind") == "status" and e.get("id") == entry_id and e.get("to") == to:
+                return float(e["ms"])
+        return None
+
+    timer_active = first_ms("timer", "ACTIVE")
+    hmr_loading = first_ms("hmr", "LOADING")
+    print(f"\ntimer 变 ACTIVE：{timer_active}    hmr 才开始 LOADING：{hmr_loading}")
+    if not inst.alive():
+        print(inst.logs())
+
+    assert inst.alive(), f"实例应当活着，却退了：\n{inst.logs()}"
+    assert timer_active is not None, f"没等到 timer 变 ACTIVE，实际走过 {states_of(events, 'timer')}"
+    assert hmr_loading is not None, f"没等到 hmr 开始 LOADING，实际走过 {states_of(events, 'hmr')}"
+    assert timer_active <= hmr_loading, "hmr 应当等 timer 就位之后才开始加载，时间线却反过来了"
 
 
 def test_who_keeps_process_alive(lab_home: LabHome, fixtures_dir: Path, launch):
