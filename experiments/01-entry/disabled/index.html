@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>disabled · 树上还在，但没有 fiber</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+
+ --bmhit:#0e7490; --ghost:#c2410c; --gone:#64748b;
+
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+
+ --bmhit:#22d3ee; --ghost:#fb923c; --gone:#94a3b8;
+}}
+:root[data-theme=dark]{
+
+ --bmhit:#22d3ee; --ghost:#fb923c; --gone:#94a3b8;
+}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ft .same{color:var(--dim)}
+/* ── 开篇立机制的一段话 ── */
+.lead{font-size:14px;line-height:1.85;margin:0 0 8px}
+.lead code{font-family:var(--mono);font-size:12.5px}
+/* ── 舞台：patch 片段 + 判据 ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:18px 18px 16px}
+.zone-label{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:7px}
+.stage pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.7;
+  white-space:pre-wrap;word-break:break-all;background:color-mix(in srgb,var(--fg) 4%,transparent);
+  border-radius:8px;padding:12px 14px;color:var(--fg)}
+.stage .cap{margin-top:14px}
+.stage .cap .d{line-height:1.75}
+/* ── picker.big 卡面：chips + outcome，本页三种状态色 ── */
+.chips{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.chip{font-size:10px;font-family:var(--mono);padding:1.5px 6px;border-radius:99px;
+  border:1px solid var(--line);color:var(--dim)}
+.outcome{margin-top:9px;font-size:11px;font-family:var(--mono);
+  display:flex;align-items:center;gap:5px}
+.outcome i{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+.outcome.live{color:var(--st-active)}
+.outcome.live i{background:var(--st-active)}
+.outcome.ghost{color:var(--ghost)}
+.outcome.ghost i{background:var(--ghost)}
+.outcome.gone{color:var(--gone)}
+.outcome.gone i{background:var(--gone)}
+#pb-expr,#pb-tri{min-height:190px}
+/* ── pickbody 详情格式：k/v 行，与卡片共用 ── */
+.pickbody h3{margin:0 0 10px;font-size:14.5px;font-family:var(--mono)}
+.pickbody h3 .test{font-weight:400;color:var(--dim);font-size:11.5px;margin-left:8px}
+.pickbody .row{display:flex;gap:10px;margin:8px 0;font-size:13px;align-items:flex-start}
+.pickbody .row .k{flex:none;width:66px;color:var(--dim);font-family:var(--mono);
+  font-size:11px;padding-top:2px}
+.pickbody .row .v{flex:1}
+.pickbody pre{margin:5px 0 0;padding:7px 9px;background:color-mix(in srgb,var(--fg) 4.5%,transparent);
+  border-radius:7px;font-family:var(--mono);font-size:10.5px;line-height:1.6;
+  overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+.pickbody b{color:var(--fg)}
+/* ── 组内对照小结（静态，不做交互） ── */
+.aside{font-size:12.5px;color:var(--dim);margin-top:12px;padding:11px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:8px;line-height:1.8}
+.aside code{font-family:var(--mono);font-size:11.5px}
+.aside b{color:var(--fg)}
+/* ── 范围外的判定卡 ── */
+.badge{font-size:10px;padding:1.5px 8px;border-radius:99px;font-family:var(--mono);
+  white-space:nowrap;border:1px solid color-mix(in srgb,var(--dim) 45%,transparent);
+  color:var(--dim)}
+.read.ghost{border-style:dashed;background:color-mix(in srgb,var(--dim) 6%,var(--card))}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">01-entry / disabled</div>
+<h1>关掉一条条目</h1>
+<p class="sub">写了 disabled，条目还在树上，只是没人替它建 fiber——跟压根没写这一条，
+长得几乎一样，树上的存在与否却完全不同。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">📗 复述型</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 6 条用例（4 个参数化）</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="lead">
+配方（recipe）里的每一行是一条<b>条目（entry）</b>：写着挂哪个插件、给它什么配置；
+它在运行时对应一个 <b>fiber</b>——这个插件这一次生命的载体。条目可以再挂一个
+<code>disabled</code> 字段，写 <code>true</code> 或者一段延迟求值的表达式，告诉框架
+「这一条先别挂」。这一项要讲清楚的，是「不挂」具体是什么样子：它<b>不是</b>把这一行
+从配方里抹掉——条目照样留在组合树里，<code>--dump-config</code> 找得到它、patch 还能
+按 id 定位它；只是激活那一步被跳过，没有人替它建 fiber，它的 <code>apply</code> 一次
+都不会跑。同一件「没声音」的背后，「写了但关掉」跟「压根没写这一条」是两种完全不同的
+树形状态——这条边界就是这一项要立住的东西。
+</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">跟着 1 → 5 走一遍：从写法，到条目激活那一刻框架真正做的事。</p>
+
+<div class="stage" id="stage0">
+  <div class="picker arrow" id="pk0">
+    <button class="pick"><span class="pi">1</span><span class="pn">disabled 字段</span></button>
+    <button class="pick"><span class="pi">2</span><span class="pn">dump 保留原文</span></button>
+    <button class="pick"><span class="pi">3</span><span class="pn">激活时才求值</span></button>
+    <button class="pick"><span class="pi">4</span><span class="pn">真 → 跳过</span></button>
+    <button class="pick"><span class="pi">5</span><span class="pn">假 → 照常挂</span></button>
+  </div>
+  <div class="pickbody" id="pb0"></div>
+</div>
+
+<h2>静态开关：dump 看得见，apply 不跑</h2>
+<p class="note">用例 <code>test_disabled_keeps_entry_in_tree_but_skips_apply</code>，
+profile <code>static-off</code>——先看最直接的写法：布尔字面量 <code>true</code>。</p>
+
+<div class="stage">
+  <div class="zone-label">static-off 的 <code>cordis.patch.yml</code></div>
+  <pre># disabled 活层
+- insert:
+    - id: lab-entry
+      name: lab-entry
+      disabled: true
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-disabled.json"</pre>
+  <div class="cap">
+    <span class="t">✅</span>
+    <span class="d"><b>dump 视角：</b><code>dump.require("lab-entry")</code> 找到了这一条，
+      <code>disabled</code> 字段是 <code>true</code>——条目还在树里。<br>
+      <b>apply 视角：</b>固定等了 12 秒（验证「不会发生」不能靠轮询提前退出），
+      见证文件 <code>w-disabled.json</code> 没有出现——它没跑。<br>
+      条目在组合树里、<code>disabled=True</code>，apply 未执行——禁用 ≠ 删除。</span>
+  </div>
+</div>
+
+<h2>!!js 表达式：什么时候求值</h2>
+<p class="note"><code>disabled</code> 除了布尔字面量，还能写一段延迟求值的
+<code>!!js</code> 表达式——DSH include 层的 YAML 方言。两组对照，问的是同一件事：
+这段表达式是不是真的在条目激活时才被求值，不是解析时就死成了一个值。前两张卡片是
+它的真实用途（按平台条件禁用）；后两张卡片专门对照官方事故复盘 postmortem 0002
+记录过的一次旧 bug。</p>
+
+<div id="pk-expr">
+  <div class="picker big" id="picks-expr"></div>
+  <div class="pickbody" id="pb-expr"></div>
+</div>
+
+<h2>写了但关掉，跟压根没写——两种不同的树</h2>
+<p class="note">同一件事换一个观测角度：不再靠见证文件问「apply 跑没跑」，改用
+<b>lab-recorder</b>（订阅 Cordis 生命周期事件的采集器）把条目的树上位置、有没有
+fiber、走没走状态整个记下来。教学插件也换了一个——<code>worker.mjs</code>，靠
+<code>inject: ["labObserver"]</code> 自己上报一句话。三张卡片摆的是同一个条目 id
+（<code>worker</code>）在三份 profile 里的样子。</p>
+
+<div id="pk-tri">
+  <div class="picker big" id="picks-tri"></div>
+  <div class="pickbody" id="pb-tri"></div>
+</div>
+
+<p class="aside">
+  <b>on</b> 和 <b>off-cmp</b> 之间隔着「有没有 fiber」；<b>off-cmp</b> 和
+  <b>absent</b> 之间隔着「在不在树上」。写了但关掉的那一张卡片——两条线都不占：
+  不像 on 那样有 fiber，也不像 absent 那样连树上都找不到它。<br>
+  另一条用例（<code>test_disabled_entry_stays_in_tree_without_fiber</code>，
+  profile <code>off</code>）补了一个必要的对照：同一次运行里，紧挨着 worker 的
+  timer 老老实实从 <code>LOADING</code> 走到了 <code>ACTIVE</code>（约 2.05ms）——
+  证明不是「采集器睡着了」，是 worker 真的没被建 fiber。
+</p>
+
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b><code>disabled: true</code> 是不挂载，不是删除。</b>条目仍在组合树里——dump
+    找得到、patch 还能按 id 定位它；只是 apply 不执行。删除之后的行为是另一回事
+    （见 02-recipe / override-semantics），跟禁用不是一回事：禁用可逆，删除不是。
+    <span class="from">test_disabled_keeps_entry_in_tree_but_skips_apply</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>写了但关掉 ≠ 压根不写。</b>前者在树上、没有 fiber；后者连拍都拍不到，
+    事件流里连名字都不出现。两边都是「一句话没说」，光看「跑没跑」分不出这两种
+    情况——得看它在不在树上。
+    <span class="from">test_disabled_entry_stays_in_tree_without_fiber ·
+      test_disabled_differs_from_absent_entry</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>去掉那一行、重启，条目立刻恢复正常。</b>和关掉那份 patch 只差
+    <code>disabled: true</code> 这一行，连 <code>config</code> 都一字不改。
+    <span class="from">test_removing_disabled_flag_restores_apply</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>!!js 表达式在条目激活时才求值，不在 dump 时。</b>平台条件两个变体在同一台
+    机器上结果相反；对照官方事故复盘 postmortem 0002 记录的旧 bug（表达式被解析成
+    对象、对象恒真，受影响插件永远判定为禁用），当前 <code>disabledOf()</code>
+    确实对表达式求值——那次 bug 在当前版本不复现。
+    <span class="from">test_disabled_platform_conditional_expression ·
+      test_disabled_boolean_expression_matches_current_behavior</span>
+  </p></div>
+  <div class="read ghost"><span class="n">⑤</span><p>
+    <b>祖先禁用会不会连带子条目——不在这一项里。</b>本项只验证条目自身的
+    <code>disabled</code>；沿父链向上传播（祖先禁用则子条目不运行，group 自己不受
+    影响）属于 02-recipe / 07-tree 的树形结构问题。
+    <span class="from">本项不覆盖<span class="badge">范围外</span></span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_disabled.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字取自归档 <code>results/20260817-151105/</code>（<code>summary.md</code> ·
+<code>events-off.jsonl</code> · <code>events-off-cmp.jsonl</code> ·
+<code>events-absent.jsonl</code> · <code>events-on.jsonl</code> ·
+<code>w-expr-t.json</code> · <code>w-jsdisabled-t.json</code> ·
+各 <code>profiles/*/cordis.patch.yml</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="fl" data-k="ev-offcmp">events-off-cmp.jsonl</button></li>
+          <li><button class="fl" data-k="ev-absent">events-absent.jsonl</button></li>
+          <li><button class="fl" data-k="ev-on">events-on.jsonl</button></li>
+          <li><button class="fl" data-k="w-exprt">w-expr-t.json</button></li>
+          <li><button class="fl" data-k="w-jst">w-jsdisabled-t.json</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">static-off/</button>
+                <ul>
+                  <li><button class="fl" data-k="so-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="so-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="so-patch">cordis.patch.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-entry →</li></ul>
+                  </li>
+                </ul></li>
+              <li class="shut"><button class="tw">expr-f/</button>
+                <ul><li><button class="fl" data-k="ef-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">expr-t/</button>
+                <ul><li><button class="fl" data-k="et-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">jsdisabled-f/</button>
+                <ul><li><button class="fl" data-k="jf-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">jsdisabled-t/</button>
+                <ul><li><button class="fl" data-k="jt-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">off/</button>
+                <ul><li><button class="fl" data-k="off-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">off-cmp/</button>
+                <ul><li>cordis.patch.yml <span class="same">（与 off 同形，只是输出文件不同）</span></li></ul></li>
+              <li class="shut"><button class="tw">absent/</button>
+                <ul><li><button class="fl" data-k="ab-patch">cordis.patch.yml</button></li></ul></li>
+              <li class="shut"><button class="tw">on/</button>
+                <ul>
+                  <li><button class="fl" data-k="on-pkg">package.json</button></li>
+                  <li>cordis.yml <span class="same">（与 static-off 同）</span></li>
+                  <li><button class="fl" data-k="on-patch">cordis.patch.yml</button></li>
+                  <li>node_modules/ → lab-recorder</li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/lab-entry/</button>
+            <ul>
+              <li><button class="fl" data-k="fx-pkg">package.json</button></li>
+              <li><button class="fl" data-k="fx-idx">index.js</button></li>
+            </ul></li>
+          <li><button class="fl" data-k="fx-worker">fixtures/worker.mjs</button></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-ev-offcmp" data-name="events-off-cmp.jsonl"
+         data-src="results/20260817-151105/events-off-cmp.jsonl"
+         data-why="test_disabled_differs_from_absent_entry 的『关掉』一侧：worker 在树上、没有 fiber"><pre>{"seq":0,"ms":0.5004,"at":"2026-08-17T07:10:52.903Z","kind":"recorder","marker":"lab-recorder-v2","waterfall":false,"note":"采集开始（本行之前的事件未被记录）"}
+{"seq":1,"ms":0.8303,"at":"2026-08-17T07:10:52.903Z","kind":"snapshot","scope":"entry","id":"include","name":"cordis:include","to":"LOADING","hasFiber":true,"disabled":false,"config":"{\"path\":\"file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/profiles/off-cmp/cordis.yml\",\"patches\":[{\"insert\":[{\"id\":\"timer\",\"name\":\"@deepseek-ai/cordis-plugin-timer\"},{\"id\":\"hmr\"…(共544字符)"}
+{"seq":2,"ms":0.8497,"at":"2026-08-17T07:10:52.903Z","kind":"snapshot","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","to":null,"hasFiber":false,"disabled":false}
+{"seq":3,"ms":0.8681,"at":"2026-08-17T07:10:52.903Z","kind":"snapshot","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","to":null,"hasFiber":false,"disabled":false,"config":{"root":[],"debounce":100}}
+{"seq":4,"ms":0.8763,"at":"2026-08-17T07:10:52.903Z","kind":"snapshot","scope":"entry","id":"lab-recorder","name":"lab-recorder","to":"LOADING","hasFiber":true,"disabled":false,"config":{"out":"D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/events-off-cmp.jsonl","flushMs":100}}
+{"seq":5,"ms":0.8846,"at":"2026-08-17T07:10:52.903Z","kind":"snapshot","scope":"entry","id":"worker","name":"./worker.mjs","to":null,"hasFiber":false,"disabled":true,"config":{"班次":"早班"}}
+{"seq":6,"ms":0.89,"at":"2026-08-17T07:10:52.903Z","kind":"recorder","marker":"lab-recorder-v2","note":"起点快照完成：5 个条目，其中 2 个睁眼时已在半路上（它们的出生过程没记全）"}
+{"seq":7,"ms":1.0588,"at":"2026-08-17T07:10:52.904Z","kind":"plugin","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","uid":5}
+{"seq":8,"ms":1.1064,"at":"2026-08-17T07:10:52.904Z","kind":"status","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","from":"PENDING","to":"LOADING"}
+{"seq":9,"ms":1.1564,"at":"2026-08-17T07:10:52.904Z","kind":"status","scope":"entry","id":"lab-recorder","name":"lab-recorder","from":"LOADING","to":"ACTIVE"}
+{"seq":10,"ms":1.2531,"at":"2026-08-17T07:10:52.904Z","kind":"service","serviceName":"labObserver","present":true,"who":"lab-recorder"}
+{"seq":11,"ms":1.5225,"at":"2026-08-17T07:10:52.904Z","kind":"status","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","from":"LOADING","to":"ACTIVE"}
+{"seq":12,"ms":1.5635,"at":"2026-08-17T07:10:52.904Z","kind":"service","serviceName":"timer","present":true,"who":"timer"}
+{"seq":13,"ms":1.6384,"at":"2026-08-17T07:10:52.904Z","kind":"plugin","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","uid":6}
+{"seq":14,"ms":1.679,"at":"2026-08-17T07:10:52.904Z","kind":"status","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","from":"PENDING","to":"LOADING"}
+{"seq":15,"ms":5.3645,"at":"2026-08-17T07:10:52.908Z","kind":"status","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","from":"LOADING","to":"ACTIVE"}
+{"seq":16,"ms":5.4157,"at":"2026-08-17T07:10:52.908Z","kind":"service","serviceName":"hmr","present":true,"who":"hmr"}
+{"seq":17,"ms":5.6626,"at":"2026-08-17T07:10:52.908Z","kind":"status","scope":"entry","id":"include","name":"cordis:include","from":"LOADING","to":"ACTIVE"}
+{"seq":18,"ms":5.7796,"at":"2026-08-17T07:10:52.908Z","kind":"service","serviceName":"loader","present":true,"who":"(无条目)"}
+{"seq":19,"ms":6.0023,"at":"2026-08-17T07:10:52.909Z","kind":"service","serviceName":"loader","present":true,"who":"(无条目)"}
+</pre></div>
+    <div id="fc-ev-absent" data-name="events-absent.jsonl"
+         data-src="results/20260817-151105/events-absent.jsonl"
+         data-why="test_disabled_differs_from_absent_entry 的『不写』一侧：条目列表里只有 4 条，没有 worker"><pre>{"seq":0,"ms":0.4107,"at":"2026-08-17T07:10:52.964Z","kind":"recorder","marker":"lab-recorder-v2","waterfall":false,"note":"采集开始（本行之前的事件未被记录）"}
+{"seq":1,"ms":0.6934,"at":"2026-08-17T07:10:52.964Z","kind":"snapshot","scope":"entry","id":"include","name":"cordis:include","to":"LOADING","hasFiber":true,"disabled":false,"config":"{\"path\":\"file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/profiles/absent/cordis.yml\",\"patches\":[{\"insert\":[{\"id\":\"timer\",\"name\":\"@deepseek-ai/cordis-plugin-timer\"},{\"id\":\"hmr\",…(共454字符)"}
+{"seq":2,"ms":0.7113,"at":"2026-08-17T07:10:52.964Z","kind":"snapshot","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","to":null,"hasFiber":false,"disabled":false}
+{"seq":3,"ms":0.7315,"at":"2026-08-17T07:10:52.964Z","kind":"snapshot","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","to":null,"hasFiber":false,"disabled":false,"config":{"root":[],"debounce":100}}
+{"seq":4,"ms":0.7398,"at":"2026-08-17T07:10:52.964Z","kind":"snapshot","scope":"entry","id":"lab-recorder","name":"lab-recorder","to":"LOADING","hasFiber":true,"disabled":false,"config":{"out":"D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/events-absent.jsonl","flushMs":100}}
+{"seq":5,"ms":0.7578,"at":"2026-08-17T07:10:52.964Z","kind":"recorder","marker":"lab-recorder-v2","note":"起点快照完成：4 个条目，其中 2 个睁眼时已在半路上（它们的出生过程没记全）"}
+{"seq":6,"ms":0.9175,"at":"2026-08-17T07:10:52.964Z","kind":"plugin","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","uid":5}
+{"seq":7,"ms":0.9569,"at":"2026-08-17T07:10:52.964Z","kind":"status","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","from":"PENDING","to":"LOADING"}
+{"seq":8,"ms":0.9883,"at":"2026-08-17T07:10:52.964Z","kind":"status","scope":"entry","id":"lab-recorder","name":"lab-recorder","from":"LOADING","to":"ACTIVE"}
+{"seq":9,"ms":1.0894,"at":"2026-08-17T07:10:52.964Z","kind":"service","serviceName":"labObserver","present":true,"who":"lab-recorder"}
+{"seq":10,"ms":1.2994,"at":"2026-08-17T07:10:52.965Z","kind":"status","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","from":"LOADING","to":"ACTIVE"}
+{"seq":11,"ms":1.3406,"at":"2026-08-17T07:10:52.965Z","kind":"service","serviceName":"timer","present":true,"who":"timer"}
+{"seq":12,"ms":1.4009,"at":"2026-08-17T07:10:52.965Z","kind":"plugin","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","uid":6}
+{"seq":13,"ms":1.4456,"at":"2026-08-17T07:10:52.965Z","kind":"status","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","from":"PENDING","to":"LOADING"}
+{"seq":14,"ms":4.4849,"at":"2026-08-17T07:10:52.968Z","kind":"status","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","from":"LOADING","to":"ACTIVE"}
+{"seq":15,"ms":4.5469,"at":"2026-08-17T07:10:52.968Z","kind":"service","serviceName":"hmr","present":true,"who":"hmr"}
+{"seq":16,"ms":4.775,"at":"2026-08-17T07:10:52.968Z","kind":"status","scope":"entry","id":"include","name":"cordis:include","from":"LOADING","to":"ACTIVE"}
+{"seq":17,"ms":4.9,"at":"2026-08-17T07:10:52.968Z","kind":"service","serviceName":"loader","present":true,"who":"(无条目)"}
+{"seq":18,"ms":5.1528,"at":"2026-08-17T07:10:52.968Z","kind":"service","serviceName":"loader","present":true,"who":"(无条目)"}
+</pre></div>
+    <div id="fc-ev-on" data-name="events-on.jsonl"
+         data-src="results/20260817-151105/events-on.jsonl"
+         data-why="test_removing_disabled_flag_restores_apply：去掉 disabled 那一行，worker 走完整生命周期"><pre>{"seq":0,"ms":0.3647,"at":"2026-08-17T07:11:03.996Z","kind":"recorder","marker":"lab-recorder-v2","waterfall":false,"note":"采集开始（本行之前的事件未被记录）"}
+{"seq":1,"ms":0.684,"at":"2026-08-17T07:11:03.996Z","kind":"snapshot","scope":"entry","id":"include","name":"cordis:include","to":"LOADING","hasFiber":true,"disabled":false,"config":"{\"path\":\"file:///D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/profiles/on/cordis.yml\",\"patches\":[{\"insert\":[{\"id\":\"timer\",\"name\":\"@deepseek-ai/cordis-plugin-timer\"},{\"id\":\"hmr\",\"nam…(共518字符)"}
+{"seq":2,"ms":0.7046,"at":"2026-08-17T07:11:03.996Z","kind":"snapshot","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","to":null,"hasFiber":false,"disabled":false}
+{"seq":3,"ms":0.7213,"at":"2026-08-17T07:11:03.996Z","kind":"snapshot","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","to":null,"hasFiber":false,"disabled":false,"config":{"root":[],"debounce":100}}
+{"seq":4,"ms":0.7298,"at":"2026-08-17T07:11:03.996Z","kind":"snapshot","scope":"entry","id":"lab-recorder","name":"lab-recorder","to":"LOADING","hasFiber":true,"disabled":false,"config":{"out":"D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/events-on.jsonl","flushMs":100}}
+{"seq":5,"ms":0.7384,"at":"2026-08-17T07:11:03.996Z","kind":"snapshot","scope":"entry","id":"worker","name":"./worker.mjs","to":"PENDING","hasFiber":true,"disabled":false,"config":{"班次":"早班"}}
+{"seq":6,"ms":0.7436,"at":"2026-08-17T07:11:03.996Z","kind":"recorder","marker":"lab-recorder-v2","note":"起点快照完成：5 个条目，其中 3 个睁眼时已在半路上（它们的出生过程没记全）"}
+{"seq":7,"ms":0.9024,"at":"2026-08-17T07:11:03.996Z","kind":"plugin","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","uid":6}
+{"seq":8,"ms":0.953,"at":"2026-08-17T07:11:03.996Z","kind":"status","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","from":"PENDING","to":"LOADING"}
+{"seq":9,"ms":0.9905,"at":"2026-08-17T07:11:03.996Z","kind":"status","scope":"entry","id":"lab-recorder","name":"lab-recorder","from":"LOADING","to":"ACTIVE"}
+{"seq":10,"ms":1.0444,"at":"2026-08-17T07:11:03.996Z","kind":"status","scope":"entry","id":"worker","name":"./worker.mjs","from":"PENDING","to":"LOADING"}
+{"seq":11,"ms":1.1117,"at":"2026-08-17T07:11:03.996Z","kind":"service","serviceName":"labObserver","present":true,"who":"lab-recorder"}
+{"seq":12,"ms":1.4111,"at":"2026-08-17T07:11:03.997Z","kind":"report","who":"worker","note":"我跑起来了","data":{"收到的config":{"班次":"早班"}}}
+{"seq":13,"ms":1.4998,"at":"2026-08-17T07:11:03.997Z","kind":"status","scope":"entry","id":"timer","name":"@deepseek-ai/cordis-plugin-timer","from":"LOADING","to":"ACTIVE"}
+{"seq":14,"ms":1.5414,"at":"2026-08-17T07:11:03.997Z","kind":"service","serviceName":"timer","present":true,"who":"timer"}
+{"seq":15,"ms":1.6118,"at":"2026-08-17T07:11:03.997Z","kind":"plugin","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","uid":7}
+{"seq":16,"ms":1.6552,"at":"2026-08-17T07:11:03.997Z","kind":"status","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","from":"PENDING","to":"LOADING"}
+{"seq":17,"ms":1.6756,"at":"2026-08-17T07:11:03.997Z","kind":"status","scope":"entry","id":"worker","name":"./worker.mjs","from":"LOADING","to":"ACTIVE"}
+{"seq":18,"ms":6.3695,"at":"2026-08-17T07:11:04.002Z","kind":"status","scope":"entry","id":"hmr","name":"@deepseek-ai/cordis-plugin-hmr","from":"LOADING","to":"ACTIVE"}
+{"seq":19,"ms":6.4393,"at":"2026-08-17T07:11:04.002Z","kind":"service","serviceName":"hmr","present":true,"who":"hmr"}
+{"seq":20,"ms":6.6254,"at":"2026-08-17T07:11:04.002Z","kind":"status","scope":"entry","id":"include","name":"cordis:include","from":"LOADING","to":"ACTIVE"}
+{"seq":21,"ms":6.7066,"at":"2026-08-17T07:11:04.002Z","kind":"service","serviceName":"loader","present":true,"who":"(无条目)"}
+{"seq":22,"ms":6.9211,"at":"2026-08-17T07:11:04.002Z","kind":"service","serviceName":"loader","present":true,"who":"(无条目)"}
+</pre></div>
+    <div id="fc-w-exprt" data-name="w-expr-t.json"
+         data-src="results/20260817-151105/w-expr-t.json"
+         data-why="disabled: !!js process.platform === 'linux'，本机不是 linux，条件不成立，照常加载"><pre>{
+  "marker": "disabled-v1",
+  "moduleLoadedAt": "2026-08-17T07:10:25.654Z",
+  "appliedAt": "2026-08-17T07:10:25.654Z",
+  "platform": "win32",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-expr-t.json"
+  }
+}</pre></div>
+    <div id="fc-w-jst" data-name="w-jsdisabled-t.json"
+         data-src="results/20260817-151105/w-jsdisabled-t.json"
+         data-why="disabled: !!js false，对照 postmortem 0002 的旧 bug，当前正确求值为假，照常加载"><pre>{
+  "marker": "disabled-v1",
+  "moduleLoadedAt": "2026-08-17T07:10:27.546Z",
+  "appliedAt": "2026-08-17T07:10:27.563Z",
+  "platform": "win32",
+  "config": {
+    "witness": "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-jsdisabled-t.json"
+  }
+}</pre></div>
+    <div id="fc-so-pkg" data-name="package.json"
+         data-src="results/20260817-151105/profiles/static-off/package.json"
+         data-why="dsh.profile.bundles: []，dependencies 把 lab-entry link 进来"><pre>{
+  "name": "dsh-profile-static-off",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-entry": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/01-entry/disabled/fixtures/lab-entry"
+  }
+}
+</pre></div>
+    <div id="fc-so-yml" data-name="cordis.yml"
+         data-src="results/20260817-151105/profiles/static-off/cordis.yml"
+         data-why="恒为 []，每次启动被 profile-boot 重写——九个 profile 这一份都一样"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-so-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/static-off/cordis.patch.yml"
+         data-why="活层：唯一一条 lab-entry，disabled: true 写死"><pre># disabled 活层
+- insert:
+    - id: lab-entry
+      name: lab-entry
+      disabled: true
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-disabled.json"
+</pre></div>
+    <div id="fc-ef-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/expr-f/cordis.patch.yml"
+         data-why="平台条件：win32 上条件成立 → 禁用"><pre># disabled 活层
+- insert:
+    - id: lab-entry
+      name: lab-entry
+      disabled: !!js process.platform === 'win32'
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-expr-f.json"
+</pre></div>
+    <div id="fc-et-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/expr-t/cordis.patch.yml"
+         data-why="平台条件：win32 上条件不成立 → 照常加载"><pre># disabled 活层
+- insert:
+    - id: lab-entry
+      name: lab-entry
+      disabled: !!js process.platform === 'linux'
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-expr-t.json"
+</pre></div>
+    <div id="fc-jf-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/jsdisabled-f/cordis.patch.yml"
+         data-why="postmortem 对照：!!js true"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# disabled 用例：!!js 表达式当前会不会被求值
+- insert:
+    - id: probe
+      name: lab-entry
+      disabled: !!js true
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-jsdisabled-f.json"
+</pre></div>
+    <div id="fc-jt-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/jsdisabled-t/cordis.patch.yml"
+         data-why="postmortem 对照：!!js false"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+# disabled 用例：!!js 表达式当前会不会被求值
+- insert:
+    - id: probe
+      name: lab-entry
+      disabled: !!js false
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/w-jsdisabled-t.json"
+</pre></div>
+    <div id="fc-off-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/off/cordis.patch.yml"
+         data-why="worker 写了 disabled: true；timer 作为控制组一起挂，用来证明采集器是醒着的"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/events-off.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: worker
+      name: ./worker.mjs
+      disabled: true
+      config:
+        班次: 早班
+</pre></div>
+    <div id="fc-ab-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/absent/cordis.patch.yml"
+         data-why="压根不写 worker 这一条——只有 timer / hmr / lab-recorder 三条"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/events-absent.jsonl"
+        flushMs: 100
+</pre></div>
+    <div id="fc-on-pkg" data-name="package.json"
+         data-src="results/20260817-151105/profiles/on/package.json"
+         data-why="dependencies 是 lab-recorder，不是 lab-entry——这三份（off/absent/on）都换了台采集器"><pre>{
+  "name": "dsh-profile-on",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre></div>
+    <div id="fc-on-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151105/profiles/on/cordis.patch.yml"
+         data-why="跟 off 只差一行：worker 没写 disabled"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+- insert:
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/disabled/events-on.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: worker
+      name: ./worker.mjs
+      config:
+        班次: 早班
+</pre></div>
+    <div id="fc-fx-pkg" data-name="package.json"
+         data-src="experiments/01-entry/disabled/fixtures/lab-entry/package.json"
+         data-why="包型插件：有名字有 exports，靠包名被 link 进 profile 的 node_modules"><pre>{
+  "name": "lab-entry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre></div>
+    <div id="fc-fx-idx" data-name="index.js"
+         data-src="experiments/01-entry/disabled/fixtures/lab-entry/index.js"
+         data-why="apply 里写见证文件——disabled 相关用例靠它证明「apply 跑没跑」"><pre>/**
+ * disabled 用的教学插件：写见证文件证明 apply 执行过，外加回显运行平台——
+ * 用来验证 `disabled` 写成 `!!js` 表达式时的条件求值确实按平台生效。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "disabled-v1";
+const moduleLoadedAt = new Date().toISOString();
+
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) {
+    throw new Error("lab-entry: config.witness 是必需的");
+  }
+
+  writeFileSync(
+    witness,
+    JSON.stringify(
+      {
+        marker: MARKER,
+        moduleLoadedAt,
+        appliedAt: new Date().toISOString(),
+        platform: process.platform,
+        config,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+</pre></div>
+    <div id="fc-fx-worker" data-name="worker.mjs"
+         data-src="experiments/01-entry/disabled/fixtures/worker.mjs"
+         data-why="靠 lab-recorder 的 labObserver 服务自己上报一句话，用来验证 fiber 走没走、状态动没动"><pre>/**
+ * 靠观察器上报证明自己跑没跑的教学插件——`disabled` 相关用例要看的不只是
+ * 「apply 执行没执行」，还有「fiber 建没建、状态走没走」，这些只有挂了
+ * lab-recorder 才能看到，见证文件做不到。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我跑起来了", { 收到的config: config ?? null });
+}
+</pre></div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+// ── 机制链条（过程型：分步，五个环节，跟归档数字无关） ──────────────────────
+const BEATS0 = [
+  { t: 'disabled 字段',
+    d: '<code>disabled</code> 接受两种写法：布尔字面量（<code>true</code> / <code>false</code>），' +
+       '或者延迟求值的 <code>!!js</code> 表达式——DSH include 层的 YAML 方言，标签后面跟一段' +
+       ' JavaScript 源码文本。' },
+  { t: 'dump 保留原文',
+    d: '<code>!!js expr</code> 被解析成一个对象 <code>{ __jsExpr: "expr" }</code>' +
+       '（<code>isJsExpr()</code> 认得这个形状）。<code>--dump-config</code> 原样吐出这个节点——' +
+       '保留的是表达式原文，不是任何求值结果。' },
+  { t: '激活时才求值',
+    d: '框架把条目挂起来之前，先调 <code>disabledOf(options)</code>：是 <code>!!js</code> 节点就' +
+       '转呼 <code>evaluate()</code>（内部 <code>with(ctx){ eval(expr) }</code>，在这条条目自己的' +
+       '上下文里跑）；不是就直接把原值布尔化。同一段表达式在不同条目、不同时刻，可能算出不同结果。' },
+  { t: '真 → 跳过',
+    d: '<code>disabledOf()</code> 为真：不建 fiber、<code>apply</code> 不跑——但条目还在组合树里，' +
+       'dump 与 patch 都还找得到它。' },
+  { t: '假 → 照常挂',
+    d: '<code>disabledOf()</code> 为假：跟没写 <code>disabled</code> 完全一样，' +
+       '<code>PENDING → LOADING → ACTIVE</code> 照常走一遍。' },
+];
+initPicker(document.getElementById('stage0'), (body, i) => {
+  const b = BEATS0[i];
+  body.innerHTML = `<div class="pt">${b.t}</div>${b.d}`;
+});
+
+// ── !!js 四张卡片（查询型：hover 预览 + 分步落定） ──────────────────────────
+const EXPRS = [
+  { id: 'expr-f', sub: "disabled: !!js process.platform === 'win32'",
+    chips: ['条件成立'], outcome: 'ghost', outcomeText: '未加载',
+    test: 'test_disabled_platform_conditional_expression[expr-true]',
+    detail: `
+      <div class="row"><span class="k">写法</span><span class="v">
+        <code>disabled: !!js process.platform === 'win32'</code></span></div>
+      <div class="row"><span class="k">本机</span><span class="v">
+        win32——条件成立，求值为 <code>true</code></span></div>
+      <div class="row"><span class="k">结果</span><span class="v">
+        固定等了 12 秒，见证文件没有出现——<b>未加载</b></span></div>`,
+  },
+  { id: 'expr-t', sub: "disabled: !!js process.platform === 'linux'",
+    chips: ['条件不成立'], outcome: 'live', outcomeText: '加载了',
+    test: 'test_disabled_platform_conditional_expression[expr-false]',
+    detail: `
+      <div class="row"><span class="k">写法</span><span class="v">
+        <code>disabled: !!js process.platform === 'linux'</code></span></div>
+      <div class="row"><span class="k">本机</span><span class="v">
+        win32——条件不成立，求值为 <code>false</code></span></div>
+      <div class="row"><span class="k">dump</span><span class="v">
+        <code>dump.require("lab-entry")["disabled"]</code> 仍是字符串
+        <code>"process.platform === 'linux'"</code> 原文——保留的是表达式，不是求值结果</span></div>
+      <div class="row"><span class="k">见证文件</span><span class="v">
+        <code>w-expr-t.json</code> 写入了（点右边文件树看原文）：<code>platform: "win32"</code>——
+        回显的是运行时的真实平台，不是表达式里写的那个字符串</span></div>`,
+  },
+  { id: 'jsdisabled-f', sub: 'disabled: !!js true',
+    chips: ['postmortem 对照'], outcome: 'ghost', outcomeText: '未加载',
+    test: 'test_disabled_boolean_expression_matches_current_behavior[expr-true-disabled]',
+    detail: `
+      <div class="row"><span class="k">写法</span><span class="v"><code>disabled: !!js true</code></span></div>
+      <div class="row"><span class="k">结果</span><span class="v">
+        固定等了 12 秒，没有见证文件——<b>未加载</b></span></div>
+      <div class="row"><span class="k">对照</span><span class="v">
+        postmortem 0002 记的旧 bug：<code>!!js</code> 表达式解析成对象，对象恒真，受影响插件永远
+        判定为禁用。如果那个 bug 还在，<code>!!js true</code> 和 <code>!!js false</code>
+        应该结果一样——都恒真、永不加载。</span></div>`,
+  },
+  { id: 'jsdisabled-t', sub: 'disabled: !!js false',
+    chips: ['postmortem 对照'], outcome: 'live', outcomeText: '加载了',
+    test: 'test_disabled_boolean_expression_matches_current_behavior[expr-false-loads]',
+    detail: `
+      <div class="row"><span class="k">写法</span><span class="v"><code>disabled: !!js false</code></span></div>
+      <div class="row"><span class="k">见证文件</span><span class="v">
+        <code>w-jsdisabled-t.json</code> 写入了（点右边文件树看原文）：<code>appliedAt</code>
+        比 <code>moduleLoadedAt</code> 晚约 17ms——apply 是在模块挂载之后才跑的</span></div>
+      <div class="row"><span class="k">结论</span><span class="v">
+        两个变体加载结果相反——当前 <code>disabledOf()</code> 确实对表达式求值，不是把表达式对象
+        当真值。postmortem 0002 记的根因（<code>Entry.disabled</code> 直接读
+        <code>options.disabled</code>，从不插值）在当前版本不是这样，那次 bug 不复现。</span></div>`,
+  },
+];
+const picksExpr = document.getElementById('picks-expr');
+EXPRS.forEach(p => {
+  const btn = document.createElement('button');
+  btn.className = 'pick';
+  btn.innerHTML = `
+    <span class="pn">${p.id}</span>
+    <span class="ps">${p.sub}</span>
+    <span class="chips">${p.chips.map(c => `<span class="chip">${c}</span>`).join('')}</span>
+    <span class="outcome ${p.outcome}"><i></i>${p.outcomeText}</span>`;
+  picksExpr.appendChild(btn);
+});
+initPicker(document.getElementById('pk-expr'), (body, i) => {
+  const p = EXPRS[i];
+  body.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
+}, { hover: true });
+
+// ── on / off-cmp / absent 三张卡片（核心对照：查询型，hover 预览 + 分步落定） ──
+const TRI = [
+  { id: 'on', sub: 'worker 没关（没写 disabled）',
+    chips: ['hasFiber', 'ACTIVE', '说话了'], outcome: 'live', outcomeText: '走完整生命周期',
+    test: 'test_removing_disabled_flag_restores_apply',
+    detail: `
+      <div class="row"><span class="k">在树上</span><span class="v">
+        是——采集器睁眼时就拍到了 worker</span></div>
+      <div class="row"><span class="k">hasFiber</span><span class="v">
+        <b>true</b>，睁眼时已经是 <code>PENDING</code></span></div>
+      <div class="row"><span class="k">状态迁移</span><span class="v">
+        <code>PENDING → LOADING → ACTIVE</code></span></div>
+      <div class="row"><span class="k">说了什么</span><span class="v">
+        <pre>{"kind":"report","who":"worker","note":"我跑起来了","data":{"收到的config":{"班次":"早班"}}}</pre></span></div>`,
+  },
+  { id: 'off-cmp', sub: 'worker 写了 disabled: true',
+    chips: ['在树上', '没有 fiber'], outcome: 'ghost', outcomeText: '在树上，没有 fiber',
+    test: 'test_disabled_differs_from_absent_entry',
+    detail: `
+      <div class="row"><span class="k">在树上</span><span class="v">
+        是——<code>entries</code> 列表里有 <code>worker</code> 这一条</span></div>
+      <div class="row"><span class="k">hasFiber</span><span class="v">
+        <b>false</b>，<code>to: null</code>——没有状态可言</span></div>
+      <div class="row"><span class="k">状态迁移</span><span class="v">
+        无（从未创建 fiber，谈不上迁移）</span></div>
+      <div class="row"><span class="k">说了什么</span><span class="v">
+        <pre>{"kind":"snapshot","id":"worker","name":"./worker.mjs","to":null,"hasFiber":false,"disabled":true}</pre></span></div>`,
+  },
+  { id: 'absent', sub: '配方里压根没写 worker 这一行',
+    chips: ['不在树上'], outcome: 'gone', outcomeText: '不在树上',
+    test: 'test_disabled_differs_from_absent_entry',
+    detail: `
+      <div class="row"><span class="k">在树上</span><span class="v">
+        <b>否</b>——<code>entries</code> 列表里连 “worker” 这个名字都没出现</span></div>
+      <div class="row"><span class="k">hasFiber</span><span class="v">
+        ——（没有这一条，问题本身不成立）</span></div>
+      <div class="row"><span class="k">状态迁移</span><span class="v">——</span></div>
+      <div class="row"><span class="k">说了什么</span><span class="v">
+        <pre>{"kind":"recorder","note":"起点快照完成：4 个条目，其中 2 个睁眼时已在半路上（它们的出生过程没记全）"}</pre>
+        （4 条：include / timer / hmr / lab-recorder，没有 worker）</span></div>`,
+  },
+];
+const picksTri = document.getElementById('picks-tri');
+TRI.forEach(p => {
+  const btn = document.createElement('button');
+  btn.className = 'pick';
+  btn.innerHTML = `
+    <span class="pn">${p.id}</span>
+    <span class="ps">${p.sub}</span>
+    <span class="chips">${p.chips.map(c => `<span class="chip">${c}</span>`).join('')}</span>
+    <span class="outcome ${p.outcome}"><i></i>${p.outcomeText}</span>`;
+  picksTri.appendChild(btn);
+});
+initPicker(document.getElementById('pk-tri'), (body, i) => {
+  const p = TRI[i];
+  body.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
+}, { hover: true });
+
+// ── 侧边栏：树窗折叠 + 文件窗渲染由 lab.js 统一处理 ──────────────────────────
+
+</script>
+</body>
+</html>
