@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>inject-hard-dependency · inject 是硬依赖，不是软等待</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0ea5e9; --fatal:#dc2626;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#38bdf8; --fatal:#f87171;
+}}
+:root[data-theme=dark]{
+ --bmhit:#38bdf8; --fatal:#f87171;
+}
+.note code{font-family:var(--mono);font-size:12px}
+
+/* 机制舞台：四步 arrow picker */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+
+/* 三个 profile 并排的场景卡 */
+.scn{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0 8px}
+@media (max-width:700px){.scn{grid-template-columns:1fr}}
+.scard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.scard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.scard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.scard .row{font-size:12px;color:var(--dim);margin:4px 0;line-height:1.5}
+.scard .row b{color:var(--fg);font-weight:600}
+.scard .row code{font-family:var(--mono);font-size:11px}
+.b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.b2.miss{color:var(--miss)}
+.b2.fatal{color:var(--fatal)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">06-inject / inject-hard-dependency</div>
+<h1>inject 是硬依赖，不是软等待</h1>
+<p class="sub">声明了 inject 的插件，它要的服务没到位就不执行 apply——这份契约有多硬：等不到，整条实例都起不来。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">📗 复述型</span>
+  <span class="tag ok">✅ 满覆盖 · 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，见 <code>00-base/baseline-profile</code>）在运行时对应一个 fiber——插件这一次生命的载体。一条插件除了被动等待挂载，代码里还能声明「我要用哪个服务」：模块顶层写
+<code>export const inject = [...]</code>。条目上也能写这个字段，两处写法的关系已经在 <code>01-entry/inject-field</code>
+钉死（条目级是补充，不会覆盖代码级），这一项统一用代码级写法。三个教学插件构成测试面：<code>lab-registry</code>
+提供一个叫 <code>labRegistry</code> 的服务（service，插件之间互相提供能力的方式，见 <code>01-entry/inject-field</code>）；
+<code>lab-alpha</code> 声明依赖它；<code>lab-open</code> 是不声明依赖的对照插件。</p>
+<p class="note">这一项讲的是 <code>inject</code> 这条声明背后的契约本身：框架怎么保证，一条插件的 <code>apply</code>
+真正被调用时，它声明要的服务已经全部就绪。谁先谁后由「服务几时就位」驱动、不看 patch 里的书写顺序，这条已经在
+<code>06-inject/activation-order</code> 讲过，这里不重复；这一项要讲清楚的是这份「就绪保证」本身怎么运作——provider
+怎么把服务摆上台面，框架靠什么把关，声明方的 <code>apply</code> 什么时候才被放行。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">一条依赖声明从写下到兑现，走这四步——①②是声明与登记的两端，③是框架的把关动作，④是把关通过之后真正放行。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">代码里声明 inject</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">provider 登记服务</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">没就绪之前，fiber 停在 PENDING</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">就绪那一刻，apply 才被放行</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>三个 profile，各自摆一种场景</h2>
+<p class="note">三个 profile 起手都是空配方（<code>make_minimal_profile</code>），各自只 <code>insert</code> 本项要测的那几条。
+谁 apply 了、谁没有，全靠见证文件裁决——插件在自己的 <code>apply()</code> 里落盘，文件在不在是硬事实，不用去猜日志。</p>
+
+<div class="scn">
+  <div class="scard">
+    <div class="hd"><span class="nm">provider-disabled</span><span class="b2 miss">不 apply</span></div>
+    <div class="row"><b>entries</b>：lab-registry（<code>disabled: true</code>）→ lab-alpha（inject 依赖它）</div>
+    <div class="row">固定等待 10 秒才查——用例 <code>test_provider_disabled_blocks_apply</code> 耗时 10.09s</div>
+    <div class="row"><code>w-alpha.json</code> 不存在</div>
+    <div class="row"><code>ledger.json</code> 也不存在——provider 的条目还在树里，只是被禁用，从没 apply 过</div>
+  </div>
+  <div class="scard">
+    <div class="hd"><span class="nm">no-provider-at-all</span><span class="b2 fatal">启动失败</span></div>
+    <div class="row"><b>entries</b>：只有 lab-alpha——labRegistry 连一个提供者条目都没有</div>
+    <div class="row">轮询到进程不再存活——用例 <code>test_service_with_no_provider_blocks_apply_and_kills_boot</code> 耗时 0.67s</div>
+    <div class="row">退出码不是 0；日志里有点名 labRegistry 的 pending 判词</div>
+    <div class="row"><code>w-alpha-noprovider.json</code> 不存在——apply 从没跑到</div>
+  </div>
+  <div class="scard">
+    <div class="hd"><span class="nm">no-inject-control</span><span class="b2 ok">照常 apply</span></div>
+    <div class="row"><b>entries</b>：只有 lab-open——同样没有任何 provider</div>
+    <div class="row">用例 <code>test_without_inject_declaration_runs_regardless</code> 耗时 1.76s</div>
+    <div class="row"><code>w-open.json</code> 存在：appliedAt <code>2026-08-17T07:10:23.189Z</code></div>
+    <div class="row"><code>gotRegistry</code>: <code>false</code>——<code>ctx.get()</code> 直接拿 undefined，不排队</div>
+  </div>
+</div>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>inject 声明的服务不到位，apply 根本不执行。</b>不是「apply 了但拿到 undefined」，是压根没 apply——官方文档已写明这条契约
+    （<code>docs/official/zh/user/develop/framework/service.md:32</code>）。provider 被禁用、服务连提供者条目都没有，
+    两条路径都验了这条。
+    <span class="from">test_provider_disabled_blocks_apply · test_service_with_no_provider_blocks_apply_and_kills_boot</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>等不到的下场很硬：那个条目永远停在 PENDING，boot 末尾的审计判它失败，整个实例起不来。</b>
+    boot 审计本身的机制（为什么 PENDING 无条件致命）归 <code>09-boot-vs-runtime/boot-audit</code>，这里只用它的结论。
+    <span class="from">test_service_with_no_provider_blocks_apply_and_kills_boot</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>不声明 inject 就不受这条契约约束：它不排队，直接跑。</b>lab-open 代码里不写 <code>inject</code>，运行时按需
+    <code>ctx.get()</code>，同一个从未存在过的服务对它没有任何阻塞——卡住依赖方的是<b>声明</b>本身，不是「服务不存在」
+    这个事实。
+    <span class="from">test_without_inject_declaration_runs_regardless</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_inject_hard_dependency.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字取自归档 <code>results/20260817-151024/</code>（<code>summary.md</code>、<code>w-open.json</code> 与
+<code>profiles/</code> 下三个 profile 各自的 <code>package.json</code> / <code>cordis.patch.yml</code> /
+<code>cordis.yml</code>），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="fl" data-k="w-open">w-open.json</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">provider-disabled/</button>
+                <ul>
+                  <li><button class="fl" data-k="pd-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="pd-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="pd-yml">cordis.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-registry &rarr;</li><li>lab-alpha &rarr;</li></ul></li>
+                </ul></li>
+              <li><button class="tw">no-provider-at-all/</button>
+                <ul>
+                  <li><button class="fl" data-k="np-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="np-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="np-yml">cordis.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-alpha &rarr;</li></ul></li>
+                </ul></li>
+              <li><button class="tw">no-inject-control/</button>
+                <ul>
+                  <li><button class="fl" data-k="ni-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="ni-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ni-yml">cordis.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-open &rarr;</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/lab-registry/</button>
+            <ul>
+              <li><button class="fl" data-k="reg-pkg">package.json</button></li>
+              <li><button class="fl" data-k="reg-idx">index.js</button></li>
+            </ul></li>
+          <li><button class="tw">fixtures/lab-alpha/</button>
+            <ul>
+              <li><button class="fl" data-k="alpha-pkg">package.json</button></li>
+              <li><button class="fl" data-k="alpha-idx">index.js</button></li>
+            </ul></li>
+          <li><button class="tw">fixtures/lab-open/</button>
+            <ul>
+              <li><button class="fl" data-k="open-pkg">package.json</button></li>
+              <li><button class="fl" data-k="open-idx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-w-open" data-name="w-open.json"
+         data-src="results/20260817-151024/w-open.json"
+         data-why="lab-open 的见证文件——不声明 inject，labRegistry 从未存在过，照样 apply 完，gotRegistry 记的是 false"><pre>{
+  "marker": "lab-open-v1",
+  "appliedAt": "2026-08-17T07:10:23.189Z",
+  "gotRegistry": false
+}</pre>
+    </div>
+    <div id="fc-pd-pkg" data-name="package.json"
+         data-src="results/20260817-151024/profiles/provider-disabled/package.json"
+         data-why="dependencies 里 link 了 lab-registry 与 lab-alpha 两个教学插件"><pre>{
+  "name": "dsh-profile-provider-disabled",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-registry": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/inject-hard-dependency/fixtures/lab-registry",
+    "lab-alpha": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/inject-hard-dependency/fixtures/lab-alpha"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-pd-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151024/profiles/provider-disabled/cordis.patch.yml"
+         data-why="活层：lab-registry 的条目 disabled: true，lab-alpha 声明依赖它——provider 的条目还在树里，只是被禁用"><pre># inject-hard-dependency 活层
+- insert:
+    - id: lab-registry
+      name: lab-registry
+      disabled: true
+      config:
+        ledger: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/inject-hard-dependency/ledger.json"
+
+    - id: lab-alpha
+      name: lab-alpha
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/inject-hard-dependency/w-alpha.json"
+</pre>
+    </div>
+    <div id="fc-pd-yml" data-name="cordis.yml"
+         data-src="results/20260817-151024/profiles/provider-disabled/cordis.yml"
+         data-why="profile 根，每次启动被重写成空数组——真正的配方在 cordis.patch.yml 里"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-np-pkg" data-name="package.json"
+         data-src="results/20260817-151024/profiles/no-provider-at-all/package.json"
+         data-why="dependencies 只 link 了 lab-alpha——labRegistry 连提供者条目都没有"><pre>{
+  "name": "dsh-profile-no-provider-at-all",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-alpha": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/inject-hard-dependency/fixtures/lab-alpha"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-np-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151024/profiles/no-provider-at-all/cordis.patch.yml"
+         data-why="活层：只 insert 了 lab-alpha 一条"><pre># inject-hard-dependency 活层
+- insert:
+    - id: lab-alpha
+      name: lab-alpha
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/inject-hard-dependency/w-alpha-noprovider.json"
+</pre>
+    </div>
+    <div id="fc-np-yml" data-name="cordis.yml"
+         data-src="results/20260817-151024/profiles/no-provider-at-all/cordis.yml"
+         data-why="profile 根，每次启动被重写成空数组——真正的配方在 cordis.patch.yml 里"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-ni-pkg" data-name="package.json"
+         data-src="results/20260817-151024/profiles/no-inject-control/package.json"
+         data-why="dependencies 只 link 了 lab-open"><pre>{
+  "name": "dsh-profile-no-inject-control",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-open": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/inject-hard-dependency/fixtures/lab-open"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-ni-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151024/profiles/no-inject-control/cordis.patch.yml"
+         data-why="活层：只 insert 了 lab-open 一条——同样没有任何 provider"><pre># inject-hard-dependency 活层
+- insert:
+    - id: lab-open
+      name: lab-open
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/inject-hard-dependency/w-open.json"
+</pre>
+    </div>
+    <div id="fc-ni-yml" data-name="cordis.yml"
+         data-src="results/20260817-151024/profiles/no-inject-control/cordis.yml"
+         data-why="profile 根，每次启动被重写成空数组——真正的配方在 cordis.patch.yml 里"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-reg-pkg" data-name="package.json"
+         data-src="fixtures/lab-registry/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-registry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-reg-idx" data-name="index.js"
+         data-src="fixtures/lab-registry/index.js"
+         data-why="provide(&quot;labRegistry&quot;)：本项三个 profile 里它要么被禁用、要么没被 link，这条 apply 从没真正跑过"><pre>/**
+ * 提供 `labRegistry` 服务：一本「谁登记过」的账本，谁登记一笔就立刻整份落盘。
+ *
+ * 落盘时机就是真实的 apply 先后关系——账本内容本身就是活的调用顺序凭证，
+ * 不用另外拼事件流时间戳。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-registry-v1";
+
+export function apply(ctx, config) {
+  const ledger = config?.ledger;
+  if (!ledger) throw new Error("lab-registry: config.ledger（账本落盘路径）是必需的");
+
+  const entries = [];
+  const t0 = process.hrtime.bigint();
+
+  const dump = () =&gt;
+    writeFileSync(
+      ledger,
+      JSON.stringify({ marker: MARKER, providedAt: new Date().toISOString(), entries }, null, 2),
+      "utf8",
+    );
+
+  const book = {
+    sign(who, note) {
+      entries.push({
+        who,
+        note: note ?? null,
+        ms: Number(process.hrtime.bigint() - t0) / 1e6,
+        at: new Date().toISOString(),
+      });
+      dump();
+    },
+    list() {
+      return entries.slice();
+    },
+  };
+
+  // ctx.provide 返回的 disposer 在 fiber 卸载时自动调用，这里不用额外用 ctx.effect 包。
+  ctx.provide("labRegistry", book);
+
+  dump(); // 先落一次空账本，证明提供者自己先到位
+}
+</pre>
+    </div>
+    <div id="fc-alpha-pkg" data-name="package.json"
+         data-src="fixtures/lab-alpha/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-alpha",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-alpha-idx" data-name="index.js"
+         data-src="fixtures/lab-alpha/index.js"
+         data-why="export const inject = [&quot;labRegistry&quot;]：声明写在代码里，拿不到服务时不抛错，如实记录 gotRegistry"><pre>/**
+ * 依赖 `labRegistry` 的消费者。依赖声明写在代码里（`export const inject`）——
+ * 这是主流写法，条目上也能写（见 01-entry/inject-field）。
+ *
+ * 拿不到服务时**不抛错**，如实记录 `gotRegistry`。探针在观测点抛错会把两种
+ * 完全不同的现象混成一种：「inject 没满足 → 根本没 apply」 vs
+ * 「apply 了但服务是 undefined」——前者见证文件不出现，后者出现且
+ * `gotRegistry: false`，必须能分开。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-alpha-v1";
+
+export const inject = ["labRegistry"];
+
+export function apply(ctx, config) {
+  const book = ctx.get("labRegistry");
+
+  if (book) {
+    book.sign("lab-alpha", config?.note ?? null);
+  }
+
+  if (config?.witness) {
+    writeFileSync(
+      config.witness,
+      JSON.stringify(
+        {
+          marker: MARKER,
+          appliedAt: new Date().toISOString(),
+          gotRegistry: book !== undefined &amp;&amp; book !== null,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
+}
+</pre>
+    </div>
+    <div id="fc-open-pkg" data-name="package.json"
+         data-src="fixtures/lab-open/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-open",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-open-idx" data-name="index.js"
+         data-src="fixtures/lab-open/index.js"
+         data-why="对照插件：代码里不声明 inject，运行时按需 ctx.get()——apply 立刻跑，不排队"><pre>/**
+ * 对照插件：代码里**不声明** `inject`，运行时按需 `ctx.get()`。
+ *
+ * 用来验证「不声明依赖就不等」——apply 立刻跑，服务不在就是 undefined，不阻塞。
+ */
+
+import { writeFileSync } from "node:fs";
+
+export function apply(ctx, config) {
+  const registry = ctx.get("labRegistry");
+
+  if (config?.witness) {
+    writeFileSync(
+      config.witness,
+      JSON.stringify(
+        {
+          marker: "lab-open-v1",
+          appliedAt: new Date().toISOString(),
+          gotRegistry: registry !== undefined &amp;&amp; registry !== null,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>代码里声明 inject</b><br><code>export const inject = ["labRegistry"]</code>——lab-alpha 顶层这样写，
+   把「我需要 labRegistry 这个服务」这句话挂在自己的 fiber 上。声明处也能写在条目上，那是另一条路，
+   <code>01-entry/inject-field</code> 已经钉死两处写法的关系（条目级是补充，不会覆盖代码级），这里全用代码级。`,
+  `<b>provider 登记服务</b><br>另一条插件（lab-registry）在自己的 <code>apply(ctx, config)</code> 里调用
+   <code>ctx.provide("labRegistry", 具体对象)</code>，把这个名字登记进当前 ctx 能查到的服务表。
+   <code>ctx.provide</code> 返回一个 disposer，这条插件卸载时服务自动撤销。`,
+  `<b>没就绪之前，fiber 停在 PENDING</b><br>框架逐条比对：一条 fiber 声明的 inject 清单要全部出现在服务表里才算数。
+   没有全部就位之前，这条 fiber（插件这次生命的载体）已经建好，却停在 <code>PENDING</code>——cordis 定义的六个
+   fiber 状态之一，意思是「等着，还没轮到我」，<b>不是</b>「已经跑了但拿到 undefined」。`,
+  `<b>就绪那一刻，apply 才被放行</b><br>清单里的服务全部就位，等着的 fiber 立刻被放行，
+   <code>apply(ctx, config)</code> 才第一次被调用。官方文档把这条写成契约：「框架保证：在 apply 执行时，inject
+   声明的服务已经全部就绪。如果服务还没准备好，你的插件会等着，不会执行」
+   （<code>docs/official/zh/user/develop/framework/service.md:32</code>）。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

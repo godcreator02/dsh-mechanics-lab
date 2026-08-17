@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>insert-semantics · insert 是新增条目的唯一姿势</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0891b2; --pkg:#f97316; --live:#7c3aed;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#22d3ee; --pkg:#fb923c; --live:#a78bfa;
+}}
+:root[data-theme=dark]{
+ --bmhit:#22d3ee; --pkg:#fb923c; --live:#a78bfa;
+}
+.b-pkg{color:var(--pkg);font-weight:600}
+.b-live{color:var(--live);font-weight:600}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.b2.warn{color:var(--warn)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+.ccard .row b{color:var(--fg);font-weight:600}
+.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:11px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:150px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
+.kv .v.b-pkg{color:var(--pkg)}
+.kv .v.b-live{color:var(--live)}
+
+.read.match{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));
+  background:var(--warnbg)}
+.read.match .n{color:var(--warn)}
+.read.match p b{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">02-recipe / insert-semantics</div>
+<h1>insert 是新增条目的唯一姿势</h1>
+<p class="sub">patch 对条目列表能做的编辑只有三种形态；这一项只讲能真正新增条目的那一种——<code>- insert:</code>。不带 <code>id</code> 和带 <code>id</code> 是两套完全不同的语义，认错了目标，插入会被整条跳过而不报错。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">⚠️ 矫正型</span>
+  <span class="tag ok">✅ 满覆盖 · 3 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，见 <code>00-base/minimal-profile</code>）是配方里的一行。整棵组合树 100% 由 <b>patch</b>——对条目列表的一次编辑指令——叠出来，根永远是空数组。patch 有三种形态：不带 <code>id</code> 的 <code>- insert:</code>、带 <code>id</code> 的 <code>- insert:</code>、以及 <code>- id: X</code> 直接定位已有条目改字段。前两种都用 <code>insert</code> 关键字，但落地位置完全不同；第三种根本不新增条目，只改已有条目的字段。这一项讲的正是前两种——<code>insert</code> 到底往哪儿插，插不进去时框架怎么应对，以及插进去的条目在组合树里怎样被标出它的来路。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍 <code>applyEntryPatches()</code>（<code>cordis-plugin-include</code>）处理一条 patch 项时的分支：①②是 <code>insert</code> 落地位置的两条路，③是②那条路上的校验失败分支，④是插入之后组合树记账的方式。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">不带 id → 根组</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">带 id → 目标 group</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">目标不是 group</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">来源记账</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>怎么测：静态 dump 就是真组合树</h2>
+<p class="note"><code>dsh --dump-config</code> 的 <code>renderConfigDump()</code> 与运行时挂载的 <code>Include.applyPatches()</code> 走的是同一个 <code>applyEntryPatches()</code> 调用，所以本项全部用例只用静态 <code>--dump-config</code>，不用拉真实例——算出来的树和真实挂载走的是同一套 compose 逻辑，不是近似。<code>insert</code> 的警告走 stderr、不进 stdout、也不改变退出码；<code>lab.dump_config()</code> 成功时会把 stderr 静默丢弃，本项自己包了一层 <code>dump_with_warnings()</code> 才能把警告带出来判定。</p>
+
+<h2>不带 id：两条原样进了根组</h2>
+<p class="note"><code>insert-root</code> profile（<code>bundles: []</code>，侧栏可点开）的活层只写了一条 patch 项——只有 <code>insert</code> 字段，没有顶层 <code>id</code>。<code>insert</code> 列表里两条各自带的 <code>id: alpha</code> / <code>id: beta</code> 是新条目自己的树内地址，跟这条 patch 项顶层有没有 <code>id</code> 是两件事。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">insert-root</span><span class="b2 ok">✓ 原样追加</span></div>
+    <div class="row">patch 项 = 一条 <code>insert</code>，不带顶层 id</div>
+    <div class="row">组合树 id 列表 = <b>['alpha', 'beta']</b>（0.56s）</div>
+    <div class="row">stderr = <b>（空）</b>——完全合法，没有任何警告</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">insert-nongroup</span><span class="b2 warn">⚠ 警告并跳过</span></div>
+    <div class="row">patch 项 = 两条：先不带 id 的 <code>insert</code> 建出 <code>leaf</code>，再一条顶层 <code>id: leaf</code> 附带 <code>insert</code> 想往 <code>leaf</code> 里塞 <code>child</code></div>
+    <div class="row">组合树 id 列表 = <b>['leaf']</b>（0.54s）——没有 <code>child</code></div>
+    <div class="row"><code>leaf.config</code> = <b>{"x": 1}</b>，原封不动</div>
+    <pre>patch insert: entry "leaf" is not a group</pre>
+  </div>
+</div>
+<p class="note">第二个 patch 项的顶层 <code>id: leaf</code> 指向的是已存在的 <code>leaf</code> 条目，想把它当 <b>group</b>（标记 <code>group: true</code> 的条目，它的 <code>config</code> 字段本身就是子条目数组）塞孩子进去。但 <code>leaf</code> 本身只是普通条目，没有 <code>group: true</code>——<code>applyEntryPatches()</code> 只在 stderr 打上面那一行警告，整条 patch 项被跳过：<code>child</code> 一个都没被创建，<code>leaf</code> 自己的字段也毫发无损，不是报错中断整个 dump。</p>
+
+<h2>来源写在脸上：活层 insert 出来的条目</h2>
+<p class="note"><code>insert-lands</code> profile 的 <code>bundles</code> 里带了 <code>@deepseek-ai/dsh-base</code>，活层用不带 id 的 <code>insert</code> 挂了一条真的教学插件 <code>lab-minimal</code>（<code>fixtures/lab-minimal</code>，link 进这个 profile，侧栏可查看它的 <code>apply()</code>）。dump 对每个条目都标出它是从哪一层来的——两种层两种形式，从不用猜。</p>
+<div class="kv">
+  <div class="r"><span class="k">组合树条目总数</span><span class="v">79</span></div>
+  <div class="r"><span class="k"><b class="b-live">lab-minimal</b> 的来源</span><span class="v b-live">D:\…\insert-lands\cordis.patch.yml</span></div>
+  <div class="r"><span class="k"><b class="b-pkg">timer</b> 的来源</span><span class="v b-pkg">@deepseek-ai/dsh-base</span></div>
+</div>
+<p class="note"><span class="b-live">活层</span>条目的来源是那份 <code>cordis.patch.yml</code> 文件本身的绝对路径；<span class="b-pkg">bundle 层</span>条目的来源是贡献这条 patch 的包名。同一次 <code>dump_config()</code> 里两种来源并存，读者不用去猜「这条是谁塞进来的」。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>不带 id 的 <code>- insert:</code>，<code>insert</code> 列表原样追加进根组。</b>官方文档展示过这种写法，但没有明确说「追加进根组」这句话本身——这条从源码坐实。
+    <span class="from">test_insert_without_id_appends_to_root</span>
+  </p></div>
+  <div class="read match"><span class="n">②</span><p>
+    <b>矫正点：带 id 的 <code>- insert:</code>，那个 id 指的是已存在的目标 group，不是给新条目起名字。</b>目标存在但不是 group 时只警告、整条 patch 被跳过——子条目一个都不会创建，目标条目本身也毫发无损，不是报错中断。官方文档完全没提这条语义。
+    <span class="from">test_insert_with_id_targeting_non_group_warns_and_skips</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>活层 insert 出来的条目，dump 把来源写在脸上。</b>bundle 层标包名，活层标那份 patch 文件的绝对路径，两种来源在同一次 dump 里并存，「这条是谁塞进来的」从不用猜。
+    <span class="from">test_entry_lands_in_composed_tree</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_insert_semantics.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151011/</code>（<code>summary.md</code> 与 <code>profiles/</code> 下 3 个 profile 的 9 份文件），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">insert-root/</button>
+                <ul>
+                  <li><button class="fl" data-k="root-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="root-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="root-pkg">package.json</button></li>
+                </ul></li>
+              <li><button class="tw">insert-nongroup/</button>
+                <ul>
+                  <li><button class="fl" data-k="ng-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ng-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ng-pkg">package.json</button></li>
+                </ul></li>
+              <li><button class="tw">insert-lands/</button>
+                <ul>
+                  <li><button class="fl" data-k="lands-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="lands-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="lands-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-minimal →</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">lab-minimal/</button>
+                <ul>
+                  <li><button class="fl" data-k="lm-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="lm-idx">index.js</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-root-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151011/profiles/insert-root/cordis.patch.yml"
+         data-why="一条 insert，不带顶层 id——两条子项原样追加进根组"><pre># insert 不带 id
+- insert:
+    - id: alpha
+      name: dummy-alpha
+    - id: beta
+      name: dummy-beta
+</pre>
+    </div>
+    <div id="fc-root-yml" data-name="cordis.yml"
+         data-src="results/20260817-151011/profiles/insert-root/cordis.yml"
+         data-why="profile 根文件：空条目列表，真正的树全由 patch 叠出来"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-root-pkg" data-name="package.json"
+         data-src="results/20260817-151011/profiles/insert-root/package.json"
+         data-why="bundles: []——这个 profile 没有任何 bundle 层，组合树只来自活层"><pre>{
+  "name": "dsh-profile-insert-root",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-ng-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151011/profiles/insert-nongroup/cordis.patch.yml"
+         data-why="第二条 patch 项顶层带 id: leaf，试图把 leaf 当 group 塞孩子进去——但 leaf 不是 group"><pre># insert 带 id，目标不是 group
+- insert:
+    - id: leaf
+      name: dummy-leaf
+      config:
+        x: 1
+- id: leaf
+  insert:
+    - id: child
+      name: dummy-child
+</pre>
+    </div>
+    <div id="fc-ng-yml" data-name="cordis.yml"
+         data-src="results/20260817-151011/profiles/insert-nongroup/cordis.yml"
+         data-why="同样是空条目列表；跟 insert-root 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-ng-pkg" data-name="package.json"
+         data-src="results/20260817-151011/profiles/insert-nongroup/package.json"
+         data-why="bundles: []，只有活层——排除 bundle 层带来干扰的可能"><pre>{
+  "name": "dsh-profile-insert-nongroup",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-lands-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151011/profiles/insert-lands/cordis.patch.yml"
+         data-why="活层 insert 挂了真插件 lab-minimal，witness 路径原样传进它的 config"><pre># 活层 insert
+- insert:
+    - id: lab-minimal
+      name: lab-minimal
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/insert-semantics/witness-lands.json"
+</pre>
+    </div>
+    <div id="fc-lands-yml" data-name="cordis.yml"
+         data-src="results/20260817-151011/profiles/insert-lands/cordis.yml"
+         data-why="同样是空条目列表；跟另两个 profile 的 cordis.yml 逐字节相同"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-lands-pkg" data-name="package.json"
+         data-src="results/20260817-151011/profiles/insert-lands/package.json"
+         data-why="bundles 里带了 @deepseek-ai/dsh-base，dependencies 里 link 了 lab-minimal"><pre>{
+  "name": "dsh-profile-insert-lands",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base"
+      ]
+    }
+  },
+  "dependencies": {
+    "lab-minimal": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/02-recipe/insert-semantics/fixtures/lab-minimal"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-lm-pkg" data-name="package.json"
+         data-src="experiments/02-recipe/insert-semantics/fixtures/lab-minimal/package.json"
+         data-why="最小插件的包清单：exports['.'] 指到 index.js"><pre>{
+  "name": "lab-minimal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-lm-idx" data-name="index.js"
+         data-src="experiments/02-recipe/insert-semantics/fixtures/lab-minimal/index.js"
+         data-why="apply() 只做一件事：把见证文件写出来，证明这条活层 insert 出来的条目真的被挂载执行了"><pre>/**
+ * 最小插件：只用来证明「apply 执行了、带着什么 config」。
+ *
+ * 不 inject 任何服务、不注册路由、不碰 UI——刻意做到最小，这样「插件被
+ * 加载了」这件事就没有任何别的解释。观测手段是写一个见证文件，而不是
+ * 打日志：日志可能被吞、被缓冲、被格式变化骗过去；文件存在与否是硬事实。
+ */
+import { writeFileSync } from "node:fs";
+
+/** 代码版本指纹。改了这个值就能证明跑的是新代码。 */
+const MARKER = "lab-minimal-v1";
+
+/** 模块顶层求值：模块被 import 的时刻。 */
+const moduleLoadedAt = new Date().toISOString();
+
+/**
+ * @param {object} ctx    插件上下文（本项不用它）
+ * @param {object} config 活层条目里 `config:` 那一坨，原样送到这里
+ */
+export function apply(ctx, config) {
+  const witness = config?.witness;
+  if (!witness) {
+    throw new Error("lab-minimal: config.witness 是必需的");
+  }
+
+  writeFileSync(
+    witness,
+    JSON.stringify(
+      {
+        marker: MARKER,
+        moduleLoadedAt,
+        appliedAt: new Date().toISOString(),
+        config,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>不带顶层 id → 追加进根组</b><br>一条 patch 项如果只有 <code>insert</code> 字段、没有顶层 <code>id</code>，
+   <code>applyEntryPatches()</code> 把 <code>insert</code> 列表原样 push 进当前组的条目数组尾部——这一项的
+   patch 顶层作用在根组上，所以叫「追加进根组」。<code>insert</code> 列表里每一项自己带的 <code>id</code>
+   是新条目自己的树内地址，跟这条 patch 项顶层有没有 <code>id</code> 是两件互不相干的事。`,
+  `<b>带顶层 id → id 指向目标 group</b><br>一条 patch 项如果<b>同时</b>有顶层 <code>id</code> 和
+   <code>insert</code>，这个顶层 <code>id</code> 不是给新条目起名，而是要在当前组合树里按 id 定位一个
+   <b>已经存在</b>的条目当「目标」；<code>insert</code> 列表被塞进目标条目的 <code>config</code> 字段——
+   标记 <code>group: true</code> 的条目，它的 <code>config</code> 本身就是子条目数组。`,
+  `<b>目标不是 group：只警告，整条跳过</b><br>目标条目存在、但没有 <code>group: true</code> 时，
+   <code>applyEntryPatches()</code> 只往 stderr 打一行 <code>patch insert: entry "xxx" is not a group</code>，
+   不抛错、不改变退出码——整条 patch 项被跳过：<code>insert</code> 里的子条目一个都不会被创建，
+   目标条目自身的字段也不受影响，跟这条 patch 项之外的其它条目互不牵连。`,
+  `<b>来源记账：bundle 层标包名，活层标文件路径</b><br>不管新条目是从哪条路径插进来的，dump 都会给
+   它记一笔来源：来自 bundle 层的条目标的是贡献这条 patch 的包名（比如
+   <code>@deepseek-ai/dsh-base</code>）；来自活层的条目标的是那份 <code>cordis.patch.yml</code>
+   文件本身的绝对路径。「这条是谁塞进来的」在 dump 里从不用猜。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

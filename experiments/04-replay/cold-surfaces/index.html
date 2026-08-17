@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cold-surfaces · 配方热重放够不到的三个面</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --hot:#f97316; --cold:#0ea5e9;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --hot:#fb923c; --cold:#38bdf8;
+}}
+:root[data-theme=dark]{
+ --hot:#fb923c; --cold:#38bdf8;
+}
+.tag.hot{color:var(--hot);border-color:color-mix(in srgb,var(--hot) 40%,transparent)}
+.tag.cold{color:var(--cold);border-color:color-mix(in srgb,var(--cold) 40%,transparent)}
+
+/* ── 机制舞台：picker 复用（步骤/时间线通用） ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+
+/* ── 四层一览：谁热谁冷 ── */
+.layerline{display:flex;align-items:center;gap:10px;padding:7px 12px;
+  border:1px solid var(--line);border-radius:8px;margin-bottom:6px;font-size:12.5px}
+.layerline .name{font-weight:600;flex:none;width:104px;white-space:nowrap}
+.layerline .file{color:var(--dim);font-family:var(--mono);font-size:11.5px;flex:1;min-width:0}
+
+/* ── 简单键值块 ── */
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0;flex-wrap:wrap}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:190px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.hot{color:var(--hot)}
+.kv .v.cold{color:var(--cold)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">04-replay / cold-surfaces</div>
+<h1>配方热重放够不到的三个面</h1>
+<p class="sub">改活层或 home 层的 <code>cordis.patch.yml</code>，秒级生效；同一次改动写在另外三处——组合包自己的 patch、profile 的 bundles 名单、<code>--patch</code> 指定的 overlay 文件——运行中的实例毫无反应，都得重启才生效。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">📗 部分复述 + 🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 3 条用例</span>
+  <span class="tag">部分用例需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">dsh 支持「改配方不用重启」这条路：条目（entry，见 <code>00-base/baseline-profile</code>）是配方里的一行，
+描述挂哪个插件、给它什么配置；profile 活层——也就是这个 profile 自己那份 <code>cordis.patch.yml</code>——和
+home 层（<code>$DSH_HOME/cordis.patch.yml</code>）改了之后，靠 hmr（Hot Module Replacement，模块热替换，
+<code>@deepseek-ai/cordis-plugin-hmr</code>）的一部分机制秒级生效，这称为<b>配方热重放</b>。这一项要验的是：
+这条热的路到底有多宽——同样是「一份决定树上有什么条目的文件」，写在另外三个位置时，运行中的实例是不是
+也一样有反应。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">先看四层怎么叠、哪几层被人盯着；再走一遍「文件一变会发生什么」的完整链条。</p>
+
+<div class="layerline" style="border-left:3px solid var(--cold)">
+  <span class="name">bundle 层</span>
+  <span class="file">每个 bundles 包自带的 cordis.patch.yml</span>
+  <span class="tag cold">冷</span>
+</div>
+<div class="layerline" style="border-left:3px solid var(--hot)">
+  <span class="name">profile 活层</span>
+  <span class="file">profiles/&lt;名&gt;/cordis.patch.yml</span>
+  <span class="tag hot">热</span>
+</div>
+<div class="layerline" style="border-left:3px solid var(--hot)">
+  <span class="name">home 层</span>
+  <span class="file">$DSH_HOME/cordis.patch.yml</span>
+  <span class="tag hot">热</span>
+</div>
+<div class="layerline" style="border-left:3px solid var(--cold)">
+  <span class="name">--patch overlay</span>
+  <span class="file">argv 传入的文件</span>
+  <span class="tag cold">冷</span>
+</div>
+<p class="note">四层完整的叠加顺序与「后叠的赢」规则见 <code>02-recipe/layer-stack</code>——这一项只关心其中两件事：
+哪几层被人盯着、bundle 层到底靠什么决定「叠不叠」。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">include 树根</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">谁在盯文件</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">文件一变会怎样</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">没人盯的另外三处</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<p class="note"><code>--dump-config</code> 是另一条完全独立的读盘路径：它背后的 <code>composeProfile()</code>
+每次调用都现读磁盘上的 bundle 层、活层、home 层、overlay 文件，重新合成一份「配方」——这跟运行中实例内存里
+那棵树是两回事，运行中实例的树只在 <code>entry.update()</code> 真的被调用时才变。下一节会看到这两条路径
+给出完全不同的答案。</p>
+
+<h2>用例一时间线：bundle 层的 patch 与 bundles 名单</h2>
+<p class="note">profile <code>coldbundle</code> 把 <code>replay-cold-bundle</code> 列进 bundles 名单——探针条目
+<code>probe</code> 完全来自这个包自己的 <code>cordis.patch.yml</code>，profile 自己的活层这次没有写任何东西。
+路由吐出三个指纹：<code>moduleLoadedAt</code>（模块几时被 import）、<code>appliedAt</code>（apply 几时被跑）、
+<code>configRevision</code>（当前挂的是哪版 config）。</p>
+
+<div class="stage">
+  <div id="timeline">
+    <div class="picker arrow" id="pk-timeline">
+      <button class="pick"><span class="pi">①</span><span class="pn">启动</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">改 bundle 层</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">12 秒后再探</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">重启</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">摘掉 bundles 名单</span></button>
+      <button class="pick"><span class="pi">⑥</span><span class="pn">再次重启</span></button>
+    </div>
+    <div class="pickbody" id="pb-timeline"></div>
+  </div>
+</div>
+
+<h2>overlay 文件同样够不着</h2>
+<p class="note">profile <code>overlay-runtime</code> 是一个最小 profile，另外用 <code>--patch</code> 指定一个 overlay
+文件，往里 insert 见证插件（<code>replay-cold-witness</code>）——config 里的 <code>value</code> 字段就是这次要盯的东西。
+见证插件把每次 <code>apply</code> 收到的 config 原样记进一个数组、写文件，条数本身就是「apply 被重跑过几次」的证据。</p>
+<div class="kv">
+  <div class="r"><span class="k">启动后见证文件</span><span class="v">1 条记录，value=<b>initial</b>（07:11:07.594Z）</span></div>
+  <div class="r"><span class="k">动作</span><span class="v">把 overlay 文件里的 value 改成 changed，固定等待 10 秒（SETTLE=10.0，见 test_cold_surfaces.py）</span></div>
+  <div class="r"><span class="k">等待后见证文件</span><span class="v cold">仍是 1 条记录，value 仍是 initial——没变</span></div>
+  <div class="r"><span class="k">进程状态</span><span class="v">存活（<code>inst.alive()</code> 为真），没有崩溃，只是没反应</span></div>
+</div>
+<p class="note">overlay 文件在 boot 时被读进内存当静态快照；热重放每次重新组合调的 <code>composeLive()</code> 只现读
+活层与 home 层，从不重读 overlay——所以就算磁盘上的文件内容变了，运行中的实例也感觉不到。</p>
+
+<h2>换一条路径：活层 insert 照样热得起来</h2>
+<p class="note">profile <code>livepath</code> 从没把 <code>replay-cold-bundle</code> 列进 bundles 名单，但它的活层直接
+<code>insert</code> 了同一个包——id 仍叫 <code>probe</code>、name 仍是 <code>replay-cold-bundle</code>，revision 写死
+<code>live-insert</code>。这条路径完全绕开 bundles 名单：<code>link_plugin()</code> 只往 <code>node_modules</code>
+建 junction、往 <code>package.json</code> 的 <code>dependencies</code> 加一行，只关系到 Node 模块解析
+（见 <code>01-entry/name-resolution</code>），跟「这个包是不是 bundles 名单里的一员」是完全独立的另一件事。</p>
+<div class="kv">
+  <div class="r"><span class="k">启动（活层 insert，不在 bundles 名单）</span><span class="v hot">configRevision=live-insert，moduleLoadedAt=07:11:00.367Z，appliedAt=07:11:01.001Z</span></div>
+  <div class="r"><span class="k">重启后</span><span class="v hot">configRevision=live-insert（没变），moduleLoadedAt=07:11:04.582Z（换了新时刻，说明是全新进程），appliedAt=07:11:05.483Z</span></div>
+</div>
+<p class="note">包在不在 bundles 名单，只决定「这个包自己那份 patch 要不要被叠进来」；活层能不能直接引用这个包的
+<code>name</code>，是完全独立的另一件事——而且这条独立性扛得住重启，不是热重放期间暂时还没被清掉的假象。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>bundle 层的 patch 文件、profile 的 bundles 名单、<code>--patch</code> overlay 文件——三样都是冷的。</b>
+    <code>watchUserPatches()</code> 只给活层和 home 层各注册了一个 <code>hmr.registerConfig()</code> 回调，除此之外
+    没有任何代码在监听文件系统；这三处都不在那两个注册目标里，改了必须重启才生效。
+    <span class="from">test_bundle_patch_and_bundles_list_are_cold · test_overlay_file_is_cold</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>包在不在 bundles 名单、活层能不能直接引用它，是两条互不相干的注册路径。</b>包从名单摘掉不影响活层
+    <code>insert</code> 同一个包照常挂上，且这条独立性在重启后依然成立。
+    <span class="from">test_two_registration_paths_are_independent</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b><code>--dump-config</code> 是个陷阱：它是纯读盘的静态合成，改完 bundle 层的 patch 立刻能读到新值，
+    但那跟「运行中实例有没有反应」是两回事，不能拿它当「进程内状态变了」的证据。</b>
+    <span class="from">test_bundle_patch_and_bundles_list_are_cold</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>三处冷面不是「故意不响应」，是压根没人往那个方向看一眼。</b>热重放每次重新组合调的
+    <code>composeLive()</code>，只现读 profile 活层与 home 层；bundle 层的 patch 与 <code>--patch</code> overlay
+    都是 boot 时读进内存的静态快照，重放时用的还是那份内存数据，不重读磁盘。
+    <span class="from">test_bundle_patch_and_bundles_list_are_cold · test_overlay_file_is_cold</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_cold_surfaces.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151119/</code>（<code>summary.md</code>、<code>witness-overlay-runtime.json</code>
+与 <code>profiles/</code> 下三个 profile）以及本项 <code>fixtures/</code>，是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="fl" data-k="witness">witness-overlay-runtime.json</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">coldbundle/</button>
+                <ul>
+                  <li><button class="fl" data-k="cb-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="cb-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="cb-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>replay-cold-bundle →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">livepath/</button>
+                <ul>
+                  <li><button class="fl" data-k="lp-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="lp-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="lp-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>replay-cold-bundle →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">overlay-runtime/</button>
+                <ul>
+                  <li><button class="fl" data-k="or-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="or-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="or-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>replay-cold-witness →</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li class="shut"><button class="tw">replay-cold-bundle/</button>
+                <ul>
+                  <li><button class="fl" data-k="fb-idx">index.js</button></li>
+                  <li><button class="fl" data-k="fb-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fb-patch">cordis.patch.yml</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">replay-cold-witness/</button>
+                <ul>
+                  <li><button class="fl" data-k="fw-idx">index.js</button></li>
+                  <li><button class="fl" data-k="fw-pkg">package.json</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-witness" data-name="witness-overlay-runtime.json"
+         data-src="results/20260817-151119/witness-overlay-runtime.json"
+         data-why="test_overlay_file_is_cold 的见证文件：overlay 从 initial 改成 changed 之后，这里应该——也确实——只停着一条记录"><pre>[
+  {
+    "marker": "replay-cold-witness-v1",
+    "applyIndex": 0,
+    "at": "2026-08-17T07:11:07.594Z",
+    "value": "initial"
+  }
+]</pre>
+    </div>
+    <div id="fc-cb-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151119/profiles/coldbundle/cordis.patch.yml"
+         data-why="coldbundle 的活层：这项用例没有往这里写任何东西，恒为空数组——探针条目全部来自 bundle 层"><pre>[]
+</pre>
+    </div>
+    <div id="fc-cb-yml" data-name="cordis.yml"
+         data-src="results/20260817-151119/profiles/coldbundle/cordis.yml"
+         data-why="profile 根，内容恒为空数组、每次启动重写——树的内容全部来自 patch"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-cb-pkg" data-name="package.json"
+         data-src="results/20260817-151119/profiles/coldbundle/package.json"
+         data-why="归档时点 bundles 名单已经不含 replay-cold-bundle——用例最后一步手动把它摘掉才重启，这份是归档那一刻的状态"><pre>{
+  "name": "dsh-profile-coldbundle",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app"
+      ]
+    }
+  },
+  "dependencies": {
+    "replay-cold-bundle": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/04-replay/cold-surfaces/fixtures/replay-cold-bundle"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-lp-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151119/profiles/livepath/cordis.patch.yml"
+         data-why="livepath 的活层：直接 insert 探针包，revision 写死 live-insert——绕开 bundles 名单这条路"><pre># 活层直接 insert 同一个包 —— 绕开 bundles 名单这条路
+- insert:
+    - id: probe
+      name: replay-cold-bundle
+      config:
+        revision: live-insert
+</pre>
+    </div>
+    <div id="fc-lp-yml" data-name="cordis.yml"
+         data-src="results/20260817-151119/profiles/livepath/cordis.yml"
+         data-why="profile 根，内容恒为空数组、每次启动重写——树的内容全部来自 patch"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-lp-pkg" data-name="package.json"
+         data-src="results/20260817-151119/profiles/livepath/package.json"
+         data-why="bundles 名单里从未列过 replay-cold-bundle——它能加载全靠活层那条 insert，不靠这份名单"><pre>{
+  "name": "dsh-profile-livepath",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app"
+      ]
+    }
+  },
+  "dependencies": {
+    "replay-cold-bundle": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/04-replay/cold-surfaces/fixtures/replay-cold-bundle"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-or-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151119/profiles/overlay-runtime/cordis.patch.yml"
+         data-why="overlay-runtime 的活层，只有基础设施块（timer/hmr）——真正的见证条目由 --patch 传入的 overlay 文件另外 insert，不写在这里"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+</pre>
+    </div>
+    <div id="fc-or-yml" data-name="cordis.yml"
+         data-src="results/20260817-151119/profiles/overlay-runtime/cordis.yml"
+         data-why="profile 根，内容恒为空数组、每次启动重写——树的内容全部来自 patch"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-or-pkg" data-name="package.json"
+         data-src="results/20260817-151119/profiles/overlay-runtime/package.json"
+         data-why="bundles 留空，只 link 了 replay-cold-witness——这个 profile 本身不携带任何探针条目，靠 --patch overlay 现场插进去"><pre>{
+  "name": "dsh-profile-overlay-runtime",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "replay-cold-witness": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/04-replay/cold-surfaces/fixtures/replay-cold-witness"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fb-idx" data-name="index.js"
+         data-src="fixtures/replay-cold-bundle/index.js"
+         data-why="探针插件本体：吐出 marker/moduleLoadedAt/appliedAt/configRevision 四个指纹"><pre>/**
+ * replay-cold-bundle —— 身兼两职：
+ *
+ *   1. **组合包**（profile bundle）：`package.json` 声明 `dsh.bundle.patch`，
+ *      指向同目录的 `cordis.patch.yml`。列进某个 profile 的
+ *      `dsh.profile.bundles` 之后，这份 patch 就是它对配方的贡献——跟官方
+ *      publish.md 的 hello-plugin 一模一样的写法：一个包，patch 里的条目
+ *      按包名引用自己。
+ *   2. **它自己 patch 里指向的那个插件模块**：真正的 `apply` 就长在这个文件里。
+ *
+ * 探针路由把三个指纹吐出来，让测试从进程外部分辨「模块有没有被重新
+ * import」和「这次挂着的是哪一版 config」：
+ *
+ *   marker          代码版本指纹，写死在源码里，除非改代码否则永远不变
+ *   moduleLoadedAt  模块被 import 的那一刻（模块级常量）——只有重新 import
+ *                   （整进程重启，或代码热重载）才会变
+ *   appliedAt       这次 apply 被调用的那一刻——只要 apply 被重跑就会变，
+ *                   不需要重新 import 也能变（比如活层热重放只改 config 时）
+ *   configRevision  回显 config.revision——当前挂着的是哪一版 config
+ */
+
+export const inject = ["webServer"];
+
+const MARKER = "replay-cold-bundle-v1";
+
+/** 模块被 import 的时刻，模块级、只赋值一次。 */
+const MODULE_LOADED_AT = new Date().toISOString();
+
+export function apply(ctx, config) {
+  const appliedAt = new Date().toISOString();
+  const route = config?.route ?? "/replay-cold-bundle/state";
+  const revision = config?.revision ?? null;
+
+  // 路由必须用 ctx.effect 包住：不包的话插件卸载后路由会泄漏、继续应答。
+  ctx.effect(
+    () =&gt;
+      ctx.webServer.register({
+        kind: "exact",
+        path: route,
+        handler: (req, res) =&gt; {
+          if (req.method !== "GET" &amp;&amp; req.method !== "HEAD") {
+            res.writeHead(405);
+            res.end();
+            return;
+          }
+          res.writeHead(200, {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-cache",
+          });
+          res.end(
+            JSON.stringify({
+              marker: MARKER,
+              moduleLoadedAt: MODULE_LOADED_AT,
+              appliedAt,
+              configRevision: revision,
+            }),
+          );
+        },
+      }),
+    "replay-cold-bundle: state route",
+  );
+}
+</pre>
+    </div>
+    <div id="fc-fb-pkg" data-name="package.json"
+         data-src="fixtures/replay-cold-bundle/package.json"
+         data-why="组合包自己的清单：dsh.bundle.patch 指向同目录 cordis.patch.yml——列进某个 profile 的 bundles 名单后，这份文件就是它对配方的贡献"><pre>{
+  "name": "replay-cold-bundle",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fb-patch" data-name="cordis.patch.yml"
+         data-src="fixtures/replay-cold-bundle/cordis.patch.yml"
+         data-why="bundle 层的 patch 文件本身：每条用例开头会重写这里，图上这份停在最近一次跑完的内容"><pre># 由 test_cold_surfaces.py 在用例开头写入，内容以此为准。
+- insert:
+    - id: probe
+      name: replay-cold-bundle
+      config:
+        revision: r2
+</pre>
+    </div>
+    <div id="fc-fw-idx" data-name="index.js"
+         data-src="fixtures/replay-cold-witness/index.js"
+         data-why="见证插件本体：把每次 apply 收到的 config 原样记进数组，用来看运行期改 overlay 文件，实例会不会把新内容读进去"><pre>/**
+ * 见证员：把每次 apply 收到的 config 原样记下来。
+ *
+ * 只关心一件事——「这个条目的 config 有没有变」。用途是验证「运行期改
+ * `--patch` 指向的文件，实例会不会把新内容读进来」：如果不会，见证文件应当
+ * 永远只有一条记录，且 `value` 字段停在启动时的初始值。
+ *
+ * 记录数组建在模块级，写文件时写整个数组——万一这个条目真被重挂了，重挂本身
+ * 也该在见证文件里留痕，而不是被覆盖掉、变得跟「只 apply 过一次」一模一样。
+ */
+import { writeFileSync } from "node:fs";
+
+const MARKER = "replay-cold-witness-v1";
+const records = [];
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("replay-cold-witness: config.out 是必需的");
+
+  records.push({
+    marker: MARKER,
+    applyIndex: records.length,
+    at: new Date().toISOString(),
+    value: config?.value ?? null,
+  });
+  writeFileSync(out, JSON.stringify(records, null, 2), "utf8");
+}
+</pre>
+    </div>
+    <div id="fc-fw-pkg" data-name="package.json"
+         data-src="fixtures/replay-cold-witness/package.json"
+         data-why="见证插件的清单，没有 dsh.bundle 声明——这个包只走活层/overlay 的 insert 这条路，从不进任何 profile 的 bundles 名单"><pre>{
+  "name": "replay-cold-witness",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b><code>cordis:include</code> 树根</b><br>boot 期由框架创建的一条条目，id 固定叫 <code>include</code>
+   （见 00-base/baseline-profile）。它不只是一条条目——<b>整份配方装在它自己的 <code>config.patches</code></b>
+   里，要叠的每一层各占一份。`,
+  `<b><code>watchUserPatches()</code> 只注册两个文件</b><br>boot 时，它给 profile 活层文件和 home 层文件各调
+   一次 <code>hmr.registerConfig()</code>——这是 hmr 的第二个 watcher（跟负责代码热重载的主 watcher 是两回事），
+   <b>精确到这一个文件路径</b>，不是递归监听一整个目录。`,
+  `<b>重新 compose，改掉 include 一个条目的 config</b><br>被盯的文件一变，回调重新读、拼出新的
+   <code>patches</code> 数组，调用 <code>entry.update({config})</code>——只改 <code>include</code> 这一条的
+   config。这就是<b>配方热重放</b>的完整实现：include 的 fiber 走一趟
+   <code>UNLOADING → LOADING → ACTIVE</code>，沿途按新的 patches 重新叠出整棵树。`,
+  `<b>除了那两个文件，没有第三个注册对象</b><br>bundle 层的 <code>cordis.patch.yml</code>（各个包自己那份）、
+   决定哪些 bundle 参与叠加的 <code>dsh.profile.bundles</code> 名单（profile 的 <code>package.json</code>）、
+   <code>--patch</code> 指定的 overlay 文件——都不在 <code>watchUserPatches</code> 调 <code>registerConfig</code>
+   的目标里，也没有别的代码盯着它们。下面几个「冷面」，根源都在这一句。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+
+const TIMELINE = [
+  `<b>启动 coldbundle</b><br>探针路由首次响应：<code>configRevision=r1</code>，
+   <code>moduleLoadedAt=07:10:20.542Z</code>，<code>appliedAt=07:10:21.208Z</code>。`,
+  `<b>改 bundle 层：<code>replay-cold-bundle/cordis.patch.yml</code> 里 revision 从 r1 改成 r2</b><br>
+   这是探针包自己的组合包 patch，不是活层。<code>--dump-config</code> 立刻算出新值 <code>r2</code>——它是纯读盘的
+   静态合成，跟运行中实例是两回事，下一步见分晓。`,
+  `<b>固定等待 12 秒（SETTLE=12.0，见 test_cold_surfaces.py），再探探针路由</b><br>运行中实例仍是
+   <code>configRevision=r1</code>，<code>moduleLoadedAt</code>/<code>appliedAt</code> 都跟启动时一模一样——
+   bundle 层的改动完全没被拾到，模块没被重新 import，apply 也没被重跑。`,
+  `<b>停掉旧进程、重启</b><br>新进程读盘：<code>configRevision=r2</code>，
+   <code>moduleLoadedAt=07:10:37.807Z</code>——换了一个全新时刻，说明这是一次真正的重新 import，不是热重放。`,
+  `<b>手改 <code>package.json</code>，把 <code>replay-cold-bundle</code> 从 <code>dsh.profile.bundles</code>
+   名单里摘掉</b><br>固定等待 12 秒：探针路由还在响应，<code>appliedAt</code> 仍是重启后那个
+   <code>07:10:38.591Z</code>，没有任何变化。`,
+  `<b>再次重启</b><br>探针路由彻底消失（响应为空）——名单里已经不含这个包，新进程的配方里压根没有它 bundle 层
+   那份 patch，条目从树上整个消失。`,
+];
+initPicker(document.getElementById('timeline'), (body, i) => {
+  body.innerHTML = `<p>${TIMELINE[i]}</p>`;
+});
+</script>
+</body>
+</html>

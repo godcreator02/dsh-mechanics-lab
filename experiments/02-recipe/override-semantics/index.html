@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>override-semantics · 整键赋值，不是深度合并</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#0f766e;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#2dd4bf;
+}}
+:root[data-theme=dark]{
+ --bmhit:#2dd4bf;
+}
+.note code{font-family:var(--mono);font-size:12px}
+
+/* ── 机制舞台：五步 arrow picker ── */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+
+/* ── 三卡并排：静态 / 动态观测 ── */
+.cmp3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0 8px}
+@media (max-width:760px){.cmp3{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px;flex-wrap:wrap}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.ccard .row{font-size:12px;color:var(--dim);margin:4px 0;word-break:break-word;line-height:1.55}
+.ccard .row b{color:var(--fg);font-weight:600}
+.ccard .row code{font-family:var(--mono);font-size:11px;color:var(--fg)}
+.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:10.5px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">02-recipe / override-semantics</div>
+<h1>同一个 id 再写一次，改的是哪条已经在树里的条目</h1>
+<p class="sub">裸 <code>- id:</code>（不带 <code>insert</code>）不新增条目，是把 overrides 里写出的每一个键原样盖到那条已存在的条目上——整键替换，不是深度合并；overrides 没提的键，原样留着。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">📗 复述型</span>
+  <span class="tag">🔬 含 4 条边界实测</span>
+  <span class="tag ok">✅ 满覆盖 · 6 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">配方（recipe，见 <code>00-base/minimal-profile</code>）由多层 patch 叠成，层与层之间「后叠的赢」（层叠规则见
+<code>02-recipe/layer-stack</code>）。每一层是一个 YAML 数组，数组里的每一项要么带 <code>insert</code>——往组合树里插一条新
+条目（entry：配方里的一行，写着挂哪个插件、给它什么配置；insert 的完整语义见 <code>02-recipe/insert-semantics</code>），
+要么不带 insert、只写一个裸的 <code>id</code>——指向一条已经在树里的条目，去改它。这一项讲的正是后一种写法：<b>覆盖</b>。
+同一个 id 在后面某一层再出现一次，框架不会造出第二条同名条目，而是把这一项当成对那条已存在条目的一次修改指令——
+它怎么改、改哪些键、改不到会怎样，是这一项要讲清楚的全部内容。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">唯一实现是 <code>cordis-plugin-include</code> 的 <code>applyEntryPatches()</code>
+（<code>&lt;npx 缓存&gt;/node_modules/@deepseek-ai/cordis-plugin-include/src/index.ts:58-128</code>）——insert 分支和覆盖
+分支住在同一个函数里，靠这一项有没有带 <code>insert</code> 岔开。走一遍覆盖分支实际做的五件事。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">按顺序逐条处理</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">带不带 insert</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">按 id 定位 target</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">逐键赋值</span></button>
+      <button class="pick"><span class="pi">⑤</span><span class="pn">没有白名单、没有 null 特判</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>静态：三个只用 <code>--dump-config</code> 判定的边界</h2>
+<p class="note">null / 找不到 id / 野字段这三条不用拉真实例——<code>--dump-config</code> 的 <code>renderConfigDump()</code>
+和运行时挂载走的是同一个 <code>applyEntryPatches()</code> 调用，dump 算出来的树就是真会被拿去挂载的那棵树。dump 成功时
+会静默丢掉 stderr（覆盖的警告恰恰走 stderr），三个 profile 都额外抓了一遍 stderr 判定。</p>
+
+<div class="cmp3">
+  <div class="ccard">
+    <div class="hd"><span class="nm">override-null</span><span class="b2 ok">✓ 键还在，null 字面赋值</span></div>
+    <div class="row">先 insert <code>solo</code>，写 <code>disabled: true</code>；覆盖行只写 <b>disabled: null</b></div>
+    <div class="row">dump 出来的 solo 条目：<code>{'id': 'solo', 'name': 'dummy-solo', 'disabled': None}</code></div>
+    <div class="row">stderr：（空）</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">override-missing-id</span><span class="b2 ok">✓ 打空一条，其余照常</span></div>
+    <div class="row">同一批里先覆盖不存在的 <b>no-such-id</b>，再覆盖真实存在的 <b>alpha</b></div>
+    <div class="row">no-such-id 存在吗：<code>False</code></div>
+    <div class="row">alpha 的 config：<code>{'x': 99}</code>（覆盖照常生效）</div>
+    <pre>dsh: […] patch: entry "no-such-id" not found</pre>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">override-wild-field</span><span class="b2 ok">✓ 野字段原样带走</span></div>
+    <div class="row">覆盖行塞了两个清单外的字段</div>
+    <div class="row">dump 出来的 wild 条目：<code>{'id': 'wild', 'name': 'dummy-wild', '随便字段': 'loader 不认识我', '另一个字段': 42}</code></div>
+    <div class="row">stderr：（空，不报任何警告）</div>
+  </div>
+</div>
+
+<h2>动态：改的是已经挂上的那条条目，不是造一条新的</h2>
+<p class="note">三个 profile 都先用 <code>- insert:</code> 挂上同一个教学插件 <code>speaker</code>（<code>fixtures/speaker.mjs</code>），
+写两个 config 键：<code>台词</code> 和 <code>音量</code>。speaker 拿到 config 就把它原样报给 lab-recorder 采集器
+（labObserver 机制见 <code>00-base/recorder-reach</code>）——判定全靠它报出来的内容，不靠猜。三个 profile 各自在后面
+再写一条裸 id，覆盖的东西各不相同。</p>
+
+<div class="cmp3">
+  <div class="ccard">
+    <div class="hd"><span class="nm">override</span><span class="b2 ok">✓ 改的是已挂上那条</span></div>
+    <div class="row">先写：<code>{台词: 原来的台词, 音量: 3}</code></div>
+    <div class="row">后面覆盖只写：<code>{台词: 改过的台词}</code></div>
+    <div class="row">speaker 实际收到：<code>{"台词": "改过的台词"}</code>（音量没了）</div>
+    <div class="row">speaker 一共说了几句：<b>1</b>（没被挂两次）</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">typo</span><span class="b2 ok">✓ 打错的 id 悄悄作废</span></div>
+    <div class="row">中间插一条覆盖不存在的 <code>speakr</code>（少一个 e）</div>
+    <div class="row">出现过的条目：<code>hmr, include, lab-recorder, speaker, timer</code>（没有 speakr）</div>
+    <div class="row">speaker 收到：<code>{"台词": "后面这条照样生效"}</code></div>
+    <div class="row">日志里说了什么：<b>（一个字都没有）</b></div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">switch-off</span><span class="b2 ok">✓ disabled 也能被覆盖关掉</span></div>
+    <div class="row">后面只覆盖 <code>disabled: true</code>，没重述 config</div>
+    <div class="row">实例还活着：<b>True</b></div>
+    <div class="row">speaker 说的话：<b>（一句都没有）</b></div>
+    <div class="row">判定用固定等待 10.67s，不是轮询提前退出</div>
+  </div>
+</div>
+
+<p class="note">switch-off 只覆盖了 <code>disabled</code>，没重述 <code>config</code>——采集器起点快照里 speaker 那一条
+<code>config</code> 还是原样的 <code>{"台词":"原来的台词","音量":3}</code>，<code>hasFiber:false</code>、<code>disabled:true</code>：
+没写的键确实没受影响（<code>events-switch-off.jsonl</code> 第 6 行）。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>覆盖替换的是 target 整个键值，不是深合并。</b>同一个 config 键，旧值写了两个键，覆盖只重述一个，另一个就没了——
+    覆盖传的是整个新 config 对象，替换了旧的整个 config 值，不是把新键并进旧的里面。
+    <span class="from">test_bare_id_changes_the_entry_that_is_already_there</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>null 是字面赋值，不是删除。</b>键还在，值变成了字面 <code>None</code>——覆盖这行代码走的是纯赋值，不会因为
+    value 是 null 就把键删掉。
+    <span class="from">test_null_sets_key_to_null_not_delete</span>
+  </p></div>
+  <div class="read"><span class="n">③</span><p>
+    <b>覆盖找不到 id：只警告、跳过这一条，同批其余 patch 照常生效。</b>运行时也不会凭空造出一个新条目，
+    而且日志里一个字都没有——排查时不能指望日志会提示。
+    <span class="from">test_missing_id_warns_and_skips_rest_still_applies · test_changing_an_id_that_is_not_there</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b>覆盖分支没有字段白名单，野字段原样带着走，不报任何错误或警告。</b>它不是非法，只是没人读。
+    <span class="from">test_arbitrary_fields_pass_through_patch</span>
+  </p></div>
+  <div class="read"><span class="n">⑤</span><p>
+    <b>disabled 也能被后面一条覆盖关掉，不用回去改前面那条。</b>前面那行原样留着，关不关由后面这条说了算。
+    <span class="from">test_bare_id_can_switch_disabled_on</span>
+  </p></div>
+</div>
+
+<footer>
+判定与证据出处在 <code>test_override_semantics.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151015/</code>（<code>summary.md</code>、<code>events-*.jsonl</code> 与
+<code>profiles/</code> 下 6 个 profile），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">override/</button>
+                <ul>
+                  <li><button class="fl" data-k="ov-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ov-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ov-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">override-missing-id/</button>
+                <ul>
+                  <li><button class="fl" data-k="ovm-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ovm-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ovm-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">override-null/</button>
+                <ul>
+                  <li><button class="fl" data-k="ovn-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ovn-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ovn-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">override-wild-field/</button>
+                <ul>
+                  <li><button class="fl" data-k="ovw-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ovw-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="ovw-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">switch-off/</button>
+                <ul>
+                  <li><button class="fl" data-k="so-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="so-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="so-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">typo/</button>
+                <ul>
+                  <li><button class="fl" data-k="typo-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="typo-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="typo-pkg">package.json</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="fl" data-k="speaker-mjs">speaker.mjs</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-ov-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/override/cordis.patch.yml"
+         data-why="先 insert speaker、写两个 config 键，后面裸 id 只改一个键——测整键替换会不会带上没写的那个键"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/override-semantics/events-override.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: speaker
+      name: ./speaker.mjs
+      config:
+        台词: 原来的台词
+        音量: 3
+
+- id: speaker
+  config:
+    台词: 改过的台词
+</pre></div>
+    <div id="fc-ov-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/override/cordis.yml"
+         data-why="profile 根文件，内容永远是空数组——组合树全由 patch 叠出来，不是这份文件本身"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-ov-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/override/package.json"
+         data-why="link 了 lab-recorder，这个 profile 要真起实例、靠采集器判定"><pre>{
+  "name": "dsh-profile-override",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre></div>
+
+    <div id="fc-ovm-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/override-missing-id/cordis.patch.yml"
+         data-why="覆盖一个不存在的 id（no-such-id），同一批里紧接着又覆盖一次真实存在的 alpha——测打空一条会不会连累其余"><pre># 覆盖找不到的 id
+- insert:
+    - id: alpha
+      name: dummy-alpha
+      config:
+        x: 1
+- id: no-such-id
+  config:
+    y: 2
+- id: alpha
+  config:
+    x: 99
+</pre></div>
+    <div id="fc-ovm-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/override-missing-id/cordis.yml"
+         data-why="profile 根文件，内容永远是空数组"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-ovm-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/override-missing-id/package.json"
+         data-why="bundles 留空，不 link 任何插件——这个 profile 只用静态 dump 判定"><pre>{
+  "name": "dsh-profile-override-missing-id",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}
+</pre></div>
+
+    <div id="fc-ovn-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/override-null/cordis.patch.yml"
+         data-why="id: solo 先 insert 带 disabled: true，后面裸 id 覆盖成 disabled: null——测 null 是删除还是字面赋值"><pre># 覆盖成 null
+- insert:
+    - id: solo
+      name: dummy-solo
+      disabled: true
+- id: solo
+  disabled: null
+</pre></div>
+    <div id="fc-ovn-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/override-null/cordis.yml"
+         data-why="profile 根文件，内容永远是空数组"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-ovn-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/override-null/package.json"
+         data-why="bundles 留空，不 link 任何插件——这个 profile 只用静态 dump 判定"><pre>{
+  "name": "dsh-profile-override-null",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}
+</pre></div>
+
+    <div id="fc-ovw-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/override-wild-field/cordis.patch.yml"
+         data-why="覆盖时塞两个清单外的字段——测覆盖分支认不认字段白名单"><pre># 野字段
+- insert:
+    - id: wild
+      name: dummy-wild
+- id: wild
+  随便字段: "loader 不认识我"
+  另一个字段: 42
+</pre></div>
+    <div id="fc-ovw-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/override-wild-field/cordis.yml"
+         data-why="profile 根文件，内容永远是空数组"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-ovw-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/override-wild-field/package.json"
+         data-why="bundles 留空，不 link 任何插件——这个 profile 只用静态 dump 判定"><pre>{
+  "name": "dsh-profile-override-wild-field",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  }
+}
+</pre></div>
+
+    <div id="fc-so-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/switch-off/cordis.patch.yml"
+         data-why="后面一条只写 disabled: true，不重述 config——测 disabled 是否也走同一套整键赋值"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/override-semantics/events-switch-off.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: speaker
+      name: ./speaker.mjs
+      config:
+        台词: 原来的台词
+        音量: 3
+
+- id: speaker
+  disabled: true
+</pre></div>
+    <div id="fc-so-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/switch-off/cordis.yml"
+         data-why="profile 根文件，内容永远是空数组"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-so-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/switch-off/package.json"
+         data-why="link 了 lab-recorder，这个 profile 要真起实例、靠采集器判定"><pre>{
+  "name": "dsh-profile-switch-off",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre></div>
+
+    <div id="fc-typo-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/typo/cordis.patch.yml"
+         data-why="在 speaker 前后插一条把 id 打错一个字母（speakr）——测打错的 id 会不会连累前后的正常覆盖，也测日志里有没有提示"><pre>- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/override-semantics/events-typo.jsonl"
+        flushMs: 100
+
+- insert:
+    - id: speaker
+      name: ./speaker.mjs
+      config:
+        台词: 原来的台词
+        音量: 3
+
+- id: speakr
+  config:
+    台词: 这条打空了
+
+- id: speaker
+  config:
+    台词: 后面这条照样生效
+</pre></div>
+    <div id="fc-typo-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/typo/cordis.yml"
+         data-why="profile 根文件，内容永远是空数组"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-typo-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/typo/package.json"
+         data-why="link 了 lab-recorder，这个 profile 要真起实例、靠采集器判定"><pre>{
+  "name": "dsh-profile-typo",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-recorder": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder"
+  }
+}
+</pre></div>
+
+    <div id="fc-speaker-mjs" data-name="speaker.mjs"
+         data-src="experiments/02-recipe/override-semantics/fixtures/speaker.mjs"
+         data-why="把自己收到的 config 原样报给 lab-recorder，判定全靠它报出来的内容——改没改成，问它本人最准"><pre>/**
+ * 把自己收到的 config 原样报给 lab-recorder。
+ *
+ * 判定全落在它报出来的内容上——改没改成，问它本人最准。
+ */
+
+export const inject = ["labObserver"];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say("我收到的 config", { 内容: config ?? null });
+}
+</pre></div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>patch 文件是一个 YAML 数组</b><br>整棵配方由这些数组一层层叠成（层叠规则见 02-recipe/layer-stack）。
+   <code>applyEntryPatches()</code> 按数组写下的顺序，从头到尾逐条处理——同一份 patch 里，后写的一条能看到
+   前面几条已经生效之后的树。`,
+  `<b>每一项先问：带不带 <code>insert</code></b><br>带的话走新增分支，把 insert 列表塞进指定位置（不带 id
+   追加进根组，带 id 塞进那个 id 指向的 group——完整语义见 02-recipe/insert-semantics）。<b>不带 insert、
+   只有一个裸 id</b> 的那一项，走的是覆盖分支——这是这一项要讲的对象。`,
+  `<b>覆盖分支先按 id 找 target</b><br>在组合树里找同 id 的那条已有条目。<b>找不到：只打一行警告
+   （<code>patch: entry "&lt;id&gt;" not found</code>），跳过这一条，不影响同一批里其余的 patch</b>——
+   这跟「插件报错、整批作废」是两种不同的失败形状。`,
+  `<b>找到了：<code>for (const [key, value] of Object.entries(overrides)) target[key] = value</code></b><br>
+   这一项裸 id 之外写的每一个键（overrides），逐个赋值到 target 的同名键上——纯对象属性赋值，不递归、
+   不合并。overrides 没提到的键，原样留在 target 上，不受影响。`,
+  `<b>这一行代码没有字段白名单，也没有对 null 做特殊处理</b><br>key 是不是 EntryOptions 清单里的合法字段、
+   value 是不是字面 null，赋值这行代码统统不问，一律 <code>target[key] = value</code>。
+   <code>cordis-plugin-loader</code> 的 <code>Entry.update()</code> 另有一段专门删键的逻辑（value 是 null
+   就 delete），但只在 <code>create === false</code> 时才跑；覆盖走的这条调用链（YAML 批量重载）永远传
+   <code>create=true</code>，压根进不了那段删除分支——所以覆盖遇到 null，就是字面赋值。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>replay-mechanism · 配方热重放改的是哪一个条目</title>
+<link rel="stylesheet" href="../../lab.css">
+<style>
+:root{
+ --bmhit:#7c3aed; --lyr-hot:#0ea5e9; --lyr-cold:#94a3b8; --inc:#f97316;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bmhit:#a78bfa; --lyr-hot:#38bdf8; --lyr-cold:#7d7d8c; --inc:#fb923c;
+}}
+:root[data-theme=dark]{
+ --bmhit:#a78bfa; --lyr-hot:#38bdf8; --lyr-cold:#7d7d8c; --inc:#fb923c;
+}
+.note code{font-family:var(--mono);font-size:12px}
+.b-inc{color:var(--inc);font-weight:600}
+
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
+.pickbody pre,.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:11px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;color:var(--fg);
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px}
+
+.layers{display:grid;gap:5px;margin-top:9px}
+.layer{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;
+  border:1px solid var(--line);font-size:12px}
+.layer .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.layer.hot .dot{background:var(--lyr-hot)}
+.layer.cold .dot{background:var(--lyr-cold)}
+.layer b{font-weight:600}
+.layer .w{color:var(--dim);margin-left:auto;font-family:var(--mono);font-size:10.5px}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:12px 14px}
+.ccard .hd{margin-bottom:7px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:170px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
+
+table.matrix{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+table.matrix th,table.matrix td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+table.matrix th{color:var(--dim);font-weight:600;font-family:var(--mono);font-size:11px}
+table.matrix td.c-name{font-family:var(--mono);font-size:11px;color:var(--dim)}
+table.matrix .b2{font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap;display:inline-block}
+table.matrix .b2.ok{color:var(--ok)}
+table.matrix .b2.miss{color:var(--miss)}
+table.matrix .b2.mid{color:var(--warn)}
+
+.bnote{font-size:12.5px;color:var(--dim);line-height:1.7;margin-top:12px;
+  padding:10px 12px;border-left:2px solid var(--line);background:color-mix(in srgb,var(--fg) 3%,transparent)}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+
+<div class="crumb">04-replay / replay-mechanism</div>
+<h1>配方热重放改的是哪一个条目</h1>
+<p class="sub">改一下 profile 自己的活层文件，几秒之内运行中的树跟着变——这一项把镜头对准这个「变」字，回答的是它具体发生在哪一个条目身上。</p>
+<div class="tags">
+  <span class="tag">档次 ①</span>
+  <span class="tag">🔬 发现型</span>
+  <span class="tag ok">✅ 满覆盖 · 2 条用例</span>
+  <span class="tag">不需要 web</span>
+</div>
+
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，见 <code>00-base/minimal-profile</code>）是配方里的一行，是静态描述，运行时对应一个 fiber——
+这一行插件这一次生命的载体。一整棵条目组成的树由若干条 <code>patch</code>（对条目列表的一次编辑指令，比如
+<code>- insert: [...]</code>）叠出来。用户日常改的是 profile 自己的 <code>cordis.patch.yml</code>——这份文件叫「活层」，
+被框架的 watcher 监听，改一下文件，几秒之内运行中的树就跟着变，框架把这整件事叫「配方热重放」。
+04-replay 这一组管的正是「配方热重放」本身；这一项要回答的问题只有一个——热重放改动的
+究竟落在树上的哪一个位置：是整棵树被拆掉重建，还是只有某一处数据被换了一份新的。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍从「一份配方」到「活层文件一改就生效」的完整链条：①是配方装在哪，②是它怎么被拼出来，
+③是谁在盯着活层文件，④是文件一变之后真正发生的两步。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">配方装在哪</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">四层怎么拼成一份 patches</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">谁在盯着活层文件</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">文件一变，发生了两步</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
+  </div>
+</div>
+
+<h2>实验看到了什么：配方的静态构成</h2>
+<p class="note">普查员（<code>fixtures/replay-recipe-census</code>）遍历运行时的条目树，如果当前条目恰好是
+<span class="b-inc"><code>cordis:include</code></span>，额外把它自己的 <code>config.patches</code> 摘出来——不整体
+<code>JSON.stringify</code>（条目 <code>config</code> 里可能有 <code>!!js</code> 表达式，dsh 的 patch 方言把它解析成一个
+不透明的求值单元，直接序列化容易失真甚至抛错），只取「这条 patch 操作是 <code>insert</code> 还是
+<code>override</code>、涉及哪些 <code>id</code>/<code>name</code>」的摘要。<code>recipe-static</code> 这个 profile
+的活层埋了一个标记 <code>profile-marker</code>，home 层（<code>$DSH_HOME/cordis.patch.yml</code>，对这个 home 下所有
+profile 同时生效，优先级压过 profile 自己的活层）另埋一个标记 <code>home-marker</code>。boot 之后延后 2 秒拍的
+<code>settle</code> 快照里：</p>
+
+<div class="kv">
+  <div class="r"><span class="k">include.config.patches.present</span><span class="v ok">true</span></div>
+  <div class="r"><span class="k">include.config.patches.count</span><span class="v">3</span></div>
+  <div class="r"><span class="k">用例耗时</span><span class="v">3.10s</span></div>
+</div>
+
+<table class="matrix">
+  <thead><tr><th>patches 里第几组</th><th>op</th><th>涉及的 id</th><th>来自哪一层</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">1</td><td class="c-name">insert</td><td class="c-name">timer, hmr</td><td>profile 活层（基线自带的基础设施）</td></tr>
+    <tr><td class="c-name">2</td><td class="c-name">insert</td><td class="c-name">census, profile-marker</td><td>profile 活层</td></tr>
+    <tr><td class="c-name">3</td><td class="c-name">insert</td><td class="c-name">home-marker</td><td>home 层</td></tr>
+  </tbody>
+</table>
+<p class="note">三组的来处不一样，但都摘要进了同一个条目——<code>include</code>——自己的
+<code>config.patches</code> 里。<code>fiberState</code> 是一条条目运行实例（fiber）的生命周期状态，Cordis 定义了
+6 个数值：0 <code>PENDING</code>、1 <code>LOADING</code>、2 <code>ACTIVE</code>、3 <code>FAILED</code>、4 <code>DISPOSED</code>、
+5 <code>UNLOADING</code>。这张 settle 快照里 <code>include</code>/<code>timer</code>/<code>hmr</code>/<code>census</code>
+都是 <code>fiberState=2</code>（<code>ACTIVE</code>）；<code>profile-marker</code>/<code>home-marker</code> 两个标记条目
+自己写了 <code>disabled: true</code>，没有 fiber——「无 fiber」这里的意思是没有对应的运行实例，纯粹因为它们被标记成禁用，
+不是别的原因。</p>
+
+<h2>实验看到了什么：活层一改，配方跟着变</h2>
+<p class="note"><code>recipe-hot</code> 这个 profile 先跟 <code>recipe-static</code> 一样起了两个标记，等第一张
+<code>settle</code> 快照确认改动前还没有 <code>profile-marker-2</code>。接着测试代码不重启进程，直接把这个 profile 的
+活层文件整份重写——新内容里 <code>census</code> 那个 <code>insert</code> 块多插了一条 <code>profile-marker-2</code>，
+但这次重写没有再带上 <code>timer</code>/<code>hmr</code> 那个 <code>insert</code> 块（旧文件那部分是被整份换掉，
+不是往后追加）。8 秒后拍第二张快照（<code>settle2</code>）。</p>
+
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">settle（改动前）</span></div>
+    <div class="row">include.config.patches 里的 id：</div>
+    <pre>timer, hmr, census, profile-marker, home-marker</pre>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">settle2（改动后）</span></div>
+    <div class="row">include.config.patches 里的 id：</div>
+    <pre>census, profile-marker, profile-marker-2, home-marker</pre>
+  </div>
+</div>
+<p class="note">新插的 <code>profile-marker-2</code> 出现在了改动后那份里，用例耗时 9.10s。同一张 <code>settle2</code>
+快照，把整棵树的原始条目摊开看，还能看到一件没被这两条用例断言、但确实发生了的事：</p>
+
+<table class="matrix">
+  <thead><tr><th>id</th><th>name</th><th>fiberState</th><th>disabled</th></tr></thead>
+  <tbody>
+    <tr><td class="c-name">include</td><td class="c-name">cordis:include</td><td><span class="b2 ok">2 ACTIVE</span></td><td>false</td></tr>
+    <tr><td class="c-name">timer</td><td class="c-name">@deepseek-ai/cordis-plugin-timer</td><td><span class="b2 miss">无 fiber</span></td><td>false</td></tr>
+    <tr><td class="c-name">hmr</td><td class="c-name">@deepseek-ai/cordis-plugin-hmr</td><td><span class="b2 mid">5 UNLOADING</span></td><td>false</td></tr>
+    <tr><td class="c-name">census</td><td class="c-name">replay-recipe-census</td><td><span class="b2 ok">2 ACTIVE</span></td><td>false</td></tr>
+    <tr><td class="c-name">profile-marker</td><td class="c-name">replay-marker-profile</td><td><span class="b2 miss">无 fiber</span></td><td>true</td></tr>
+    <tr><td class="c-name">home-marker</td><td class="c-name">replay-marker-home</td><td><span class="b2 miss">无 fiber</span></td><td>true</td></tr>
+    <tr><td class="c-name">profile-marker-2</td><td class="c-name">replay-marker-profile-2</td><td><span class="b2 miss">无 fiber</span></td><td>true</td></tr>
+  </tbody>
+</table>
+<p class="note"><code>timer</code>/<code>hmr</code> 这两条不是标记，没写 <code>disabled</code>，但这次重写的活层里没有
+它们那个 <code>insert</code> 块了——新 compose 出来的 <code>patches</code> 数组里也确实没有它们（上面
+<code>settle2</code> 那张卡片的 id 列表里也没有）。<code>timer</code> 此刻已经没有 fiber，<code>hmr</code> 停在
+<code>fiberState=5</code>（<code>UNLOADING</code>，disposer 正在跑）——这跟第二层讲的「重新 compose 出一份新的
+<code>patches</code>，整份塞进 <code>include</code> 的 <code>config</code>」是同一件事的另一面：新文件里没写的组，
+就不在新拼出来的那份数组里了。</p>
+
+<h2>读出来的是什么</h2>
+<div class="reads">
+  <div class="read"><span class="n">①</span><p>
+    <b>「配方」不是抽象说法，是 <code>cordis:include</code> 这一个条目自己持有的 <code>config.patches</code>。</b>
+    活层与 home 层各埋一个标记，两个都原样出现在这同一个条目的 <code>config.patches</code> 里——静态对照直接
+    坐实了「配方装在这一个条目身上」这句话。
+    <span class="from">test_include_config_holds_full_recipe</span>
+  </p></div>
+  <div class="read"><span class="n">②</span><p>
+    <b>配方热重放＝改 <code>include</code> 这一个条目的 <code>config</code>，没有别的。</b>活层文件一改，新插的标记
+    立刻出现在同一个条目的 <code>config.patches</code> 里；观测信号精确落在 <code>include</code> 自己身上，没有借用
+    别的、本该保持不变的条目去判断「重放发生没发生」（那样会得到恒真结果）。
+    <span class="from">test_recipe_hot_reload_updates_include_config</span>
+  </p></div>
+</div>
+<div class="bnote">热重放改了 <code>include</code> 的 <code>config</code> 之后，<code>entry.update()</code> 会不会动到别的
+条目的 fiber、条目级的 diff 具体算法在哪一层、没被这次改动碰到的条目会不会也被摸一遍——这两条用例都没有验证。
+上面 <code>settle2</code> 快照里 <code>timer</code> 丢了 fiber、<code>hmr</code> 停在 <code>UNLOADING</code>，是记录下来的
+现象，不是这一项的判定对象；这条线索归同组 <code>replay-granularity</code>（⬜，见其模块 docstring）继续挖。</div>
+
+<footer>
+判定与证据出处在 <code>test_replay_mechanism.py</code> 的模块 docstring，此页只负责让你看懂。<br>
+数字与文件原文取自归档 <code>results/20260817-151056/</code>（<code>summary.md</code>、
+<code>census-recipe-static.json</code>、<code>census-recipe-hot.json</code> 与 <code>home/</code>、
+<code>profiles/</code> 下两个 profile），是一次观测的快照。<br>
+<a href="../../index.html">← 全部实验</a>
+</footer>
+
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="fl" data-k="home-patch">cordis.patch.yml</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">recipe-static/</button>
+                <ul>
+                  <li><button class="fl" data-k="static-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="static-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="static-pkg">package.json</button></li>
+                </ul></li>
+              <li><button class="tw">recipe-hot/</button>
+                <ul>
+                  <li><button class="fl" data-k="hot-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="hot-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="hot-pkg">package.json</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">replay-recipe-census/</button>
+                <ul>
+                  <li><button class="fl" data-k="census-idx">index.js</button></li>
+                  <li><button class="fl" data-k="census-pkg">package.json</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-home-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151056/home/cordis.patch.yml"
+         data-why="home 层：对这个 home 下所有 profile 同时生效，优先级压过 profile 自己的活层"><pre>- insert:
+    - id: home-marker
+      name: replay-marker-home
+      disabled: true
+</pre>
+    </div>
+    <div id="fc-static-yml" data-name="cordis.yml"
+         data-src="results/20260817-151056/profiles/recipe-static/cordis.yml"
+         data-why="配方树的空根——真正的配方全靠 patch 叠出来，这个文件每次启动都被无条件重写成 []"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-static-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151056/profiles/recipe-static/cordis.patch.yml"
+         data-why="活层：基线自带 timer/hmr 一组，加普查员与 profile-marker 一组"><pre># 基础设施：显式带上，不依赖框架的 fallback
+- insert:
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: hmr
+      name: '@deepseek-ai/cordis-plugin-hmr'
+      config:
+        root: []
+        debounce: 100
+
+- insert:
+    - id: census
+      name: replay-recipe-census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/replay-mechanism/census-recipe-static.json"
+        delayMs: 2000
+
+    - id: profile-marker
+      name: replay-marker-profile
+      disabled: true
+</pre>
+    </div>
+    <div id="fc-static-pkg" data-name="package.json"
+         data-src="results/20260817-151056/profiles/recipe-static/package.json"
+         data-why="dependencies 里 link 了普查员这一个插件"><pre>{
+  "name": "dsh-profile-recipe-static",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "replay-recipe-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/04-replay/replay-mechanism/fixtures/replay-recipe-census"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-hot-yml" data-name="cordis.yml"
+         data-src="results/20260817-151056/profiles/recipe-hot/cordis.yml"
+         data-why="跟 recipe-static 那份逐字节相同——都是空根，配方全在 patch 里"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-hot-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151056/profiles/recipe-hot/cordis.patch.yml"
+         data-why="归档时的活层内容：测试用例把它整份重写过一次，这是重写之后的最终样子"><pre>- insert:
+    - id: census
+      name: replay-recipe-census
+      config:
+        out: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/replay-mechanism/census-recipe-hot.json"
+        delayMs: 2000
+        delayMs2: 8000
+
+    - id: profile-marker
+      name: replay-marker-profile
+      disabled: true
+
+    - id: profile-marker-2
+      name: replay-marker-profile-2
+      disabled: true
+</pre>
+    </div>
+    <div id="fc-hot-pkg" data-name="package.json"
+         data-src="results/20260817-151056/profiles/recipe-hot/package.json"
+         data-why="跟 recipe-static 的 package.json 结构一样，只是 profile 名不同"><pre>{
+  "name": "dsh-profile-recipe-hot",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "replay-recipe-census": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/04-replay/replay-mechanism/fixtures/replay-recipe-census"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-census-idx" data-name="index.js"
+         data-src="experiments/04-replay/replay-mechanism/fixtures/replay-recipe-census/index.js"
+         data-why="普查员：找到 cordis:include 时多摘一件事——它自己的 config.patches"><pre>/**
+ * 普查员：读整棵树，外加对 `cordis:include` 条目做一件专门的事——摘出它自己
+ * 的 `config.patches`。那正是「配方」这个概念的真身：四层 patch 合成之后的
+ * 完整列表，原样塞进这一个条目的 config 里，不是运行时算出来又扔掉的中间结果。
+ *
+ * 不整体 `JSON.stringify` 那份 `config.patches`：条目的 `config` 里可能有
+ * `!!js` 表达式，dsh 的 patch 方言把它解析成一个不透明的求值单元，直接序列化
+ * 容易失真甚至抛错。摘要只取「这条 patch 操作是 insert 还是 override、涉及哪些
+ * id/name」，足够用来对账「配方里写的东西是不是真的出现在树上」。
+ *
+ * 支持一张可选的第三快照 `settle2`（`config.delayMs2`）：不起 web 服务也能
+ * 验证「活层文件改了之后，`include` 的 `config.patches` 跟着变了没有」——先拍
+ * 一张，调用方这时去改活层文件，再拍一张，两张一比。
+ */
+
+import { writeFileSync } from "node:fs";
+
+/** 代码版本指纹。 */
+const MARKER = "replay-recipe-census-v1";
+
+const WATCHED_SERVICES = ["loader", "timer", "hmr", "logger", "webServer"];
+
+/** 找一个条目的父条目——cordis 没有直接暴露这个关系，得从 fiber 链上摸。 */
+function parentIdOf(entry) {
+  try {
+    return entry.parent?.ctx?.fiber?.entry?.options?.id ?? null;
+  } catch {
+    return null; // 观测点绝不抛错
+  }
+}
+
+/**
+ * 把 `config.patches` 里的一条 patch 操作压成可读摘要。
+ *
+ * 一条 patch 操作只有两种形状（`cordis-plugin-include` 的 PatchOptions）：
+ *   - `{ insert: [...] }` —— 插入若干新条目
+ *   - `{ id, config?, disabled?, ... }` —— 覆盖已有条目
+ */
+function summarizePatch(patch) {
+  try {
+    if (patch &amp;&amp; Array.isArray(patch.insert)) {
+      return { op: "insert", ids: patch.insert.map((e) =&gt; e?.id ?? e?.name ?? null) };
+    }
+    if (patch &amp;&amp; typeof patch === "object" &amp;&amp; "id" in patch) {
+      return { op: "override", id: patch.id };
+    }
+    return { op: "unknown", keys: patch &amp;&amp; typeof patch === "object" ? Object.keys(patch) : null };
+  } catch {
+    return { op: "error" }; // 观测点绝不抛错
+  }
+}
+
+function censusEntry(entry) {
+  const fiber = entry.fiber;
+  const base = {
+    id: entry.options?.id ?? null,
+    name: entry.options?.name ?? null,
+    parent: parentIdOf(entry),
+    disabled: entry.options?.disabled === true,
+    hasFiber: fiber !== undefined,
+    fiberState: fiber === undefined ? null : fiber.state,
+    inject: fiber === undefined ? null : Object.keys(fiber.inject ?? {}),
+  };
+  // 只有 include 条目才有意义摘 patches —— 那正是「配方」的真身所在。
+  if (entry.options?.name === "cordis:include") {
+    let patches;
+    try {
+      patches = entry.options?.config?.patches;
+    } catch {
+      patches = undefined; // 观测点绝不抛错
+    }
+    base.includePatches = {
+      present: patches !== undefined,
+      count: Array.isArray(patches) ? patches.length : null,
+      summary: Array.isArray(patches) ? patches.map(summarizePatch) : null,
+    };
+  }
+  return base;
+}
+
+function takeSnapshot(ctx, phase) {
+  const loader = ctx.get("loader");
+  const services = {};
+  for (const name of WATCHED_SERVICES) {
+    services[name] = ctx.get(name) !== undefined;
+  }
+  return {
+    phase,
+    at: new Date().toISOString(),
+    services,
+    entries: loader === undefined ? null : [...loader.entries()].map(censusEntry),
+  };
+}
+
+/** 历次 apply 的记录，模块级，写文件时写整个数组——重挂本身也该在记录里留痕。 */
+const records = [];
+
+export function apply(ctx, config) {
+  const out = config?.out;
+  if (!out) throw new Error("replay-recipe-census: config.out 是必需的");
+  const delayMs = config?.delayMs ?? 1500;
+  const delayMs2 = config?.delayMs2; // 可选：第三张快照
+
+  const record = {
+    marker: MARKER,
+    applyIndex: records.length,
+    delayMs,
+    delayMs2: delayMs2 ?? null,
+    snapshots: [takeSnapshot(ctx, "boot")],
+  };
+  records.push(record);
+
+  const flush = () =&gt; writeFileSync(out, JSON.stringify(records, null, 2), "utf8");
+  flush();
+
+  const handles = [];
+  handles.push(
+    setTimeout(() =&gt; {
+      record.snapshots.push(takeSnapshot(ctx, "settle"));
+      flush();
+    }, delayMs),
+  );
+  if (delayMs2 !== undefined) {
+    handles.push(
+      setTimeout(() =&gt; {
+        record.snapshots.push(takeSnapshot(ctx, "settle2"));
+        flush();
+      }, delayMs2),
+    );
+  }
+  // 不 unref：这些定时器要撑住事件循环直到自己 flush 完、清掉自己，
+  // 之后进程活不活着就是别人的事了。
+  ctx.on("dispose", () =&gt; handles.forEach(clearTimeout));
+}
+</pre>
+    </div>
+    <div id="fc-census-pkg" data-name="package.json"
+         data-src="experiments/04-replay/replay-mechanism/fixtures/replay-recipe-census/package.json"
+         data-why="普查员自己的包清单"><pre>{
+  "name": "replay-recipe-census",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
+</div>
+
+<script src="../../lab.js"></script>
+<script>
+const MECH = [
+  `<b>配方不是抽象的说法，是运行时树根那个条目自己的字段。</b><br>树根是 id 固定为 <code>include</code>、
+   <code>name</code> 固定为 <span class="b-inc"><code>cordis:include</code></span> 的一个条目，由
+   <code>dsh-app-boot</code> 的 <code>mountRootInclude()</code> 在 boot 期创建——它是树上唯一不来自任何
+   patch 文件的条目。「配方」就是它自己 <code>config</code> 里的一个数组字段：<code>config.patches</code>。`,
+  `<b>四层拼接出一份完整的 patches</b><br>按顺序叠、后叠的赢：`
+   + `<div class="layers">`
+   + `<div class="layer cold"><span class="dot"></span><b>① bundle 层</b>——profile 叠的包自带的 patch<span class="w">冷·本项未叠</span></div>`
+   + `<div class="layer hot"><span class="dot"></span><b>② profile 活层</b>——<code>profiles/&lt;名&gt;/cordis.patch.yml</code><span class="w">热</span></div>`
+   + `<div class="layer hot"><span class="dot"></span><b>③ home 层</b>——<code>$DSH_HOME/cordis.patch.yml</code><span class="w">热</span></div>`
+   + `<div class="layer cold"><span class="dot"></span><b>④ overlay</b>——命令行 <code>--patch</code><span class="w">冷·本项未用</span></div>`
+   + `</div><br>四层拼出来的完整 patch 列表，boot 时整份塞进 <code>include</code> 条目的
+   <code>config.patches</code>——这就是①里那个数组的来处。`,
+  `<b>谁在盯着活层文件</b><br><code>dsh-app-boot</code> 在 boot 时调用一次 <code>watchUserPatches()</code>，
+   靠 hmr 服务的 <code>registerConfig(filename, callback)</code> 注册一个监听——精确到这一个活层文件本身，
+   不是监听整个目录。文件一变，<code>callback</code> 就跑。`,
+  `<b>文件一变，发生了两步</b><br>只有两步：重新 compose 出一份新的 <code>patches</code> 数组（重新读一遍活层
+   文件，走的是跟②同一套四层拼接），然后把它整份塞回 <code>include</code> 这一个条目的 <code>config</code>——
+   没有遍历整棵树逐个比对哪条变了、哪条没变发生在这一层。`
+   + `<pre>const register = hmr.registerConfig(filename, async () => {
+  const { patches: _previousPatches, ...includeConfig } = entry.options.config;
+  const patches = compose(loadOptionalPatches(binName, filename) ?? []);
+  await entry.update({ config: { ...includeConfig, patches } });
+});</pre><span class="note" style="margin:6px 0 0;display:block">
+   源码出处：<code>dsh-app-boot</code> <code>lib/index.js:766</code>（<code>watchUserPatches</code> 的回调）</span>`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+</script>
+</body>
+</html>
