@@ -127,13 +127,28 @@ grep 源码、去搜官方文档；比喻 grep 不到。
 页面是手写的、进 git。原生 CSS 与 JS，不引图表库，双主题（`prefers-color-scheme`
 与 `[data-theme]` 两套都要）。
 
-**骨架样式住 `experiments/lab.css`，页内 `<style>` 只留本页的调色板和专有的图。**
-版心、侧栏两窗、文件树、`.picker` 那套枚举组件、`.sbar`、`tags`、标题、`footer`、
-按钮——凡是各页应当一致的，都在那个文件里，改一处全组生效。
+**骨架住 `experiments/lab.css` 与 `experiments/lab.js`。** 版心、侧栏两窗、文件树、
+`.picker` 枚举组件、`.sbar`、标题、`footer`、按钮，以及 ASCII 树绘制、`initPicker()`、
+文件窗那三段脚本——凡是各页应当一致的，都在那两个文件里，改一处全组生效。
+
+页内只留本页专有的：图用色变量、本页那些图的样式、本页的数据与渲染函数。
 
 判据是漂移的代价随页数线性涨。五页手工同步过一轮之后，`h2` 仍长出三个版本，
-`footer` / `.tags` / `.pane` 各两个——而全组有 58 项。除 `lab.css` 外**不许再有任何
+`footer` / `.tags` / `.pane` 各两个——而全组有 58 项。除这两个文件外**不许再有任何
 外部资源**，图表库、字体、CDN 一概不引。
+
+### 调色板分三层
+
+```
+结构色  --bg --fg --dim --line --card --mono          lab.css，各页取值本来就一致
+语义色  --st-pending/-loading/-active/-unloading/     lab.css
+        -disposed/-failed  与  --ok / --warn / --miss
+图用色  --bmhit 与本页那几个（--pkg --m1 --say 之类）   页内
+```
+
+⚠️ `--st-*` 与 `--ok` 系当前值相同，但**不许互相顶替**：`--st-active` 说的是一条
+fiber 活着，`--ok` 说的是一条判定通过。合用一个变量会让「给已验证换个色」连带
+改掉时间线上的 ACTIVE 点。选色时先问这处表达的是状态机还是好坏。
 
 版心两栏：正文一栏 820px、右栏 640px，整体居中（约 1532px）。
 **正文列不许加宽**——中文 14.5px 下 820px 已经是 56 字一行，再宽读着更累，
