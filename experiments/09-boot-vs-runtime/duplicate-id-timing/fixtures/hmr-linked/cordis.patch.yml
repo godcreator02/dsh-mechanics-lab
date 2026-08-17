@@ -1,0 +1,7 @@
+# bundle 层：包一旦进了 profile 的 `dsh.profile.bundles` 名单，这个条目就
+# 自己上树——本项用它跟运行中追加的活层条目撞同一个 id。
+- insert:
+    - id: greeter
+      name: hmr-linked
+      config:
+        版本: bundle 层

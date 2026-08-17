@@ -1,0 +1,6 @@
+# 由 test_cold_surfaces.py 在用例开头写入，内容以此为准。
+- insert:
+    - id: probe
+      name: replay-cold-bundle
+      config:
+        revision: r2

@@ -1,0 +1,6 @@
+# 包自己那份 patch 文件（bundle 层）。用例要改的就是这份文件里的 config.版本。
+- insert:
+    - id: greeter
+      name: hmr-linked
+      config:
+        版本: 配置第一版

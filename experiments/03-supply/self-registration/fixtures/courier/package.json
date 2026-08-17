@@ -1,0 +1,9 @@
+{
+  "name": "ch2-courier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "教学插件：只声明 dsh.bundle，不进名单就不会自注册",
+  "exports": { ".": "./index.mjs" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}

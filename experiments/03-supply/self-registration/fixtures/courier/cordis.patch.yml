@@ -1,0 +1,7 @@
+# 包自己带的那一行。只要没被列进 profile 的 dsh.profile.bundles，这份 patch
+# 永远不会被读——负对照要证的就是这件事。
+- insert:
+    - id: courier
+      name: ch2-courier
+      config:
+        途径: 正经安装
