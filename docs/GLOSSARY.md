@@ -413,11 +413,16 @@ profile 自己的 `cordis.patch.yml`——你日常动的那一层。**被 watch
 | 3 | 在 Node 的 **ESM `loadCache`** 里（被 import 过的模块） | **代码热重载**：清 ESM+CJS 缓存 → 重 import → dispose 旧 fiber → 原位重挂，失败双向回滚 |
 | 4 | 以上都不是 | 只 `emit('hmr/change', url)`——**没人接** |
 
-⚠️ ✅ **第 4 条分支是「非 import 文件是冷的」的实现根因。** 插件在 `apply` 里
-`readFileSync` 读的文件从没进过 `loadCache`，所以改了它只走到第 4 条：
+⚠️ **待验** —— **第 4 条分支是「非 import 文件是冷的」的实现根因。** 插件在
+`apply` 里 `readFileSync` 读的文件从没进过 `loadCache`，所以改了它只走到第 4 条：
 HMR 看得见，但归类为「不关我事」。
 
-✅ **实测佐证**：改 `cordis.patch.yml` 时，观测到两条 `hmr/change` 事件，
+⚠️ 这条**只有源码推理，没有用例**：全仓没有任何教学插件在 `apply` 里
+`readFileSync` 过外部文件，所以「插件主动读的文件是冷的」这个场景从未被实测。
+补测归 `experiments/05-reload/cold-reads/`。下面那条实测佐证测的是**框架自己**
+读的 `cordis.patch.yml`，不是插件主动读的文件——两者走的分支相同，但不能互相顶替。
+
+✅ **实测佐证（框架自己读的那种）**：改 `cordis.patch.yml` 时，观测到两条 `hmr/change` 事件，
 而且**发生在配方重放之后**——重放是 `registerConfig` 的那个 watcher 干的；
 主 watcher 因为 `root: ['.']` 覆盖了 profile 目录也看见了同一个文件，
 但一路走到第 4 条分支，发了个没人接的事件。
