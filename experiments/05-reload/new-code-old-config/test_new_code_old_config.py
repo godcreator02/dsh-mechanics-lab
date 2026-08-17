@@ -12,6 +12,11 @@
   的常量数组，只有 profile 活层和 home 层每次重读盘；那份 patch 文件落在
   watch 范围内时，事件流里确实有 `hmr-change` 点名它，但它不是任何 include
   的 filename、也不在 `loadCache` 里，掉进「只发个事件」的分支。
+  为什么只有活层两处热：它们的「重放」只是读一个约定路径的 YAML 文件；
+  bundle 层要热，等于要重放整个 `loadProfile()`——重新走 `bundles` 名单
+  解析、逐包 `resolveBundleDir`，名单变了、包被卸载了这些情况都要处理，
+  复杂度不是一个量级（源码推理，未实测；见 `dsh/lib/profile-boot-*.js` 的
+  `composeLive()`）。
 - **重启之后两笔改动才一起生效**，坐实了「冷」而不是「丢了」：新进程重新
   `loadProfile()`。
 
@@ -24,6 +29,14 @@
 `cordis.patch.yml` 过滤，确认 watcher 确实看见了 bundle 层配方文件的变化；
 `hmr-reload` 的条数用来确认「配方那次不产生重载」——只有代码那次触发了一次
 重载。
+
+## 没覆盖到的
+
+「全仓库只有两个 `registerConfig` 调用点（`<profile>/cordis.patch.yml`、
+`$DSH_HOME/cordis.patch.yml`，都不含 bundle 层）」这个精确计数只是 grep 出来
+的源码事实，没有对应的用例断言过「确实只有两个」——机制本身（bundle 层的
+config 冷、活层两处热）已经由本项 `test_code_reload_keeps_the_old_config`
+坐实，缺的只是这个调用点数量的计数，属源码依据，未实测。
 """
 
 from __future__ import annotations

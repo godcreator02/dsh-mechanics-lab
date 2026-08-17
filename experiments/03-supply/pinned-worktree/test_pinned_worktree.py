@@ -12,6 +12,14 @@
   就是在钉住的那个副本里切一次 tag：旧的条目被拆掉（`DISPOSED`）、新的挂上
   （`ACTIVE`），走的是热重载那条路，不是重启；别的条目不受牵连。证据：
   `test_b_checkout_swaps_the_version_in_place`
+- **拆旧、建新之间有重叠窗口，整个过程压缩在不到 1 毫秒内。** 旧条目还没走完
+  `DISPOSED`，新条目已经开始 `LOADING`——不是拆完了才建。一次实测的时间线：
+  旧的 `ACTIVE → UNLOADING`（1587.7ms）→ 新的 `PENDING → LOADING`
+  （1587.9ms，此刻旧的还没 `DISPOSED`）→ `hmr-reload` 事件（1588.0ms）→ 旧的
+  `UNLOADING → DISPOSED`（1588.0ms）→ 新的 `LOADING → ACTIVE`（1588.1ms），
+  从旧的开始拆到新的就绪总共约 0.4 毫秒。证据：
+  `test_b_checkout_swaps_the_version_in_place` 的归档事件流（`results/`
+  下该用例的时间线打印，`hot_timeline()` 逐条列出的正是这几行）
 - **跟着 HEAD 走的那个副本随便改、提交、打 tag，钉住的这份纹丝不动。** 两个
   工作副本各有一份文件，互不干扰——这正是「写到一半的东西不会被实例吃进去」
   的由来。证据：`test_d_the_dev_copy_moves_on_alone`
@@ -33,6 +41,18 @@
 
 - 一次 `checkout` 同时落下好几个文件，hmr 会不会把它们合并成一次重新加载
   ——这是同一组 `reload-debounce` 项要验的，本项不涉及
+- **改变依赖 `link:` 指向的目标目录本身（把 junction 换到另一个目录），跟本项
+  验过的「同一个工作副本内 `git checkout` 换 tag」是两件不同的事，本项没有
+  测过前者。** 本项所有用例改的都是同一个 junction 背后那份内容（`git
+  checkout` 只换工作副本目录里的文件，链接目标的路径没变）；「把链接本身
+  重新指向另一个目录」这个动作——即 `profile.link_plugin(pkg, 新目录)`
+  在实例活着的时候对同一个包名重新调用一次——没有任何用例覆盖，只有一处
+  源码推理：Node 的 ESM 模块缓存以 `import()` 时解析到的真实文件路径为键，
+  不会因为 junction 改指向就失效，理论上换指向需要重启才能生效（依据见
+  `index.html`「热与冷的边界」一节 surface #4「`link:` 依赖指向哪个目录」，
+  该文档自己标的是 `exp: null`，即没有配套实验）。别把这条跟上面已实测的
+  「checkout 换 tag 是热的」混为一谈——那条测的是同一个目标目录里换内容，
+  这条问的是换目标目录本身，源码上是两条不同的缓存失效路径
 """
 
 from __future__ import annotations

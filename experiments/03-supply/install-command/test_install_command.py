@@ -17,7 +17,10 @@
   `dsh.profile.bundles`（没在名单里才补，已有的不重复）；哪个名单里的包
   不再是「依赖 + 声明了 bundle」，就从名单里删掉。按安装后状态重新核对而不是
   比较本次命令的参数差异，意味着 `update` 也能激活一个在新版本里才声明
-  `dsh.bundle` 的包
+  `dsh.bundle` 的包。这条现在有跨项目的实测印证：同组 `four-ways` 项的
+  `test_four_ways_mount_the_same_entry` 真跑了一次 `dsh plugin add`，安装后
+  `dsh.profile.bundles` 确实被写入了包名（归档
+  `four-ways/results/20260817-142825/profiles/installed/package.json`）
 - **只碰 `package.json` 的 `dependencies` 与 `dsh.profile.bundles` 两处，
   不碰活层 patch 文件。** `runPlugin()` 里没有任何代码路径写
   `cordis.patch.yml`——那份文件完全是别的机制（活层 insert）的地盘
@@ -29,11 +32,14 @@
 
 ## 观测方法
 
-⚠️ **本项不实际执行子命令。** 项目实验纪律禁止在实验台里真跑 `dsh plugin`
-任何子命令（会真的联网走 pnpm 的域名解析、真的改写假 home 下的 profile）；
-`four-ways` 项里 `test_four_ways_mount_the_same_entry` 的途径③真跑了这条命令
-（用来对比四种交付途径），那是它自己权衡后的决定（见该项 docstring），跟本项
-遵守的纪律不冲突——本项要坐实的是源码写法本身，不需要真跑一遍。
+⚠️ **本项不实际执行子命令，这是本项自己的选择，不是纪律逼的。** 实验纪律
+（`CLAUDE.md` 第四节「`dsh plugin`」一行）禁的是「对生产 home 跑」和「装会
+联网拉取的包」这两件事，不是这条命令本身——对假 home 里的 profile 跑、装本地
+目录都是允许的。`four-ways` 项里 `test_four_ways_mount_the_same_entry` 的
+途径③就真跑了这条命令（用来对比四种交付途径，两条边界都没踩）。本项仍然
+选择只读源码：要坐实的是命令的实现写法本身，不是它跑起来的效果，静态分析
+就够了；跑起来之后的效果由 `four-ways` 的真实执行提供实测印证（见上面
+「判定」第二条）。
 
 判定完全来自读源码：`lab.dsh_bin()` 定位到本机 npx 缓存里的 dsh 部署，用例
 再从它的 `bin.js` 找到 `plugin` 子命令实际 import 的那个模块（不写死带哈希的
@@ -45,9 +51,19 @@
 
 ## 没覆盖到的
 
-- 「按安装后的实际状态对账」这条判定目前只验证了源码写法与源码注释的描述
-  一致，没有验证过真实跑一次 `pnpm add` 之后 `dsh.profile.bundles`
-  确实按预期被改写——这一半需要真跑命令才能坐实，本项因纪律限制放弃了它
+- **`--profile <名>` 传一个不存在的名字，会不会新建一个同名 profile 而不是
+  报错——没有用例覆盖这条，只有一处源码线索。** `bin.js` 里 `plugin` 子命令的
+  选项描述写的是「the profile whose plugins to manage (initialized on first
+  use)」，字面意思是「不存在就在首次使用时初始化」，但这只是命令行帮助文本、
+  不是行为断言，本项和 `four-ways` 都没有实际传一个打错的 profile 名跑一遍、
+  确认它到底新建了 profile 还是报了错
+- **命令的回显（pnpm 打印在终端上的路径）与写进 `package.json` 的落盘内容
+  是不是两个不同的东西——这个对照本身没有用例覆盖。** 落盘那一侧已经有实测
+  印证：`four-ways` 归档的 `package.json` 里 `"ch2-courier":
+  "link:D:/…/fixtures/courier"` 确实是绝对路径的 `link:`；但回显那一侧（pnpm
+  输出的文本，比如是不是打的相对路径）没有被任何现存用例捕获或打印过——
+  `install()` 返回的 `subprocess.CompletedProcess.stdout` 从来没被读取，「回显
+  ≠ 落盘」这句话本身缺实验支撑，只有「落盘是绝对路径」这半有证据
 """
 
 from __future__ import annotations

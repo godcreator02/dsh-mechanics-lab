@@ -22,7 +22,7 @@ from .core import (
     make_junction,
     rmtree_safe,
 )
-from .dump import DumpResult, JsExpr, dump_config
+from .dump import DumpResult, JsExpr, dump_config, load_yaml
 from .events import entry_ids, of_kind, read_events, reports, states_of, timeline
 from .instance import Instance, acquire_lock, assert_ports_free, http_get, port_listening, release_lock, start_instance
 
@@ -48,6 +48,7 @@ __all__ = [
     "dump_config",
     "entry_ids",
     "http_get",
+    "load_yaml",
     "make_junction",
     "of_kind",
     "port_listening",

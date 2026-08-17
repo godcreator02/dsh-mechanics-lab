@@ -15,6 +15,17 @@
   改的文件；沾上了就整个入口重新 import。所以「把纯逻辑拆出去以便单独热
   替换」这个想法不成立，代价跟改主文件一样。
   `test_editing_an_imported_helper_reloads_the_whole_plugin`
+- **热重载换代有重叠窗口，不是「拆干净再建」。** 旧的先进 `UNLOADING`、新的
+  紧接着开始建（`LOADING`），中间有一段两者并存的窗口，`hmr` 才报「重新加载
+  了」，旧的这时才真正 `DISPOSED`。已实测：数据来自 `step6_hot_reload`（旧
+  实验，判定已拆分吸收进本项与 `watch-root`）一轮真实运行的 `events.jsonl`
+  时序——`greeter` 旧的 1506.5ms 进 `UNLOADING`、新的 1506.8ms 进 `LOADING`、
+  1507.0ms `hmr` 报 `reload` 且旧的同一刻才 `DISPOSED`，整段换代约 700 微秒。
+  当前树没有对这段时序单独断言，是历史观察记录，不是本项用例复现的不变量。
+- **无关条目在热重载中纹丝不动。** 同一次热重载里只有被改的那个条目经历
+  拆/建，其余条目一次都没被 `DISPOSED` 过。已实测：`watch-root` 项
+  `test_root_dot_reloads_the_plugin` 对 `timer`/`hmr`/`lab-recorder` 三条逐一
+  断言 `"DISPOSED" not in other_states`。
 
 ## 观测方法
 

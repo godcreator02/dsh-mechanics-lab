@@ -123,7 +123,7 @@ def test_include_is_the_only_ghost(lab_home: LabHome, fixtures_dir: Path, launch
     profile.link_plugin("tree-census", fixtures_dir / "tree-census")
 
     dumped = dump_config(lab_home, profile.name)
-    recipe_ids = {e.get("id") for e in dumped.entries if isinstance(e, dict)}
+    recipe_ids = set(dumped.ids())
     print(f"\n  effective config 里的 id（{len(recipe_ids)} 个）：{sorted(recipe_ids)}")
 
     inst = launch(profile, wait_http=False)

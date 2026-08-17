@@ -43,11 +43,30 @@ realpath，`loadCache` 的 key 永远是 realpath，两者对不上（`Map.has` 
 调一次纯函数并报出结果），排除「压根没人调用」这种会跟「拿到旧值」混淆的
 解释。
 
+`hmr` 自己打的 `watching …` / `reload plugin at …` 是 info 级日志，这套最小
+实例没有装任何把日志打到控制台或文件的东西（两份日志文件常年 0 字节）。
+判断到底重载了没有，只能看插件有没有第二次说话，看日志看不出来——本组
+全部用例都靠这条：一律读 `lab-recorder` 采的事件流，不依赖进程日志。
+已实测（来自 `step6_hot_reload`，观测手段已被本组全部用例继承）。
+
 ## 没覆盖到的
 
 `root` 指向 `node_modules` 里的 junction 路径、以及 profile 内部一条链接指向
 外部源码这两种「watcher 出了声但没重载」的形态，判定详见 ignore-rules 项——
 那两条属于 `ignored` 规则与 realpath 不对等的机制，不属于 `root` 本身的语义。
+
+`root` watcher 与 `registerConfig` watcher（盯 `<profile>/cordis.patch.yml`
+与 `$DSH_HOME/cordis.patch.yml` 两个精确路径，机制见 new-code-old-config 项）
+是两套独立的 chokidar 实例，配置取向相反：`root` watcher 有 `ignored` 筛子、
+`ignoreInitial: true`、只认 `change` 事件、真去抖；`registerConfig` watcher
+没有筛子（`ignored: undefined`）、初始扫描算数（注册时已存在的层必须 apply
+一次）、`add`/`change`/`unlink` 全认、不去抖（靠 dirty 标记串行重跑）。这份
+完整对照只有源码依据（`cordis-plugin-hmr/src/index.ts`、`dsh-app-boot`），
+本组测过的只是其中两点：`root` watcher 的去抖窗口（见 reload-debounce 项）、
+`registerConfig` watcher 更新失败时的事务性回滚（运行中撞 id 那条，见
+09-boot-vs-runtime 组 duplicate-id-timing 项）。`ignoreInitial`、事件类型
+过滤（只认 `change`）、`registerConfig` 的 `ignored: undefined`、dirty 标记
+串行这几项都没有专门用例验证，属源码推理。
 """
 
 from __future__ import annotations

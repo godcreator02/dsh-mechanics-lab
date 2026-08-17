@@ -63,6 +63,16 @@ def _construct_js(loader: yaml.SafeLoader, node: yaml.Node) -> JsExpr:
 _LabLoader.add_constructor("tag:yaml.org,2002:js", _construct_js)
 
 
+def load_yaml(text: str) -> Any:
+    """解析一段 DSH 方言的 YAML（认得 `!!js`）。
+
+    需要自己跑 dump（比如要连 stderr 一起拿）的用例用这个解析，别再各自注册一遍
+    `!!js` 构造器——那个标签的 SafeLoader 注册漏了就抛 ConstructorError，
+    而漏的人不会知道自己漏了，只会看见一个莫名其妙的解析失败。
+    """
+    return yaml.load(text, Loader=_LabLoader)
+
+
 #: dump 输出里的来源注释，形如：
 #:   # == @deepseek-ai/dsh-base
 #:   # == @deepseek-ai/dsh-base, patched by @deepseek-ai/dsh-web-app

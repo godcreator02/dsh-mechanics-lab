@@ -2,6 +2,10 @@
 
 档次 ① ｜ 性质 📗 复述型 ｜ 状态 ✅ 已验 ｜ 8 条用例 ｜ 不需要 web
 
+⚠️ **标题「四层」是文档层面的说法，源码层面实际是五层——第五层见「## 没覆盖到的」，
+本项零用例覆盖它。** 判定小节里的「四层」判词本身没错（对照的就是官方文档那四条），
+但不要拿它当「配方总共几层」的答案。
+
 ## 判定
 
 - **四层顺序：bundle → profile 活层 → home 层 → `--patch` overlay，逐层组合在空根之上，同 id 一层
@@ -43,6 +47,33 @@
 `DumpResult.source_of()` 只认「紧邻上方那一行来源注释」——dump 输出的 `# ==` 来源注释按连续同源的
 条目块标一次，不是每条都标。测来源的条目都摆在各自 patch 文件的第一条，同块里的后续条目（`shared` /
 `order-test`）只用 `config_of()` 判定，不测它们的 `source_of()`。
+
+## 没覆盖到的
+
+- **⚠️ 待验 · 框架自己还叠第五层内置 overlay，优先级压过 `--patch`，本项零用例覆盖。**
+  源码坐实：`dsh` 包没有 `src/`，读的是 `<npx 缓存>/node_modules/@deepseek-ai/dsh/lib/
+  profile-boot-*.js` 里的 `composeProfile()`（约 166-198 行）。`allPatches()`
+  （约 146-154 行）拼最终栈用的是 `[...bundlePatches, ...profile.patches, ...homePatches,
+  ...composed.overlays]`——最后这个 `overlays` 不是 argv `--patch` 原始列表本身，是
+  `composeProfile()` 里另算出来的 `composedOverlays`：先复制一份 argv overlay，再在
+  它*后面*追加框架自己的两条内置补丁（第 178-190 行）。追加在后就是优先级更高，
+  所以这两条能压过 `--patch`、home、profile、bundle 全部四层，包括同 id 覆盖。
+  两条各有前置条件，不是无条件生效：
+  - `agent-presets` 补丁（179-188 行）只在四层组合出的 `rows`（不含内置补丁自己）
+    里已经存在 `id: agent-presets` 的条目时才追加，内容是把 `config.roots` 强制
+    合入 `{ path: SHIPPED_PRESET_ROOT, trust: "system" }`（`SHIPPED_PRESET_ROOT` 是
+    随安装分发、`profile-boot` 模块同级的 `config/agent-presets/` 目录，86 行），
+    其余原有 config 保留
+  - telemetry 补丁（189-190 行，`resolveTelemetryPatch` 120-125 行）只在 `rows` 里
+    已存在 `id: session-telemetry-otel` 的条目、**且** `process.env.DSH_TELEMETRY_DISABLED`
+    非空字符串时才追加，固定内容 `{ id: "session-telemetry-otel", disabled: true }`——
+    任意非空值（含 `'0'`）都算禁用，源码注释原话「a privacy switch prefers
+    off-by-mistake over on-by-mistake」
+  **「四层」这句话本身站不住**：官方文档 `publish.md:112-119` 只写了四层，那是文档的
+  简化，不是全部——源码里货真价实叠了五层，第五层不受任何 patch 文件控制、只受「组合树
+  里有没有对应 id 的条目」和「环境变量」驱动。本项目至今没有用例验证过「已有
+  `agent-presets` 条目时它的 `roots` 真被强制改写」或「`DSH_TELEMETRY_DISABLED` 真能盖过
+  已声明的 `disabled: false`」，这条只是源码读到、没有实测坐实，标 ⚠️ 待验，不进「## 判定」。
 """
 
 from __future__ import annotations

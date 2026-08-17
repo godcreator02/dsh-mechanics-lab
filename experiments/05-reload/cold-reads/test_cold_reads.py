@@ -33,4 +33,13 @@
 ## 没覆盖到的
 
 整项待建：需要新写教学插件（现有 fixtures 都没有 `readFileSync` 用法）。
+
+另一条相关但不同的说法：**动态 `import()` / `require()` 只在首次读盘，之后
+走缓存命中**——「读盘」这个直觉只对首次加载成立。这跟本项要验的
+`readFileSync` 冷读不是一回事：watch-root 项
+`test_with_hmr_off_the_running_code_never_notices` 测的是**静态**
+`import`（模块顶层 `import`）在 hmr 关掉之后调用不重读磁盘；动态
+`import()`/`require()` 是「执行到才读盘」，但读盘只发生一次，第二次执行同
+一行就是缓存命中——这条只有源码依据（Node 的 ESM/CJS 模块缓存语义），仓库
+里没有任何 fixture 用 `import()`/`require()` 动态加载过，没有实测。
 """

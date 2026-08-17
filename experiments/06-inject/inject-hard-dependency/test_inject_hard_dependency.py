@@ -20,13 +20,26 @@
   直接观测（`inst.alive()` 为假、退出码非 0、日志里有点名 `labRegistry` 的
   pending 判词）。boot 审计本身的机制（为什么 PENDING 无条件致命、这个判定
   跟具体是哪种「等不到」无关）归 `09-boot-vs-runtime/boot-audit`，这里不重复论证
-- **不声明 `inject` 就不受这条契约约束。** `lab-open` 不写 `inject`，服务不
-  存在也照常 apply，只是取到 `undefined`——`test_without_inject_declaration_runs_regardless`
-  已验证。这把病因钉死：卡住依赖方的是**声明**，不是「服务碰巧不存在」这个
-  事实本身。`lab-open` 是本项自己写的一份最小对照插件——不是因为找不到能
-  复用的现成插件，是因为这条测试轴（声明不声明 inject）跟依赖链上挂采集器
-  看 fiber 状态（`dependency-chain` 在用的那套）是两件不相关的事，一份只落
-  见证文件的最小插件就够撑住这条轴，没必要接 `lab-recorder`
+- **不声明 `inject` 就不受这条契约约束：它不排队，直接跑。** `lab-open` 不写
+  `inject`，代码里按需 `ctx.get()`，`apply` 不等任何人——`test_without_inject_
+  declaration_runs_regardless` 验证的是「服务从头到尾都不存在」这个确定性场景：
+  没有任何提供者条目，`ctx.get()` 只能拿到 `undefined`，这条必然成立。这把病因
+  钉死：卡住依赖方的是**声明**（`inject` 数组），不是「服务碰巧不存在」这个事实
+  本身。`lab-open` 是本项自己写的一份最小对照插件——不是因为找不到能复用的现成
+  插件，是因为这条测试轴（声明不声明 inject）跟依赖链上挂采集器看 fiber 状态
+  （`dependency-chain` 在用的那套）是两件不相关的事，一份只落见证文件的最小插件
+  就够撑住这条轴，没必要接 `lab-recorder`
+  ⚠️ **但「不声明 inject 能不能拿到已存在的服务」不是确定性问题，是竞态。**
+  `site/never-ran.html` 的对照组实录过一次：`labObserver` 服务 2.2ms 才 ready，
+  同一时刻不声明 inject 的插件 2.3ms 就已经 apply 完、拿到的是 `false`（原文：
+  「看时间线，它在 2.3 ms 就跑完了，而观察器的服务 2.2 ms 才刚出现——不排队就
+  没人保证服务在不在」）。两个时间点相差 0.1ms、谁先谁后没有保证——不声明
+  inject 的插件不排队，它 apply 的时机只取决于自己在树里挂载的早晚，跟目标
+  服务的 provider 有没有先就位完全无关。所以准确的表述是：**不声明 inject 时，
+  拿不拿得到某个服务，取决于该服务的 provider 就位与这个插件自己 apply 的
+  时序谁先谁后，而这个先后没有任何保证**——本项 `test_without_inject_
+  declaration_runs_regardless` 只覆盖了「服务永远不存在」这一种确定性情形，
+  没有覆盖「服务存在但时序竞争」这一种，见「## 没覆盖到的」
 
 ## 观测方法
 
@@ -42,6 +55,18 @@
 表面在测「启动失败」，实际测的是空气，而且会安静地通过。
 `test_service_with_no_provider_blocks_apply_and_kills_boot` 按正确写法实现，
 细节见其自身 docstring。
+
+## 没覆盖到的
+
+- **⚠️ 待验 · 不声明 inject 时「能不能拿到已存在的服务」是竞态，本项没有用例覆盖这个场景。**
+  证据是观察式的，来自 `site/never-ran.html` 的对照组：`labObserver` 服务 2.2ms
+  才 ready，不声明 inject 的插件 2.3ms 已经 apply 完并取到 `false`——两个时间点
+  只差 0.1ms，没有排队机制保证谁先谁后。本项 `test_without_inject_declaration_
+  runs_regardless` 只验了「provider 从未存在」这一种确定性情形（`ctx.get()`
+  必然拿到 `undefined`，不依赖时序），没有设计「provider 存在、跟不声明 inject
+  的插件的 apply 时刻赛跑」这种用例——这需要能控制两者的相对时序（比如故意
+  让 provider 慢启动）才能稳定复现，目前没有这样的用例，只是从旧证据搬运过来
+  的观察，不进「## 判定」。
 """
 
 from __future__ import annotations

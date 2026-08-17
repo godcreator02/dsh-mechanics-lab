@@ -33,15 +33,7 @@ import json
 import subprocess
 from pathlib import Path
 
-import yaml
-from lab import DumpResult, JsExpr, LabError, LabHome, dsh_bin, dump_config
-
-
-class _Loader(yaml.SafeLoader):
-    """跟 `lab.dump._LabLoader` 一样的 `!!js` 方言注册，本项自己留一份。"""
-
-
-_Loader.add_constructor("tag:yaml.org,2002:js", lambda loader, node: JsExpr(loader.construct_scalar(node)))
+from lab import DumpResult, LabError, LabHome, dsh_bin, dump_config, load_yaml
 
 
 def dump_with_warnings(home: LabHome, profile_name: str) -> tuple[DumpResult, str]:
@@ -55,7 +47,7 @@ def dump_with_warnings(home: LabHome, profile_name: str) -> tuple[DumpResult, st
     proc = subprocess.run(argv, env=home.env(), capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         raise LabError(f"dump-config 失败：\n--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}")
-    parsed = yaml.load(proc.stdout, Loader=_Loader)
+    parsed = load_yaml(proc.stdout)
     if parsed is None:
         parsed = []
     return DumpResult(entries=parsed, raw=proc.stdout), proc.stderr

@@ -42,6 +42,14 @@ realpath、watcher 的路径从不 realpath——所以 watch 的入口必须本
 `root` 未扩展、默认配置下 junction 装进来的包完全没被 watcher 看见的那条基线
 （对照组，watcher 一声不出）由 watch-root 项的 `test_linked_package_default_root_notices_nothing`
 覆盖，不在本项重复。
+
+`root`/`ignored` 两个键要「一起动」这件事，本项只验了一个方向——**只扩
+`root` 不改 `ignored`**（`test_watching_the_real_source_dir_is_silently_ignored`：
+watcher 一声不出）。另外两个方向没有用例，只有 `site/hmr-routes.html`「三个
+必须」小节的陈述：**只写 `ignored: []`**（清空整份名单，不是去掉 `**/.*`
+那一条）会不会把 `node_modules` 也纳入 watch 范围；**只改 `ignored`（比如去
+掉 `**/.*`）不扩 `root`**，watch 范围有没有扩大过去。两条目前都只有源码
+依据，没有实测佐证。
 """
 
 from __future__ import annotations
