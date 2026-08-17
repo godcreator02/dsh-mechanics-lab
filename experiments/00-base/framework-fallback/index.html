@@ -7,14 +7,14 @@
 <style>
 :root{
   --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
-  --active:#22c55e; --judge:#f59e0b; --fallback:#06b6d4;
+  --active:#22c55e; --judge:#f59e0b; --fallback:#06b6d4; --bmhit:#7c3aed;
   --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d; --bmhit:#a78bfa;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d; --bmhit:#a78bfa;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
@@ -33,6 +33,25 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
 .note code{font-family:var(--mono);font-size:12px}
+
+/* ── 底座参考块：这一节在动哪个文件 ── */
+.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;margin:0 0 14px}
+.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
+  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
+.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
+  border-radius:5px;transition:background .2s,opacity .2s}
+.bm-tree li .bm-n{white-space:pre;flex:none}
+.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
+  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.bm-tree li.dim{opacity:.35}
+.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
+  box-shadow:inset 2px 0 0 var(--bmhit)}
+.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
+.bm-tree li.hit .bm-c{color:var(--fg)}
+@media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
 /* ── 舞台 ── */
 .stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
@@ -128,6 +147,32 @@ footer a{color:inherit}
 这条判定眼下只有这一条用例撑着，docstring 里把它标成「待验」——下面按这个成色来看，
 别当成跟满覆盖的项一样确凿。</p>
 
+<div class="basemap" id="bm1">
+  <div>
+    <div class="bm-h">profile 树 · 实验跑起来时假 home 里的样子</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，本项专属，住 out/testhome/framework-fallback/</span></li>
+      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr（no-infra.out.log / no-infra.err.log）</span></li>
+      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
+      <li data-f="prof"><span class="bm-n">   └─ no-infra/</span><span class="bm-c">本项唯一的 profile</span></li>
+      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles: []，dependencies 里 link: 供给 base-census</span></li>
+      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
+      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 6 步动的就是这个文件，只声明了 census 一条</span></li>
+      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">插件树 · 本项用的教学插件</div>
+    <ul class="bm-tree">
+      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
+      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
+      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config) —— 拍 boot / settle 两张树快照</span></li>
+    </ul>
+  </div>
+</div>
+
 <div class="stage">
   <div id="patchview">
     <div class="zone-label">no-infra profile 的 patch</div>
@@ -210,30 +255,30 @@ footer a{color:inherit}
 // 中间三步（判据 / 补 timer / 补 hmr）是源码引用——没有对应的单独拍照，
 // 所以那几步里的服务状态标"未知"，不编造中间值。
 const STEPS = [
-  { view:'patch', t:'patch',
+  { view:'patch', t:'patch', files:['patch'],
     cap:'no-infra profile 的 patch 只挂了普查员一条，完全不提 timer/hmr——这是触发兜底的前提。' },
 
-  { view:'tree', t:'boot 收尾',
+  { view:'tree', t:'boot 收尾', files:[],
     on:{include:1,census:1,timer:0,hmr:0}, neu:null,
     svc:{loader:'true',timer:'false',hmr:'false'}, judge:false,
     cap:'<b>boot() 收尾那一刻的真实快照：</b>树上只有 include 和它下面的 census；服务对象里 timer / hmr 都是 false。' },
 
-  { view:'tree', t:'判据',
+  { view:'tree', t:'判据', files:[],
     on:{include:1,census:1,timer:0,hmr:0}, neu:null,
     svc:{loader:'true',timer:'false',hmr:'false'}, judge:true,
     cap:'框架接着检查 <code>ctx.get("hmr")</code>——查的是 hmr <b>服务</b>在不在，不是有没有一个叫 hmr 的<b>条目</b>。此刻是 undefined，走进兜底分支。' },
 
-  { view:'tree', t:'补 timer',
+  { view:'tree', t:'补 timer', files:['farm'],
     on:{include:1,census:1,timer:1,hmr:0}, neu:'timer',
     svc:{loader:'true',timer:'pending',hmr:'false'}, judge:false,
     cap:'先补 timer：<code>ctx.loader.create({ name: "…cordis-plugin-timer" })</code> 没传 id，落到随机字符串；<code>parent</code> 默认 null，落在根组，不进 include 子树。这一步没有单独拍照，服务状态未知。' },
 
-  { view:'tree', t:'补 hmr',
+  { view:'tree', t:'补 hmr', files:['farm'],
     on:{include:1,census:1,timer:1,hmr:1}, neu:'hmr',
     svc:{loader:'true',timer:'pending',hmr:'pending'}, judge:false,
     cap:'再补 hmr：<code>config: { root: [] }</code>，同样随机 id、同样落在根组。它的 inject 里已经声明了 timer——顺序是先 timer 后 hmr。' },
 
-  { view:'tree', t:'settle · +3.012s',
+  { view:'tree', t:'settle · +3.012s', files:[],
     on:{include:1,census:1,timer:1,hmr:1}, neu:null,
     svc:{loader:'true',timer:'true',hmr:'true'}, judge:false,
     cap:'<b>3.012 秒后的 settle 快照：</b>树上四条，补的两条跟 include 平级、不在它下面；服务对象里 timer / hmr 都变成 true。' },
@@ -248,6 +293,15 @@ const prev = document.getElementById('prev'), next = document.getElementById('ne
 
 const ENTRY_KEYS = ['include','census','timer','hmr'];
 const SVC_KEYS = ['loader','timer','hmr'];
+
+/** 点亮这一步在动的文件；keys 为空时整块复原。 */
+function bmHighlight(scopeEl, keys){
+  const set = new Set(keys || []);
+  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
+    li.classList.toggle('hit', set.has(li.dataset.f));
+    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
+  });
+}
 
 /** 纯函数：树与服务面板只由 i 决定，跳步直接渲染目标状态，不做增量动画。 */
 function render(i){
@@ -275,6 +329,8 @@ function render(i){
   capD.innerHTML = s.cap;
   prev.disabled = i === 0;
   next.disabled = i === LAST;
+
+  bmHighlight(document.getElementById('bm1'), s.files);
 }
 
 let cur = 0;

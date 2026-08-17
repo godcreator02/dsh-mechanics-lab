@@ -152,7 +152,6 @@
     <div class="bm-h">profile 树 · 实验跑起来时假 home 里的样子</div>
     <ul class="bm-tree">
       <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
-      <li data-f="homepatch"><span class="bm-n">├─ cordis.patch.yml</span><span class="bm-c">home 级活层，压过下面每个 profile 自己的</span></li>
       <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
       <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
       <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>

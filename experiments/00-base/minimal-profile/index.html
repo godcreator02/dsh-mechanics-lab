@@ -8,16 +8,16 @@
 :root{
   --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
   --pending:#94a3b8; --loading:#3b82f6; --active:#22c55e; --failed:#ef4444;
-  --warn:#b45309; --warnbg:#fffbeb;
+  --warn:#b45309; --warnbg:#fffbeb; --bmhit:#7c3aed;
   --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --warn:#fbbf24; --warnbg:#221a08;
+  --warn:#fbbf24; --warnbg:#221a08; --bmhit:#a78bfa;
 }}
 :root[data-theme=dark]{
   --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
-  --warn:#fbbf24; --warnbg:#221a08;
+  --warn:#fbbf24; --warnbg:#221a08; --bmhit:#a78bfa;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
@@ -35,6 +35,25 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 
 h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
+
+/* ── 底座参考块：这一节在动哪个文件 ── */
+.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;margin:0 0 14px}
+.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
+  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
+.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
+  border-radius:5px;transition:background .2s,opacity .2s}
+.bm-tree li .bm-n{white-space:pre;flex:none}
+.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
+  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.bm-tree li.dim{opacity:.35}
+.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
+  box-shadow:inset 2px 0 0 var(--bmhit)}
+.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
+.bm-tree li.hit .bm-c{color:var(--fg)}
+@media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
 /* ── 卡片：五个 profile 并置 ── */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
@@ -140,6 +159,32 @@ footer a{color:inherit}
 <p class="note">bundles 都写到几乎空，差别全在 <code>cordis.patch.yml</code> 里插了什么。
 把鼠标放到卡片上看细节；下面的按钮 / ← → 键把「当前选中」钉在某一张上。</p>
 
+<div class="basemap" id="bm1">
+  <div>
+    <div class="bm-h">profile 树 · 当前卡片在假 home 里的位置</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
+      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
+      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场，dsh 自己维护；timer / hmr 这些裸包名靠 Node parent-walk 在这里解析</span></li>
+      <li data-f="prof"><span class="bm-n">   └─ <span id="bm1-prof">minimal</span>/</span><span class="bm-c">当前这张卡片对应的 profile</span></li>
+      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dsh.profile.bundles 名单 ＋ dependencies（link: 供给）</span></li>
+      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
+      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">活层 —— 卡片「patch 内容」那行改的就是这个文件</span></li>
+      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">         └─ base-census →</span><span class="bm-c">junction，指向下面那棵插件树（只有用到 census 的 profile 才有这条）</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">插件树 · 本项用的教学插件</div>
+    <ul class="bm-tree">
+      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用</span></li>
+      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
+      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
+    </ul>
+  </div>
+</div>
+
 <div class="cards" id="cards"></div>
 <div class="detail" id="detail"></div>
 <div class="ctl">
@@ -152,6 +197,32 @@ footer a{color:inherit}
 <h2>两条硬性捆绑，怎么体现在时序上</h2>
 <p class="note">hmr 包级声明 <code>services.required:["timer"]</code>——这条依赖在最小环境
 里直接观测到的效果，就是下面四步。毫秒数取自 <code>timing</code> 这个 profile 的真实归档。</p>
+
+<div class="basemap" id="bm2">
+  <div>
+    <div class="bm-h">profile 树 · timing 这个 profile</div>
+    <ul class="bm-tree">
+      <li data-f="home"><span class="bm-n">$DSH_HOME/</span><span class="bm-c">假 home，一项一个，住 out/testhome/&lt;项名&gt;/</span></li>
+      <li data-f="logs"><span class="bm-n">├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
+      <li data-f="profiles"><span class="bm-n">└─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="farm"><span class="bm-n">   ├─ node_modules/</span><span class="bm-c">符号链接农场——timer / hmr 这两个裸包名就是从这里被 Node parent-walk 解析出来的</span></li>
+      <li data-f="prof"><span class="bm-n">   └─ timing/</span><span class="bm-c">这一节用的 profile</span></li>
+      <li data-f="pkg"><span class="bm-n">      ├─ package.json</span><span class="bm-c">dependencies 里是 lab-recorder（link:），不是 census</span></li>
+      <li data-f="yml"><span class="bm-n">      ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被 profile-boot 重写</span></li>
+      <li data-f="patch"><span class="bm-n">      ├─ cordis.patch.yml</span><span class="bm-c">timer / hmr 两条 insert 就写在这里——下面的时间线量的就是这两条谁先谁后</span></li>
+      <li data-f="nm"><span class="bm-n">      └─ node_modules/</span><span class="bm-c"></span></li>
+      <li data-f="junction"><span class="bm-n">         └─ lab-recorder →</span><span class="bm-c">junction，指向 observatory/lab-recorder（不是本项 fixtures，这一节的采集器不一样）</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">插件树 · 本项用的教学插件</div>
+    <ul class="bm-tree">
+      <li data-f="plugpkg"><span class="bm-n">fixtures/base-census/</span><span class="bm-c">包型插件：有 package.json，靠包名引用（timing 这节没用它）</span></li>
+      <li data-f="plugpkg"><span class="bm-n">├─ package.json</span><span class="bm-c">name / type:module / exports</span></li>
+      <li data-f="plugidx"><span class="bm-n">└─ index.js</span><span class="bm-c">export function apply(ctx, config)</span></li>
+    </ul>
+  </div>
+</div>
 
 <div class="stage">
   <div class="pair">
@@ -205,6 +276,7 @@ const PROFILES = [
   {
     id: 'minimal', bundles: 'dsh-base', chips: ['census'], outcome: 'ok',
     outcomeText: '进程活着', test: 'test_profile_needs_only_two_files',
+    files: ['pkg', 'yml', 'patch', 'junction', 'plugpkg', 'plugidx'],
     detail: `
       <div class="row"><span class="k">需要文件</span><span class="v">
         <code>package.json</code>（<code>bundles: ["@deepseek-ai/dsh-base"]</code>）+
@@ -223,6 +295,7 @@ const PROFILES = [
   {
     id: 'empty', bundles: '（空）', chips: ['timer', 'hmr', 'census'], outcome: 'ok',
     outcomeText: '进程活着', test: 'test_empty_bundle_list_boots',
+    files: ['pkg', 'patch', 'junction', 'plugpkg', 'plugidx'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -237,6 +310,7 @@ const PROFILES = [
   {
     id: 'only-hmr', bundles: '（空）', chips: ['hmr'], outcome: 'bad',
     outcomeText: '启动失败，退出码 1', test: 'test_hmr_without_timer_wont_start',
+    files: ['patch'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -250,6 +324,7 @@ const PROFILES = [
   {
     id: 'timing', bundles: '（空）', chips: ['timer', 'hmr', 'lab-recorder'], outcome: 'ok',
     outcomeText: '进程活着，用来看时序', test: 'test_hmr_loading_waits_for_timer_active',
+    files: ['pkg', 'patch'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -262,6 +337,7 @@ const PROFILES = [
   {
     id: 'alive', bundles: '（空）', chips: ['timer', 'hmr', 'census'], outcome: 'ok',
     outcomeText: '看了 15 秒仍活着', test: 'test_who_keeps_process_alive',
+    files: ['pkg', 'patch', 'junction', 'plugpkg', 'plugidx'],
     detail: `
       <div class="row"><span class="k">bundles</span><span class="v"><code>[]</code></span></div>
       <div class="row"><span class="k">patch 内容</span><span class="v">
@@ -273,6 +349,18 @@ const PROFILES = [
         这就是保活的基线：这两个基础设施的句柄就够撑住进程。</span></div>`,
   },
 ];
+
+/** 点亮这一步在动的文件；keys 为空时整块复原。 */
+function bmHighlight(scopeEl, keys){
+  const set = new Set(keys || []);
+  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
+    li.classList.toggle('hit', set.has(li.dataset.f));
+    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
+  });
+}
+const bm1 = document.getElementById('bm1');
+const bm1ProfName = document.getElementById('bm1-prof');
+const bm2 = document.getElementById('bm2');
 
 const cardsEl = document.getElementById('cards');
 PROFILES.forEach((p, i) => {
@@ -294,6 +382,8 @@ const prev1 = document.getElementById('prev1'), next1 = document.getElementById(
 function renderDetail(i){
   const p = PROFILES[i];
   detailEl.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
+  bm1ProfName.textContent = p.id;
+  bmHighlight(bm1, p.files);
 }
 let cur1 = 0;
 function markSel(i){
@@ -344,6 +434,7 @@ function resetVisuals2(){
 function goto2(i){
   cur2 = Math.max(0, Math.min(BEATS2.length - 1, i));
   resetVisuals2();
+  bmHighlight(bm2, ['farm', 'patch']);
   for (let k = 0; k <= cur2; k++) BEATS2[k].fn();
   const b = BEATS2[cur2];
   cap2t.textContent = b.ms.toFixed(2) + 'ms';

@@ -9,17 +9,20 @@
   --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
   --gap:#b45309; --gapbg:#fffbeb;
   --m1:#8b5cf6; --m2:#0ea5e9; --m3:#e11d48; --m4:#d97706;
+  --bmhit:#c026d3;
   --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
   --gap:#fbbf24; --gapbg:#241c08;
   --m1:#a78bfa; --m2:#38bdf8; --m3:#fb7185; --m4:#fbbf24;
+  --bmhit:#e879f9;
 }}
 :root[data-theme=dark]{
   --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
   --gap:#fbbf24; --gapbg:#241c08;
   --m1:#a78bfa; --m2:#38bdf8; --m3:#fb7185; --m4:#fbbf24;
+  --bmhit:#e879f9;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
@@ -46,6 +49,25 @@ h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
 
 /* ── 全内容区虚线框：跟已验项在视觉上分开 ── */
 .gapwrap{border:1.5px dashed var(--line);border-radius:14px;padding:6px 22px 20px}
+
+/* ── 底座参考块：这一步在动哪个文件 ── */
+.basemap{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;margin:14px 0}
+.bm-h{font-family:var(--mono);font-size:11px;color:var(--dim);
+  margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.bm-tree{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11.5px}
+.bm-tree li{display:flex;gap:10px;align-items:baseline;padding:2.5px 6px;
+  border-radius:5px;transition:background .2s,opacity .2s}
+.bm-tree li .bm-n{white-space:pre;flex:none}
+.bm-tree li .bm-c{font-size:11px;color:var(--dim);line-height:1.5;
+  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.bm-tree li.dim{opacity:.35}
+.bm-tree li.hit{background:color-mix(in srgb,var(--bmhit) 14%,transparent);
+  box-shadow:inset 2px 0 0 var(--bmhit)}
+.bm-tree li.hit .bm-n{color:var(--bmhit);font-weight:600}
+.bm-tree li.hit .bm-c{color:var(--fg)}
+@media (max-width:700px){.basemap{grid-template-columns:1fr}}
 
 h2{font-size:15px;margin:34px 0 4px;letter-spacing:.01em}
 .note{color:var(--dim);font-size:13px;margin:0 0 16px}
@@ -132,6 +154,48 @@ footer a{color:inherit}
 <p class="note">卡片是并发跑各组用例时依赖的四条隔离；点一条，下面联动出「谁实现」「没验证什么」
 「补上要造什么」。四条现状相近——都是<b>有源码机制，没有用例</b>，差别在缺口的形状。</p>
 
+<div class="basemap" id="bm1">
+  <div>
+    <div class="bm-h">假 home 树 · out/testhome/ 下按项分（隔离①的物理形态）</div>
+    <ul class="bm-tree">
+      <li data-f="ctx"><span class="bm-n">out/testhome/</span><span class="bm-c">TESTHOME_ROOT —— 所有假 home 的根，只在这一层下建目录</span></li>
+      <li data-f="home"><span class="bm-n">├─ minimal-profile/</span><span class="bm-c">一项一个 home，标签＝测试文件所在目录名（<code>_label_of()</code>）</span></li>
+      <li data-f="ctx"><span class="bm-n">│  ├─ cordis.patch.yml</span><span class="bm-c">home 级活层，压过下面每个 profile 自己的</span></li>
+      <li data-f="ctx"><span class="bm-n">│  ├─ logs/</span><span class="bm-c">实例的 stdout / stderr</span></li>
+      <li data-f="ctx"><span class="bm-n">│  └─ profiles/</span><span class="bm-c"></span></li>
+      <li data-f="ctx"><span class="bm-n">│     └─ &lt;profile&gt;/</span><span class="bm-c">一个 profile，名字由用例自定（如 minimal-profile 项目里的 minimal / empty / alive）</span></li>
+      <li data-f="ctx"><span class="bm-n">│        ├─ package.json</span><span class="bm-c">dsh.profile.bundles 名单</span></li>
+      <li data-f="ctx"><span class="bm-n">│        ├─ cordis.yml</span><span class="bm-c">恒为 []，每次启动被框架重写</span></li>
+      <li data-f="ctx"><span class="bm-n">│        ├─ cordis.patch.yml</span><span class="bm-c">活层</span></li>
+      <li data-f="ctx"><span class="bm-n">│        └─ node_modules/</span><span class="bm-c">link: 供给落地的 junction</span></li>
+      <li data-f="home"><span class="bm-n">├─ baseline-profile/</span><span class="bm-c">并列的另一项，同一套骨架，互不覆盖</span></li>
+      <li data-f="home"><span class="bm-n">├─ recorder-reach/</span><span class="bm-c">并列的第三项，同一套骨架</span></li>
+      <li data-f="lock"><span class="bm-n">└─ .lab-lock.json</span><span class="bm-c">会话锁文件，跟各项目录同级（_LOCK_FILE = TESTHOME_ROOT / ".lab-lock.json"）</span></li>
+    </ul>
+  </div>
+  <div>
+    <div class="bm-h">实验台源码树 · 本项没有教学插件，画的是 experiments/ 自己（不是 fixtures/）</div>
+    <ul class="bm-tree">
+      <li data-f="ctx"><span class="bm-n">experiments/</span><span class="bm-c">实验台源码根</span></li>
+      <li data-f="ctx"><span class="bm-n">├─ conftest.py</span><span class="bm-c">pytest 装置：假 home / 端口 / 会话锁 / 归档，四条机制的接线全在这</span></li>
+      <li data-f="home"><span class="bm-n">│  ├─ _label_of()</span><span class="bm-c">home 标签＝测试文件所在目录名，一项一个 home</span></li>
+      <li data-f="port"><span class="bm-n">│  ├─ _my_ports()</span><span class="bm-c">按 xdist worker 把 LAB_PORT_RANGE 切成互不重叠的段</span></li>
+      <li data-f="lock"><span class="bm-n">│  ├─ pytest_configure() / pytest_unconfigure()</span><span class="bm-c">session 级会话锁，只有主进程拿 / 放</span></li>
+      <li data-f="archive"><span class="bm-n">│  └─ _archive()</span><span class="bm-c">lab_home fixture 的 finally 块里跑，归档失败不盖掉用例结果</span></li>
+      <li data-f="ctx"><span class="bm-n">└─ lab/</span><span class="bm-c"></span></li>
+      <li data-f="ctx"><span class="bm-n">   ├─ core.py</span><span class="bm-c">LabHome / LabProfile 与路径常量的定义处</span></li>
+      <li data-f="home"><span class="bm-n">   │  ├─ TESTHOME_ROOT</span><span class="bm-c">假 home 的根，LabHome 只允许建在它下面</span></li>
+      <li data-f="port"><span class="bm-n">   │  ├─ LAB_PORT_RANGE</span><span class="bm-c">3090–3099，端口分段的原料</span></li>
+      <li data-f="home"><span class="bm-n">   │  └─ LabHome.clean()</span><span class="bm-c">删 home 前判「是不是 TESTHOME_ROOT 真子目录」的护栏</span></li>
+      <li data-f="ctx"><span class="bm-n">   ├─ instance.py</span><span class="bm-c">实例起停、并发锁、HTTP 探测</span></li>
+      <li data-f="lock"><span class="bm-n">   │  ├─ acquire_lock()</span><span class="bm-c">拿不到就排队等待，只认活着的 pid</span></li>
+      <li data-f="lock"><span class="bm-n">   │  └─ release_lock()</span><span class="bm-c">删锁文件</span></li>
+      <li data-f="ctx"><span class="bm-n">   ├─ dump.py</span><span class="bm-c">--dump-config 真解析（含 !!js 方言），不参与本页四条隔离机制</span></li>
+      <li data-f="ctx"><span class="bm-n">   └─ events.py</span><span class="bm-c">读事件流，不参与本页四条隔离机制</span></li>
+    </ul>
+  </div>
+</div>
+
 <div class="cards" id="cards"></div>
 
 <div class="detail" id="detail"></div>
@@ -167,7 +231,7 @@ footer a{color:inherit}
 <script>
 const M = [
   {
-    key:'home', accent:'--m1', nm:'假 home 按项分',
+    key:'home', accent:'--m1', nm:'假 home 按项分', files:['home'],
     one:'每个实验一个独立目录，物理隔离，不靠纪律。',
     st:'机制 ＋ 人工纪律并存',
     impl:'<code>conftest.py · _label_of()</code> —— 用测试文件所在目录名当标签；'
@@ -179,7 +243,7 @@ const M = [
         +'互不覆盖——需要一个能伪造 <code>request.path.parent.name</code> 冲突的 fixture。',
   },
   {
-    key:'port', accent:'--m2', nm:'端口按 worker 静态分段',
+    key:'port', accent:'--m2', nm:'端口按 worker 静态分段', files:['port'],
     one:'把 3090–3099 按 xdist worker 数切段，各扫各的。',
     st:'机制成立，没压边界',
     impl:'<code>conftest.py · _my_ports()</code> —— 按 <code>workerid</code> 切'
@@ -189,7 +253,7 @@ const M = [
     need:'把 worker 数推到端口段上限（10），并发起实例压边界，断言全程没有端口冲突错误。',
   },
   {
-    key:'lock', accent:'--m3', nm:'会话锁只挡会话级',
+    key:'lock', accent:'--m3', nm:'会话锁只挡会话级', files:['lock'],
     one:'整个 session 只在主进程拿一次锁，worker 之间不需要锁。',
     st:'机制存在，曾经没管住',
     impl:'<code>conftest.py · pytest_configure()</code> / <code>pytest_unconfigure()</code>；'
@@ -201,7 +265,7 @@ const M = [
         +'同一份 patch 文件。',
   },
   {
-    key:'archive', accent:'--m4', nm:'产物归档不误伤失败现场',
+    key:'archive', accent:'--m4', nm:'产物归档不误伤失败现场', files:['archive'],
     one:'成败都归档，归档失败也不能盖掉用例本身的结果。',
     st:'机制存在，兜底没验',
     impl:'<code>conftest.py · _archive()</code> —— 在 <code>lab_home</code> fixture 的 '
@@ -213,6 +277,16 @@ const M = [
         +'只是多打一行归档警告。',
   },
 ];
+
+/** 点亮这条机制由哪些文件实现；keys 为空时整块复原。 */
+function bmHighlight(scopeEl, keys){
+  const set = new Set(keys || []);
+  scopeEl.querySelectorAll('li[data-f]').forEach(li => {
+    li.classList.toggle('hit', set.has(li.dataset.f));
+    li.classList.toggle('dim', set.size > 0 && !set.has(li.dataset.f));
+  });
+}
+const bm1 = document.getElementById('bm1');
 
 const cardsEl = document.getElementById('cards');
 const detailEl = document.getElementById('detail');
@@ -253,6 +327,7 @@ function goto(i){
   posEl.textContent = `${cur + 1} / ${M.length} · ${m.nm}`;
   prevBtn.disabled = cur === 0;
   nextBtn.disabled = cur === M.length - 1;
+  bmHighlight(bm1, m.files);
 }
 prevBtn.addEventListener('click', () => goto(cur - 1));
 nextBtn.addEventListener('click', () => goto(cur + 1));
