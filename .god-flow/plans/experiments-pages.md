@@ -1,22 +1,23 @@
 # plan：把说明页做完
 
-## 当前这一轮的目标
+## ① 档已完工
 
-**先把 ① 档「天天碰」的页全部画完，②③ 档与未覆盖页一律推后。**
+**① 档 23 项的页全部到位**：11 项新画（`insert-semantics` / `override-semantics` /
+`four-ways` / `self-registration` / `pinned-worktree` / `replay-mechanism` /
+`cold-surfaces` / `ignore-rules` / `reload-unit` / `new-code-old-config` /
+`inject-hard-dependency`），3 项从旧规格翻新（`layer-stack` / `watch-root` /
+`activation-order`），9 项此前已合格（`00-base` 四项 ＋ `01-entry` 五项）。
 
-① 档 23 项。11 项新页已画完（`02-recipe` 的 `insert-semantics` / `override-semantics`，
-`03-supply` 的 `four-ways` / `self-registration` / `pinned-worktree`，`04-replay` 的
-`replay-mechanism` / `cold-surfaces`，`05-reload` 的 `ignore-rules` / `reload-unit` /
-`new-code-old-config`，`06-inject` 的 `inject-hard-dependency`），全部有用例，
-未覆盖页形态一次都没用上。
-
-剩下 12 项此前有页，其中 3 项是旧规格、缺原理层，正在翻新：`02-recipe/layer-stack`、
-`05-reload/watch-root`、`06-inject/activation-order`。
+全仓 58 项现有 28 页。下一轮的目标由用户定，候选顺序见文末。
 
 ⚠️ **`h2` 数量少不等于缺层。** `baseline-profile` 的第一层完整写在 `h1` 与第一个
 `h2` 之间、不戴标题帽子；`framework-fallback` / `apply-runs` / `config-delivery` /
 `inject-field` 的判定卡不另立 `h2`。这几页四层都齐。真正缺层的是 `h2` 只有 1–2 个
 那几张——门禁的 `?` 提示用来挑出该人读的页，不是判据。
+
+⚠️ **`01-entry/name-resolution` 开篇有一处「其实」落在机制讲完之前**，门禁会一直
+提示它。那句修饰的是「四种写法实测只有两条算法」这个机制陈述、不是抛盲区，
+判为可接受；要改就顺手改，别当 bug 追。
 
 ## 全局账目
 
@@ -96,10 +97,14 @@
 - **改了文件要加查询参数才刷新**（`?v=2`），否则读缓存
 - **同一个标签页里上一轮的点击状态会留下**，误判成 bug。核默认状态要干净加载后立刻读
 
-## ① 档做完之后
+## 剩下 30 页的候选顺序
 
-剩下的按这个顺序：② 档有判定页 → ③ 档有判定页 → 翻新 6 页 → 未覆盖 13 页。
-每一档开工前重算一次账目，别照抄这里的数字——页做掉了账就变。
+② 档有判定页 → ③ 档有判定页 → 翻新剩下 3 页旧规格（`07-tree/recipe-vs-tree`、
+`08-service-core/one-owner`、`09-boot-vs-runtime/duplicate-id-timing`，`h2` 只有
+1 / 3 / 2 个）→ 未覆盖 13 页。
+
+**每一档开工前重算一次账目，别照抄这里的数字**——页做掉了账就变。用
+`uv run python experiments/lab/pagegate.py` 扫一遍，`?` 提示会把缺层的页挑出来。
 
 特殊项到时候按各自形态处理：
 
