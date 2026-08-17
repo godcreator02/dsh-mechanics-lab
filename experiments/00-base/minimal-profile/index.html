@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>minimal-profile · 一个实例最少需要什么</title>
+<link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
   --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
@@ -19,128 +20,43 @@
   --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
   --warn:#fbbf24; --warnbg:#221a08; --bmhit:#a78bfa;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-/* ── 版心：正文 + 右栏两窗 ── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:32px;
-  max-width:1532px;margin:0 auto;padding:32px 20px 72px;align-items:start}
-main{min-width:0;max-width:820px}
-
-.side{position:sticky;top:18px;height:calc(100vh - 36px);
-  display:flex;flex-direction:column;gap:10px}
 .pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.pane > h3{margin:0;padding:10px 12px 8px;font-family:var(--mono);font-size:11px;
-  font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);flex:none}
-
-/* 树窗 */
-.tree-pane{flex:1 1 auto}
-.ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
-  font-family:var(--mono);font-size:11.5px;line-height:1.6}
-.ft ul{list-style:none;margin:0;padding:0}
-.ft button,.ft .txt,.ft .flabel{display:block;width:100%;text-align:left;border:0;
-  background:none;color:inherit;font:inherit;padding:1px 5px;border-radius:4px;
-  white-space:pre}
-.ft button{cursor:pointer}
-.ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft .pf,.ft .cv{color:var(--dim)}
-.ft li.shut > ul{display:none}
-.ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
-  color:var(--bmhit);font-weight:600}
-.ft .fl.on .pf,.ft .fl.on .cv{color:inherit}
 .ft .flabel{display:block;padding:1px 5px;color:inherit}
 .ft .same{color:var(--dim)}
-
-/* 文件窗 */
-.view-pane{flex:none}
-.side.has-file .view-pane{flex:0 0 56%}
-.vmeta{padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
-.vname{font-family:var(--mono);font-size:12px;font-weight:600}
-.vsrc{font-size:9.5px;color:var(--dim);word-break:break-all;margin-top:2px}
-.vwhy{font-size:11.5px;color:var(--dim);line-height:1.55;margin-top:5px}
-.vcode{overflow:auto;flex:1 1 auto;min-height:0}
-/* 软换行：96.6% 的行在 80 字符内，剩下几条绝对路径折一次，不要横向滚动 */
-.vcode pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11px;
-  line-height:1.6;white-space:pre-wrap;word-break:break-word}
-.vhint{padding:11px 12px;font-size:11.5px;color:var(--dim);line-height:1.6}
-
-@media (max-width:1180px){
-  .layout{grid-template-columns:1fr;max-width:880px}
-  main{max-width:none}
-  .side{position:static;height:auto;order:-1}
-  .tree-pane .ft{max-height:320px}
-  .side.has-file .view-pane{flex:none}
-  .vcode{max-height:420px}
-}
-
-/* ── 头 ── */
-.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
-h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
-.sub{color:var(--dim);margin:0 0 14px}
 .tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
-  border-radius:99px;color:var(--dim);font-family:var(--mono)}
 .tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
-
 h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
-.note{color:var(--dim);font-size:13px;margin:0 0 16px}
-
 /* ── 开篇立机制的一段话 ── */
 .lead{font-size:14px;line-height:1.85;margin:0 0 8px}
 .lead code{font-family:var(--mono);font-size:12.5px}
-
-/* ── 机制链条：五个抽象环节，过程型分步 ── */
-.chain{display:flex;align-items:center;justify-content:center;gap:6px;
-  flex-wrap:wrap;padding:4px 0 2px}
-.cnode{width:104px;text-align:center;padding:10px 6px;border-radius:10px;
-  border:2px solid var(--line);background:var(--bg);cursor:pointer;
-  transition:border-color .25s,background .25s,opacity .25s}
-.cnode .k{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
-.cnode .nm{font-weight:700;margin-top:3px;font-size:12px}
-.cnode.cur{border-color:var(--bmhit);background:color-mix(in srgb,var(--bmhit) 10%,var(--bg))}
-.cnode.cur .nm{color:var(--bmhit)}
-.cnode.done{border-color:var(--dim);opacity:.8}
-.cnode.todo{opacity:.35}
-.chain-arrow{font-family:var(--mono);font-size:15px;color:var(--dim)}
-
-/* ── 卡片：五个 profile 并置 ── */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
-  gap:10px;margin-bottom:14px}
-.pcard{background:var(--card);border:2px solid var(--line);border-radius:10px;
-  padding:12px 12px 10px;cursor:pointer;transition:border-color .2s,transform .15s}
-.pcard:hover{border-color:var(--dim);transform:translateY(-2px)}
-.pcard.sel{border-color:var(--fg)}
-.pcard .nm{font-weight:700;font-size:13.5px;font-family:var(--mono)}
-.pcard .bd{font-size:10.5px;color:var(--dim);margin-top:4px;font-family:var(--mono)}
-.pcard .chips{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+/* ── 卡片摘要：picker.big 卡面上的 chip 与结果点，五个 profile 共用 ── */
+.chips{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
 .chip{font-size:10px;font-family:var(--mono);padding:1.5px 6px;border-radius:99px;
   border:1px solid color-mix(in srgb,var(--active) 40%,transparent);
   color:var(--active);background:color-mix(in srgb,var(--active) 8%,transparent)}
 .outcome{margin-top:9px;font-size:11px;font-family:var(--mono);
   display:flex;align-items:center;gap:5px}
 .outcome i{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
-.outcome.ok{color:var(--active)} .outcome.ok i{background:var(--active)}
-.outcome.bad{color:var(--failed)} .outcome.bad i{background:var(--failed)}
-
-/* ── 详情面板：hover 预览 / 分步落定共用一个渲染目标 ── */
-.detail{background:var(--card);border:1px solid var(--line);border-radius:12px;
-  padding:16px 18px;margin-bottom:4px}
-.detail h3{margin:0 0 10px;font-size:14.5px;font-family:var(--mono)}
-.detail h3 .test{font-weight:400;color:var(--dim);font-size:11.5px;margin-left:8px}
-.detail .row{display:flex;gap:10px;margin:8px 0;font-size:13px;align-items:flex-start}
-.detail .row .k{flex:none;width:70px;color:var(--dim);font-family:var(--mono);
+.outcome.ok{color:var(--active)}
+.outcome.ok i{background:var(--active)}
+.outcome.bad{color:var(--failed)}
+.outcome.bad i{background:var(--failed)}
+#picks1 .pn{font-family:var(--mono)}
+#pb1{min-height:250px}
+/* ── pickbody 详情格式：五个 profile 展开内容用 ── */
+.pickbody h3{margin:0 0 10px;font-size:14.5px;font-family:var(--mono)}
+.pickbody h3 .test{font-weight:400;color:var(--dim);font-size:11.5px;margin-left:8px}
+.pickbody .row{display:flex;gap:10px;margin:8px 0;font-size:13px;align-items:flex-start}
+.pickbody .row .k{flex:none;width:70px;color:var(--dim);font-family:var(--mono);
   font-size:11px;padding-top:2px}
-.detail .row .v{flex:1}
-.detail pre{margin:5px 0 0;padding:8px 10px;background:color-mix(in srgb,var(--fg) 4.5%,transparent);
+.pickbody .row .v{flex:1}
+.pickbody pre{margin:5px 0 0;padding:8px 10px;background:color-mix(in srgb,var(--fg) 4.5%,transparent);
   border-radius:7px;font-family:var(--mono);font-size:11px;line-height:1.6;
   overflow-x:auto;white-space:pre}
-.detail b{color:var(--fg)}
-.detail .bad-note{color:var(--failed);font-weight:600}
-
+.pickbody b{color:var(--fg)}
+.pickbody .bad-note{color:var(--failed);font-weight:600}
 /* ── 分步控件：节奏归读者，不自动播 ── */
-.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
-  padding-top:12px;border-top:1px solid var(--line)}
 button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
   border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
 button:hover:not(:disabled){border-color:var(--dim)}
@@ -152,7 +68,6 @@ button:disabled{opacity:.35;cursor:default}
   font-size:11px;color:var(--dim);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
   margin-right:3px;vertical-align:middle}
-
 /* ── 时序舞台：timer → hmr 的硬依赖 ── */
 .stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:22px 18px 16px}
@@ -163,7 +78,8 @@ button:disabled{opacity:.35;cursor:default}
   transition:border-color .3s,background .3s}
 .tentry .st{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .tentry .nm{font-weight:700;margin-top:4px;font-size:14px}
-.tentry.loading{border-color:var(--loading)} .tentry.loading .st{color:var(--loading)}
+.tentry.loading{border-color:var(--loading)}
+.tentry.loading .st{color:var(--loading)}
 .tentry.active{border-color:var(--active);background:color-mix(in srgb,var(--active) 8%,var(--bg))}
 .tentry.active .st{color:var(--active)}
 .arrow{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:center;
@@ -176,7 +92,6 @@ button:disabled{opacity:.35;cursor:default}
 .cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
 .cap .d{font-size:12.5px;line-height:1.55}
 .cap .d b{color:var(--warn)}
-
 /* ── 读出来的 ── */
 .reads{display:grid;gap:10px;margin-top:16px}
 .read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
@@ -185,10 +100,8 @@ button:disabled{opacity:.35;cursor:default}
 .read p{margin:0;font-size:13.5px}
 .read code{font-family:var(--mono);font-size:12px}
 .from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
-
 footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
   font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-footer a{color:inherit}
 </style>
 </head>
 <body>
@@ -221,18 +134,14 @@ footer a{color:inherit}
 把「当前讲到哪」钉在某一环上。</p>
 
 <div class="stage" id="stage0">
-  <div class="chain" id="chain0">
-    <div class="cnode"><div class="k">1</div><div class="nm">profile 目录</div></div>
-    <div class="chain-arrow">→</div>
-    <div class="cnode"><div class="k">2</div><div class="nm">配方叠加</div></div>
-    <div class="chain-arrow">→</div>
-    <div class="cnode"><div class="k">3</div><div class="nm">条目 / fiber</div></div>
-    <div class="chain-arrow">→</div>
-    <div class="cnode"><div class="k">4</div><div class="nm">解析插件</div></div>
-    <div class="chain-arrow">→</div>
-    <div class="cnode"><div class="k">5</div><div class="nm">进程存活</div></div>
+  <div class="picker arrow" id="pk0">
+    <button class="pick"><span class="pi">1</span><span class="pn">profile 目录</span></button>
+    <button class="pick"><span class="pi">2</span><span class="pn">配方叠加</span></button>
+    <button class="pick"><span class="pi">3</span><span class="pn">条目 / fiber</span></button>
+    <button class="pick"><span class="pi">4</span><span class="pn">解析插件</span></button>
+    <button class="pick"><span class="pi">5</span><span class="pn">进程存活</span></button>
   </div>
-  <div class="cap"><span class="t" id="cap0-t"></span><span class="d" id="cap0-d"></span></div>
+  <div class="pickbody" id="pb0"></div>
 </div>
 
 <h2>五个 profile，同一个问题</h2>
@@ -240,21 +149,17 @@ footer a{color:inherit}
 把鼠标放到卡片上看细节，那是临时预览；点卡片把「当前选中」钉在某一张上，
 移开鼠标会落回选中的那张。</p>
 
-<div class="cards" id="cards"></div>
-<div class="detail" id="detail"></div>
+<div id="pk1">
+  <div class="picker big" id="picks1"></div>
+  <div class="pickbody" id="pb1"></div>
+</div>
 
 <h2>两条硬性捆绑，怎么体现在时序上</h2>
 <p class="note">hmr 包级声明 <code>services.required:["timer"]</code>——这条依赖在最小环境
 里直接观测到的效果，就是下面四步。毫秒数取自 <code>timing</code> 这个 profile 的真实归档。</p>
 
 <div class="stage" id="stage2">
-  <div class="pair">
-    <div class="tentry" id="te"><div class="st">PENDING</div><div class="nm">timer</div></div>
-    <div class="arrow" id="arrow"><span class="ar">⇢</span><span id="arrow-txt">🔒 等 timer 到 ACTIVE</span></div>
-    <div class="tentry" id="he"><div class="st">PENDING</div><div class="nm">hmr</div></div>
-  </div>
-  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
-  <div class="ctl">
+  <div class="sbar">
     <button id="prev2">← 上一步</button>
     <span class="pos" id="pos2"></span>
     <button id="next2">下一步 →</button>
@@ -265,6 +170,12 @@ footer a{color:inherit}
       <span><i style="background:var(--active)"></i>ACTIVE</span>
     </div>
   </div>
+  <div class="pair">
+    <div class="tentry" id="te"><div class="st">PENDING</div><div class="nm">timer</div></div>
+    <div class="arrow" id="arrow"><span class="ar">⇢</span><span id="arrow-txt">🔒 等 timer 到 ACTIVE</span></div>
+    <div class="tentry" id="he"><div class="st">PENDING</div><div class="nm">hmr</div></div>
+  </div>
+  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
 </div>
 
 <div class="reads">
@@ -1083,58 +994,27 @@ const BEATS0 = [
     d: 'Node 进程在事件循环空了之后就会退出。timer 的定时器、hmr 的文件 watcher、web 服务的监听套接字' +
        '都是候选 —— 谁持有能让事件循环不空的东西，进程就跟着活。最少要留哪个，往下看。' },
 ];
-const chain0 = document.getElementById('chain0');
-const chainNodes = [...chain0.querySelectorAll('.cnode')];
-const cap0t = document.getElementById('cap0-t'), cap0d = document.getElementById('cap0-d');
-let cur0 = 0;
-function goto0(i){
-  cur0 = Math.max(0, Math.min(BEATS0.length - 1, i));
-  chainNodes.forEach((n, k) => {
-    n.classList.toggle('cur', k === cur0);
-    n.classList.toggle('done', k < cur0);
-    n.classList.toggle('todo', k > cur0);
-  });
-  cap0t.textContent = BEATS0[cur0].t;
-  cap0d.innerHTML = BEATS0[cur0].d;
-}
-// 五个链节点本来就画在屏幕上，直接点节点切换，不另加控件
-chainNodes.forEach((n, i) => n.addEventListener('click', () => goto0(i)));
-
-const cardsEl = document.getElementById('cards');
-PROFILES.forEach((p, i) => {
-  const el = document.createElement('div');
-  el.className = 'pcard';
-  el.dataset.idx = i;
-  el.innerHTML = `
-    <div class="nm">${p.id}</div>
-    <div class="bd">bundles: ${p.bundles}</div>
-    <div class="chips">${p.chips.map(c => `<span class="chip">${c}</span>`).join('')}</div>
-    <div class="outcome ${p.outcome}"><i></i>${p.outcomeText}</div>`;
-  cardsEl.appendChild(el);
+initPicker(document.getElementById('stage0'), (body, i) => {
+  const b = BEATS0[i];
+  body.innerHTML = `<div class="pt">${b.t}</div>${b.d}`;
 });
-const cardNodes = [...cardsEl.children];
-const detailEl = document.getElementById('detail');
 
-function renderDetail(i){
+// ── 五个 profile（查询型：picker.big + hover 临时预览） ─────────────────────
+const picks1 = document.getElementById('picks1');
+PROFILES.forEach(p => {
+  const btn = document.createElement('button');
+  btn.className = 'pick';
+  btn.innerHTML = `
+    <span class="pn">${p.id}</span>
+    <span class="ps">bundles: ${p.bundles}</span>
+    <span class="chips">${p.chips.map(c => `<span class="chip">${c}</span>`).join('')}</span>
+    <span class="outcome ${p.outcome}"><i></i>${p.outcomeText}</span>`;
+  picks1.appendChild(btn);
+});
+initPicker(document.getElementById('pk1'), (body, i) => {
   const p = PROFILES[i];
-  detailEl.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
-}
-let cur1 = 0;
-function markSel(i){
-  cardNodes.forEach((n, k) => n.classList.toggle('sel', k === i));
-}
-function goto1(i){
-  cur1 = Math.max(0, Math.min(PROFILES.length - 1, i));
-  markSel(cur1);
-  renderDetail(cur1);
-}
-// 五张卡片本来就在、已经可点，直接点卡片切换，不另加控件
-cardNodes.forEach((n, i) => {
-  n.addEventListener('click', () => goto1(i));
-  // hover 只是临时预览，不移动分步指针；移开鼠标回到指针那一张
-  n.addEventListener('mouseenter', () => renderDetail(i));
-  n.addEventListener('mouseleave', () => renderDetail(cur1));
-});
+  body.innerHTML = `<h3>${p.id}<span class="test">${p.test}</span></h3>${p.detail}`;
+}, { hover: true });
 
 // ── 时序舞台（过程型：分步，真实事件取自 events-timing.jsonl） ──────────────
 const te = document.getElementById('te'), he = document.getElementById('he');
@@ -1186,11 +1066,36 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowRight'){ goto2(cur2 + 1); e.preventDefault(); }
 });
 
-goto0(0);
-goto1(0);
 goto2(0);
 
 // ── 侧边栏：树窗折叠 + 文件窗渲染 ──────────────────────────────────────
+
+/* 枚举选择器：一排可选项 ＋ 一个详情面板。点哪个看哪个——能跳着看的内容
+   不该逼读者按序经过，所以这里没有上一步／下一步。
+   opts.hover 打开时，hover 只是临时预览：它不动 cur，鼠标移开回落到选中那项。 */
+function initPicker(root, render, opts = {}){
+  const picks = [...root.querySelectorAll('.pick')];
+  const body = root.querySelector('.pickbody');
+  let cur = 0;
+  const paint = i => {
+    picks.forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('dim', k !== i); });
+    render(body, i);
+  };
+  picks.forEach((p, i) => {
+    p.tabIndex = 0;
+    p.addEventListener('click', () => { cur = i; paint(cur); });
+    p.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { cur = i; paint(cur); e.preventDefault(); }
+    });
+    if (opts.hover){
+      p.addEventListener('mouseenter', () => paint(i));
+      p.addEventListener('focus', () => paint(i));
+    }
+  });
+  if (opts.hover) root.addEventListener('mouseleave', () => paint(cur));
+  paint(0);
+  return { select: i => { cur = i; paint(cur); } };
+}
 const side = document.querySelector('.side');
 const vhint = document.getElementById('vhint'), vmeta = document.getElementById('vmeta');
 const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');

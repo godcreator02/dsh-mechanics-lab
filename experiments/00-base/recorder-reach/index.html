@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>recorder-reach · 采集器自己看得见什么</title>
+<link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
   --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
@@ -19,82 +20,16 @@
   --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
   --bmhit:#fbbf24;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-/* ── 版心：正文 + 右栏两窗 ── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:32px;
-  max-width:1532px;margin:0 auto;padding:32px 20px 72px;align-items:start}
-main{min-width:0;max-width:820px}
-
-.side{position:sticky;top:18px;height:calc(100vh - 36px);
-  display:flex;flex-direction:column;gap:10px}
 .pane{background:var(--card);border:1px solid var(--line);border-radius:10px;
   display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.pane > h3{margin:0;padding:10px 12px 8px;font-family:var(--mono);font-size:11px;
-  font-weight:600;color:var(--dim);border-bottom:1px solid var(--line);flex:none}
-
-/* 树窗 */
-.tree-pane{flex:1 1 auto}
-.ft{list-style:none;margin:0;padding:8px 6px;overflow:auto;flex:1 1 auto;
-  font-family:var(--mono);font-size:11.5px;line-height:1.6}
-.ft ul{list-style:none;margin:0;padding:0}
 .ft li.br{color:var(--dim);margin-top:7px;font-weight:600}
-.ft button,.ft .txt,.ft .flabel{display:block;width:100%;text-align:left;border:0;
-  background:none;color:inherit;font:inherit;padding:1px 5px;border-radius:4px;
-  white-space:pre}
-.ft button{cursor:pointer}
-.ft button:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
-.ft .pf,.ft .cv{color:var(--dim)}
-.ft li.shut > ul{display:none}
-.ft .fl.on{background:color-mix(in srgb,var(--bmhit) 16%,transparent);
-  color:var(--bmhit);font-weight:600}
-.ft .fl.on .pf,.ft .fl.on .cv{color:inherit}
-
-/* 文件窗 */
-.view-pane{flex:none}
-.side.has-file .view-pane{flex:0 0 56%}
-.vmeta{padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
-.vname{font-family:var(--mono);font-size:12px;font-weight:600}
-.vsrc{font-size:9.5px;color:var(--dim);word-break:break-all;margin-top:2px}
-.vwhy{font-size:11.5px;color:var(--dim);line-height:1.55;margin-top:5px}
-.vcode{overflow:auto;flex:1 1 auto;min-height:0}
-/* 软换行：96.6% 的行在 80 字符内，剩下几条绝对路径折一次，不要横向滚动 */
-.vcode pre{margin:0;padding:10px 12px;font-family:var(--mono);font-size:11px;
-  line-height:1.6;white-space:pre-wrap;word-break:break-word}
-.vhint{padding:11px 12px;font-size:11.5px;color:var(--dim);line-height:1.6}
-
-@media (max-width:1180px){
-  .layout{grid-template-columns:1fr;max-width:880px}
-  main{max-width:none}
-  .side{position:static;height:auto;order:-1}
-  .tree-pane .ft{max-height:320px}
-  .side.has-file .view-pane{flex:none}
-  .vcode{max-height:420px}
-}
-
-/* ── 头 ── */
-.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
-h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
-.sub{color:var(--dim);margin:0 0 14px}
 .tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
-  border-radius:99px;color:var(--dim);font-family:var(--mono)}
 .tag.ok{color:var(--active);border-color:color-mix(in srgb,var(--active) 40%,transparent)}
-
 h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
-.note{color:var(--dim);font-size:13px;margin:0 0 16px}
 .usecase{font-size:12px;color:var(--dim);font-family:var(--mono);margin:10px 0 0}
 .usecase code{color:var(--fg)}
-
-/* ── 板块 0：机制怎么工作（五条并列，零交互）── */
-.mech-flat{display:grid;gap:20px}
-.mech-item .mi-label{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:4px}
-.mech-item .mt{font-size:14px;font-weight:600;margin:0 0 6px;color:var(--fg)}
-.mech-item .mb{margin:0;font-size:13.5px;line-height:1.75}
-.mech-item .mb code{font-family:var(--mono);font-size:12.5px}
-.mech-item .mb b{color:var(--say)}
-
+/* ── 板块 0：机制怎么工作（五步链条，picker 驱动）── */
+.pickbody b{color:var(--say)}
 /* ── 板块一：听见了谁（hover + 分步辅助）── */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:20px 20px 16px}
@@ -103,13 +38,6 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
   background:color-mix(in srgb,var(--fg) 4%,transparent)}
 .stat b{display:block;font-size:20px;font-family:var(--mono)}
 .stat span{font-size:11px;color:var(--dim)}
-
-.stepbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.step-btn{font:inherit;font-size:12px;padding:5px 12px;border-radius:99px;
-  border:1px solid var(--line);background:var(--bg);color:var(--dim);cursor:pointer;
-  font-family:var(--mono)}
-.step-btn.on{color:var(--fg);border-color:var(--fg)}
-
 .zones{display:grid;gap:12px}
 .zone{border:1px dashed var(--line);border-radius:10px;padding:12px 14px;
   transition:opacity .3s}
@@ -124,19 +52,16 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .chip.mine:hover{border-color:var(--active)}
 .chip.fw:hover{border-color:var(--loading);color:var(--loading)}
 .chip.more{color:var(--dim);border-style:dashed}
-
 .cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
   padding:8px 12px;margin-top:14px;border-radius:8px;
   background:color-mix(in srgb,var(--fg) 4%,transparent)}
 .cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
 .cap .d{font-size:12.5px;line-height:1.55}
 .cap .d b{color:var(--say)}
-
 .quote{margin-top:12px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:8px}
 .quote i{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
 .quote b{color:var(--fg);font-weight:600}
 .qstate{font-family:var(--mono);font-size:11px;margin-left:auto}
-
 /* ── 板块二：睁眼那一刻（分步时间线）── */
 .tl{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:20px 18px 14px}
@@ -145,7 +70,8 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .track{position:relative;height:206px;margin:10px 0 4px}
 .lane{position:absolute;left:0;right:0;height:24px;border-radius:6px;
   background:color-mix(in srgb,var(--fg) 4.5%,transparent);z-index:1}
-.lane.a{top:30px} .lane.b{top:120px}
+.lane.a{top:30px}
+.lane.b{top:120px}
 .lane-tag{position:absolute;left:10px;top:50%;transform:translateY(-50%);
   font-size:11px;color:var(--dim);font-family:var(--mono);pointer-events:none}
 .ev{position:absolute;transform:translateX(-50%);text-align:center;
@@ -156,14 +82,13 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .ev .nm{font-size:11px;white-space:nowrap;margin-top:7px;font-weight:600}
 .ev .ms{font-family:var(--mono);font-size:10px;color:var(--dim);
   margin-top:1px;white-space:nowrap}
-.ev.a{top:36.5px} .ev.b{top:126.5px}
-
+.ev.a{top:36.5px}
+.ev.b{top:126.5px}
 .marker{position:absolute;top:22px;bottom:14px;border-left:1px dashed var(--say);
   z-index:1;opacity:0;transition:opacity .3s}
 .marker.on{opacity:1}
 .marker span{position:absolute;top:-16px;left:6px;font-size:10.5px;color:var(--say);
   font-family:var(--mono);white-space:nowrap}
-
 /* 看不见的历史：只盖住 a 泳道左侧那一段 */
 .blind{position:absolute;top:26px;height:24px;left:0;border-radius:6px;z-index:1;
   background:repeating-linear-gradient(135deg,
@@ -173,7 +98,6 @@ h2{font-size:15px;margin:38px 0 4px;letter-spacing:.01em}
 .blind.on{opacity:1}
 .blind b{position:absolute;top:-18px;left:0;font-size:10px;color:var(--dim);
   font-family:var(--mono);white-space:nowrap;font-weight:600}
-
 .ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
   padding-top:12px;border-top:1px solid var(--line)}
 button{font:inherit;font-size:13px;padding:5px 14px;border-radius:7px;
@@ -187,7 +111,6 @@ button:disabled{opacity:.35;cursor:default}
   font-size:11px;color:var(--dim);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;
   margin-right:3px;vertical-align:middle}
-
 /* ── 读出来的两条 ── */
 .reads{display:grid;gap:10px;margin-top:16px}
 .read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
@@ -198,17 +121,15 @@ button:disabled{opacity:.35;cursor:default}
 .read code{font-family:var(--mono);font-size:12px}
 .from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);
   font-family:var(--mono)}
-
 /* ── 表 ── */
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
 th{font-size:11.5px;color:var(--dim);font-weight:500;font-family:var(--mono)}
 td code{font-family:var(--mono);font-size:12px}
-.win{color:var(--active);font-weight:600} .lose{color:var(--miss)}
-
+.win{color:var(--active);font-weight:600}
+.lose{color:var(--miss)}
 footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
   font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-footer a{color:inherit}
 </style>
 </head>
 <body>
@@ -232,46 +153,15 @@ footer a{color:inherit}
 下面一次全部列出。</p>
 
 <div class="panel">
-  <div class="mech-flat" id="mechFlat">
-      <div class="mech-item">
-        <div class="mi-label">① 条目</div>
-        <p class="mt">条目是 patch 文件里的一行</p>
-        <p class="mb">条目（entry）是 patch 文件（<code>cordis.patch.yml</code>）里的一行，写明
-      “挂哪个插件、给它什么配置”；运行时一条条目对应一个 <b>fiber</b>——这个插件这一次
-      生命的载体。这次实验的 patch 文件只写了两条：<code>lab-recorder</code> 自己，
-      和陪衬插件 <code>neighbor</code>。</p>
-      </div>
-      <div class="mech-item">
-        <div class="mi-label">② 状态</div>
-        <p class="mt">fiber 有状态，会往前迁移</p>
-        <p class="mb">fiber 的状态一共六种，这一项用得到三种：<code>PENDING</code>（它依赖的服务还没
-      就位，先等着）、<code>LOADING</code>（插件的入口函数 <code>apply</code> 正在执行）、
-      <code>ACTIVE</code>（加载完成，正在提供服务）。首次挂载走的是
-      <code>PENDING → LOADING → ACTIVE</code> 这条链。</p>
-      </div>
-      <div class="mech-item">
-        <div class="mi-label">③ 仪器</div>
-        <p class="mt">lab-recorder 自己就是一条普通条目</p>
-        <p class="mb">lab-recorder 在自己的 <code>apply</code> 里做两件事：一是 <b>provide</b> 一个叫
-      <code>labObserver</code> 的服务——provide 就是“这条条目把某个能力交给别人用”的
-      意思；二是挂上钩子，监听所有条目的 <code>PENDING</code> / <code>LOADING</code> /
-      <code>ACTIVE</code> 迁移。</p>
-      </div>
-      <div class="mech-item">
-        <div class="mi-label">④ 依赖</div>
-        <p class="mt">别的条目靠 inject 声明要用它</p>
-        <p class="mb">陪衬插件 <code>neighbor.mjs</code> 写了 <code>export const inject = ['labObserver']</code>
-      ——<b>inject</b> 就是条目“声明自己需要哪些服务才能跑”的意思。框架保证被依赖的服务
-      先就位，之后才会调用声明方的 <code>apply</code>；neighbor.mjs 正是这样等到
-      <code>labObserver</code> 备好，才在自己的 apply 里说话。</p>
-      </div>
-      <div class="mech-item">
-        <div class="mi-label">⑤ 记录</div>
-        <p class="mt">状态迁移全部写进 events.jsonl</p>
-        <p class="mb">钩子收到的每一条状态迁移，都被追加写进 <code>events.jsonl</code>——这份文件就是
-      后面所有实验的原料。下面「它听见了谁」「睁眼那一刻」两节，读的都是同一份
-      <code>events.jsonl</code>。</p>
-      </div>
+  <div id="mechPicker">
+    <div class="picker arrow">
+      <button class="pick"><span class="pi">1</span><span class="pn">条目</span></button>
+      <button class="pick"><span class="pi">2</span><span class="pn">状态</span></button>
+      <button class="pick"><span class="pi">3</span><span class="pn">仪器</span></button>
+      <button class="pick"><span class="pi">4</span><span class="pn">依赖</span></button>
+      <button class="pick"><span class="pi">5</span><span class="pn">记录</span></button>
+    </div>
+    <div class="pickbody"></div>
   </div>
 </div>
 
@@ -288,10 +178,12 @@ footer a{color:inherit}
     <div class="stat"><b>79</b><span>没写却被听见</span></div>
   </div>
 
-  <div class="stepbar" id="stepbar">
-    <button class="step-btn on" data-step="0">全部一起看</button>
-    <button class="step-btn" data-step="1">我们写的 2 条</button>
-    <button class="step-btn" data-step="2">没写却被听见的 79 条</button>
+  <div id="hearPicker">
+    <div class="picker">
+      <button class="pick"><span class="pn">全部一起看</span></button>
+      <button class="pick"><span class="pn">我们写的 2 条</span></button>
+      <button class="pick"><span class="pn">没写却被听见的 79 条</span></button>
+    </div>
   </div>
 
   <div class="zones">
@@ -317,15 +209,7 @@ footer a{color:inherit}
 六个事件全挤在头 8 毫秒里，按比例画会叠成一团。</p>
 
 <div class="tl">
-  <div class="seg-label"><span>它睁眼之前是黑的</span><span>它睁眼之后才有记录</span></div>
-  <div class="track" id="track2">
-    <div class="lane a"><span class="lane-tag">lab-recorder（自己）</span></div>
-    <div class="lane b"><span class="lane-tag">neighbor（陪衬，对照组）</span></div>
-    <div class="blind" id="blind"><b>它进 LOADING 那一跳，发生在这片黑暗里，没人看见</b></div>
-    <div class="marker" id="marker"><span>睁眼 · 0.34ms</span></div>
-  </div>
-  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
-  <div class="ctl">
+  <div class="sbar">
     <button id="prev2">← 上一步</button>
     <span class="pos" id="pos2"></span>
     <button id="next2">下一步 →</button>
@@ -336,6 +220,14 @@ footer a{color:inherit}
       <span><i style="background:var(--active)"></i>ACTIVE</span>
     </div>
   </div>
+  <div class="seg-label"><span>它睁眼之前是黑的</span><span>它睁眼之后才有记录</span></div>
+  <div class="track" id="track2">
+    <div class="lane a"><span class="lane-tag">lab-recorder（自己）</span></div>
+    <div class="lane b"><span class="lane-tag">neighbor（陪衬，对照组）</span></div>
+    <div class="blind" id="blind"><b>它进 LOADING 那一跳，发生在这片黑暗里，没人看见</b></div>
+    <div class="marker" id="marker"><span>睁眼 · 0.34ms</span></div>
+  </div>
+  <div class="cap"><span class="t" id="cap2-t"></span><span class="d" id="cap2-d"></span></div>
 </div>
 
 <table>
@@ -851,6 +743,33 @@ export function apply(ctx, config) {
 
 <script>
 // ══ 侧边文件树：目录折叠 + 文件窗 ══════════════════════════════
+
+/* 枚举选择器：一排可选项 ＋ 一个详情面板。点哪个看哪个——能跳着看的内容
+   不该逼读者按序经过，所以这里没有上一步／下一步。
+   opts.hover 打开时，hover 只是临时预览：它不动 cur，鼠标移开回落到选中那项。 */
+function initPicker(root, render, opts = {}){
+  const picks = [...root.querySelectorAll('.pick')];
+  const body = root.querySelector('.pickbody');
+  let cur = 0;
+  const paint = i => {
+    picks.forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('dim', k !== i); });
+    render(body, i);
+  };
+  picks.forEach((p, i) => {
+    p.tabIndex = 0;
+    p.addEventListener('click', () => { cur = i; paint(cur); });
+    p.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { cur = i; paint(cur); e.preventDefault(); }
+    });
+    if (opts.hover){
+      p.addEventListener('mouseenter', () => paint(i));
+      p.addEventListener('focus', () => paint(i));
+    }
+  });
+  if (opts.hover) root.addEventListener('mouseleave', () => paint(cur));
+  paint(0);
+  return { select: i => { cur = i; paint(cur); } };
+}
 const side = document.querySelector('.side');
 const vhint = document.getElementById('vhint'), vmeta = document.getElementById('vmeta');
 const vname = document.getElementById('vname'), vsrc = document.getElementById('vsrc');
@@ -913,6 +832,37 @@ document.querySelectorAll('.ft .fl').forEach(b => {
   });
 });
 
+// ══ 板块零：机制怎么工作（五步链条）══════════════════════════
+const MECH = [
+  { mt: '条目是 patch 文件里的一行',
+    mb: '条目（entry）是 patch 文件（<code>cordis.patch.yml</code>）里的一行，写明' +
+      '“挂哪个插件、给它什么配置”；运行时一条条目对应一个 <b>fiber</b>——这个插件这一次' +
+      '生命的载体。这次实验的 patch 文件只写了两条：<code>lab-recorder</code> 自己，' +
+      '和陪衬插件 <code>neighbor</code>。' },
+  { mt: 'fiber 有状态，会往前迁移',
+    mb: 'fiber 的状态一共六种，这一项用得到三种：<code>PENDING</code>（它依赖的服务还没' +
+      '就位，先等着）、<code>LOADING</code>（插件的入口函数 <code>apply</code> 正在执行）、' +
+      '<code>ACTIVE</code>（加载完成，正在提供服务）。首次挂载走的是' +
+      '<code>PENDING → LOADING → ACTIVE</code> 这条链。' },
+  { mt: 'lab-recorder 自己就是一条普通条目',
+    mb: 'lab-recorder 在自己的 <code>apply</code> 里做两件事：一是 <b>provide</b> 一个叫' +
+      '<code>labObserver</code> 的服务——provide 就是“这条条目把某个能力交给别人用”的' +
+      '意思；二是挂上钩子，监听所有条目的 <code>PENDING</code> / <code>LOADING</code> /' +
+      '<code>ACTIVE</code> 迁移。' },
+  { mt: '别的条目靠 inject 声明要用它',
+    mb: '陪衬插件 <code>neighbor.mjs</code> 写了 <code>export const inject = [\'labObserver\']</code>' +
+      '——<b>inject</b> 就是条目“声明自己需要哪些服务才能跑”的意思。框架保证被依赖的服务' +
+      '先就位，之后才会调用声明方的 <code>apply</code>；neighbor.mjs 正是这样等到' +
+      '<code>labObserver</code> 备好，才在自己的 apply 里说话。' },
+  { mt: '状态迁移全部写进 events.jsonl',
+    mb: '钩子收到的每一条状态迁移，都被追加写进 <code>events.jsonl</code>——这份文件就是' +
+      '后面所有实验的原料。下面「它听见了谁」「睁眼那一刻」两节，读的都是同一份' +
+      '<code>events.jsonl</code>。' },
+];
+initPicker(document.getElementById('mechPicker'), (body, i) => {
+  body.innerHTML = `<div class="pt">${MECH[i].mt}</div><p>${MECH[i].mb}</p>`;
+});
+
 // ══ 板块一：它听见了谁 ══════════════════════════════════════
 // 名字取自归档 results/20260817-151019/summary.md 里
 // test_it_hears_everyone_not_just_itself 打印的「样本（前20条）」，逐字照抄。
@@ -933,7 +883,7 @@ function makeChip(text, cls, note){
   s.textContent = text;
   s.dataset.note = note;
   s.addEventListener('mouseenter', () => { hearcapd.textContent = note; });
-  s.addEventListener('mouseleave', () => applyStep(curStep));
+  s.addEventListener('mouseleave', () => { hearcapd.textContent = STEPS[curStep].cap; });
   return s;
 }
 
@@ -952,17 +902,13 @@ const STEPS = [
 let curStep = 0;
 const zoneMine = document.getElementById('zoneMine');
 const zoneFrame = document.getElementById('zoneFrame');
-const stepBtns = document.querySelectorAll('#stepbar .step-btn');
 
-function applyStep(i){
+initPicker(document.getElementById('hearPicker'), (body, i) => {
   curStep = i;
-  stepBtns.forEach(b => b.classList.toggle('on', Number(b.dataset.step) === i));
   zoneMine.classList.toggle('dim', STEPS[i].focus === 'fw');
   zoneFrame.classList.toggle('dim', STEPS[i].focus === 'mine');
   hearcapd.textContent = STEPS[i].cap;
-}
-stepBtns.forEach(b => b.addEventListener('click', () => applyStep(Number(b.dataset.step))));
-applyStep(0);
+});
 
 // ══ 板块二：睁眼那一刻 ══════════════════════════════════════
 // 真实事件，ms 与 seq 取自归档 events.jsonl。lane: a=lab-recorder 自己 b=neighbor 陪衬
