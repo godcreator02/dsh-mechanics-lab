@@ -4,120 +4,64 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>layer-stack · 四层怎么叠出生效配置</title>
+<link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
-  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
-  --bundle:#3b82f6; --profile:#22c55e; --home:#f59e0b; --overlay:#ec4899;
-  --ghost:#a855f7; --ok:#22c55e;
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+ --bundle:#3b82f6; --profile:#0891b2; --home:#f59e0b; --ovl:#ec4899; --ghost:#a855f7;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+ --bundle:#60a5fa; --profile:#22d3ee; --home:#fbbf24; --ovl:#f472b6; --ghost:#c084fc;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+ --bundle:#60a5fa; --profile:#22d3ee; --home:#fbbf24; --ovl:#f472b6; --ghost:#c084fc;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:32px 20px 72px}
-.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
-h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
-.sub{color:var(--dim);margin:0 0 14px}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
-  border-radius:99px;color:var(--dim);font-family:var(--mono)}
-.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
-h2{font-size:15px;margin:38px 0 4px}
-.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+.b-bundle{color:var(--bundle);font-weight:600}
+.b-profile{color:var(--profile);font-weight:600}
+.b-home{color:var(--home);font-weight:600}
+.b-ovl{color:var(--ovl);font-weight:600}
+.note code{font-family:var(--mono);font-size:12px}
 
-/* ── 主图：叠层 ── */
-.stackbox{display:grid;grid-template-columns:1fr 240px;gap:16px;
-  background:var(--card);border:1px solid var(--line);border-radius:12px;
-  padding:20px 18px}
-.layers{display:flex;flex-direction:column;gap:9px}
-/* 五层默认全部可见——叠加不是一个随时间发生的过程，是 compose 一次算出来的。
-   鼠标停在哪一层，就把「叠到这一层为止」的结果读出来。 */
-.layer{display:flex;align-items:center;gap:11px;padding:9px 12px;cursor:default;
-  border:1px solid var(--line);border-left:3px solid var(--c);border-radius:8px;
-  transition:opacity .22s,box-shadow .22s;background:var(--bg)}
-.layer.dim{opacity:.26}
-.layer.cur{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 55%,transparent)}
-.layer.ghost{border-style:dashed;border-left-style:solid}
-.layer .num{font-family:var(--mono);font-size:13px;color:var(--c);flex:none;width:16px}
-.layer .body{flex:1;min-width:0}
-.layer .nm{font-size:13px;font-weight:600}
-.layer .nm .badge{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--ghost);
-  border:1px solid color-mix(in srgb,var(--ghost) 45%,transparent);border-radius:99px;
-  padding:1px 7px;margin-left:6px;vertical-align:1px}
-.layer .src{font-size:11.5px;color:var(--dim);margin-top:1px}
-.layer .val{font-family:var(--mono);font-size:11px;color:var(--c);flex:none;
-  text-align:right;white-space:nowrap}
-.layer .test{font-family:var(--mono);font-size:10px;color:var(--dim);flex:none;
-  text-align:right;white-space:nowrap;margin-top:2px;display:block}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
+.pickbody b{font-weight:600}
 
-.readout{position:sticky;top:16px;align-self:start;background:var(--bg);
-  border:1px solid var(--line);border-radius:10px;padding:14px}
-.rlabel{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:6px}
-.readout pre{margin:0;font-family:var(--mono);font-size:13px;white-space:pre-wrap;
-  word-break:break-all;transition:color .3s;color:var(--flash-c,var(--fg))}
-.rnote{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);
-  font-size:11px;color:var(--ghost);line-height:1.6;opacity:0;transition:opacity .4s}
-.rnote.on{opacity:1}
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 8px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}}
+.ccard{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px}
+.ccard .hd{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px}
+.ccard .nm{font-family:var(--mono);font-size:12px;font-weight:600}
+.ccard .b2{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;white-space:nowrap}
+.b2.ok{color:var(--ok)}
+.b2.miss{color:var(--miss)}
+.ccard .row{font-size:12.5px;color:var(--dim);margin:3px 0}
+.ccard .row b{color:var(--fg);font-weight:600}
+.ccard pre{margin:8px 0 0;padding:8px 10px;font-family:var(--mono);font-size:11px;
+  line-height:1.55;white-space:pre-wrap;word-break:break-word;
+  background:color-mix(in srgb,var(--fg) 4%,transparent);border-radius:7px;color:var(--fg)}
 
-/* ── 分步控件：节奏归读者，不自动播 ── */
-.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
-  padding:8px 12px;margin-top:12px;border-radius:8px;
-  background:color-mix(in srgb,var(--fg) 4%,transparent)}
-.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600}
-.cap .d{font-size:12.5px;line-height:1.55}
-.cap .d b{color:var(--ghost)}
-.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
-  padding-top:12px;border-top:1px solid var(--line)}
-button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
-  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover:not(:disabled){border-color:var(--dim)}
-button:disabled{opacity:.35;cursor:default}
-.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
-  min-width:52px;text-align:center}
-.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
-.legend{display:flex;gap:11px;flex-wrap:wrap;margin-left:auto;
-  font-size:11px;color:var(--dim);font-family:var(--mono)}
-.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;
-  margin-right:3px;vertical-align:middle}
+.kv{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  padding:12px 14px;margin:12px 0}
+.kv .r{display:flex;gap:10px;font-size:12.5px;padding:3px 0}
+.kv .k{font-family:var(--mono);color:var(--dim);flex:none;min-width:150px}
+.kv .v{font-family:var(--mono);word-break:break-all}
+.kv .v.ok{color:var(--ok)}
 
-/* ── 来源小结 ── */
-.aside{font-size:12.5px;color:var(--dim);margin-top:10px;padding:10px 13px;
-  background:var(--card);border:1px solid var(--line);border-radius:8px}
-.aside code{font-family:var(--mono);font-size:11.5px}
-
-/* ── reads ── */
-.reads{display:grid;gap:10px;margin-top:16px}
-.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px}
-.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
-.read p{margin:0;font-size:13.5px}
-.read code{font-family:var(--mono);font-size:12px}
-.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
-.warn{border-color:color-mix(in srgb,var(--ghost) 40%,transparent);
-  background:color-mix(in srgb,var(--ghost) 7%,var(--card))}
-
-footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
-  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-footer a{color:inherit}
-
-@media (max-width:620px){
-  .stackbox{grid-template-columns:1fr}
-  .readout{position:static}
-}
+.read.match{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));
+  background:var(--warnbg)}
+.read.match .n{color:var(--warn)}
+.read.match p b{color:var(--warn)}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">02-recipe / layer-stack</div>
 <h1>四层怎么叠出生效配置</h1>
-<p class="sub">同一个 id 在四层各写一次，后叠的赢——外加一层官方文档没写的第五层。</p>
+<p class="sub">profile 真正跑起来的配置，由四份 patch 文件按固定顺序层叠而成——同一个 id 在多层各写一次，后叠的赢。</p>
 <div class="tags">
   <span class="tag">档次 ①</span>
   <span class="tag">📗 复述型</span>
@@ -125,195 +69,562 @@ footer a{color:inherit}
   <span class="tag">不需要 web</span>
 </div>
 
-<h2>id 叫 <code>shared</code>，四层各写一次</h2>
-<p class="note"><b>鼠标停在任意一层</b>，右边读出「只叠到这一层为止」时 <code>shared.config</code> 是什么。
-叠加不是随时间发生的过程，是 compose 一次算出来的——所以这里是查询，不是播放。</p>
+<h2>这一项讲的是什么</h2>
+<p class="note">profile（见 <code>00-base/minimal-profile</code>）真正跑起来时用的那份配置——插件系统内部管它叫<b>组合树</b>（composed tree）——不是直接写在某一个文件里的，是启动那一刻现算出来的。算法是层叠：从一个空数组开始，按固定顺序把几份 <b>patch</b> 文件的内容依次叠上去。patch 是对条目（entry，见 <code>00-base/minimal-profile</code>）列表的一次编辑指令——不是一份完整的配置，是「往列表里插一条」或「把某个 id 的内容换掉」这类指令的集合，后面会看到具体写法。这一项讲的正是这套层叠机制本身——一共叠几层、每层的文件在哪、谁写的、层与层之间谁压过谁。</p>
 
-<div class="stackbox">
-  <div class="layers" id="layers">
-    <div class="layer" data-i="0" data-val='{ layer: "bundle", seq: 1 }' style="--c:var(--bundle)">
-      <span class="num">①</span>
-      <div class="body">
-        <div class="nm">bundle 层</div>
-        <div class="src">组合包自带的 <code>cordis.patch.yml</code></div>
-      </div>
-      <div style="text-align:right">
-        <div class="val">layer: bundle</div>
-        <span class="test">precedence（基线）</span>
-      </div>
+<h2>机制怎么工作</h2>
+<p class="note">生效配置在空根之上按固定顺序逐层组合，走一遍这四层——①②③是三份各自独立的文件，④是命令行临时指定的第四份。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">bundle 层</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">profile 活层</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">home 层</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn"><code>--patch</code> overlay</span></button>
     </div>
-    <div class="layer" data-i="1" data-val='{ layer: "profile" }' style="--c:var(--profile)">
-      <span class="num">②</span>
-      <div class="body">
-        <div class="nm">profile 活层</div>
-        <div class="src">这个 profile 自己的 <code>cordis.patch.yml</code></div>
-      </div>
-      <div style="text-align:right">
-        <div class="val">layer: profile</div>
-        <span class="test">same_id_layers_precedence</span>
-      </div>
-    </div>
-    <div class="layer" data-i="2" data-val='{ layer: "home" }' style="--c:var(--home)">
-      <span class="num">③</span>
-      <div class="body">
-        <div class="nm">home 层</div>
-        <div class="src"><code>$DSH_HOME/cordis.patch.yml</code>，对该 home 下所有 profile 同时生效</div>
-      </div>
-      <div style="text-align:right">
-        <div class="val">layer: home</div>
-        <span class="test">same_id_layers_precedence</span>
-      </div>
-    </div>
-    <div class="layer" data-i="3" data-val='{ layer: "overlay" }' style="--c:var(--overlay)">
-      <span class="num">④</span>
-      <div class="body">
-        <div class="nm"><code>--patch</code> overlay</div>
-        <div class="src">argv 传入，可给多个，按顺序后写的胜出</div>
-      </div>
-      <div style="text-align:right">
-        <div class="val">layer: overlay</div>
-        <span class="test">same_id_layers_precedence</span>
-      </div>
-    </div>
-    <div class="layer ghost" data-i="4" style="--c:var(--ghost)">
-      <span class="num">⑤</span>
-      <div class="body">
-        <div class="nm">框架内置 overlay <span class="badge">⚠️ 待验</span></div>
-        <div class="src">源码另算，追加在 argv overlay 之后——只认 <code>agent-presets</code> / <code>session-telemetry-otel</code> 这两个 id，各有前置条件</div>
-      </div>
-      <div style="text-align:right">
-        <div class="val">不认 shared</div>
-        <span class="test">无用例，源码坐实</span>
-      </div>
-    </div>
-  </div>
-  <div class="readout" id="readout">
-    <div class="rlabel">shared.config 现在是</div>
-    <pre id="val-out">（还没叠）</pre>
-    <div class="rnote" id="rnote">第五层不动这个例子——<code>shared</code> 既不叫
-      <code>agent-presets</code> 也不叫 <code>session-telemetry-otel</code>，它落下之后
-      <code>shared</code> 还是 overlay 层给的那个值。</div>
+    <div class="pickbody" id="pb-mech"></div>
   </div>
 </div>
-<div class="cap"><span class="t" id="cap-t"></span><span class="d" id="cap-d"></span></div>
-<div class="ctl">
-  <button id="prev">← 上一步</button>
-  <span class="pos" id="pos"></span>
-  <button id="next">下一步 →</button>
-  <span class="hint">← → 键也行</span>
-  <div class="legend">
-    <span><i style="background:var(--bundle)"></i>bundle</span>
-    <span><i style="background:var(--profile)"></i>profile</span>
-    <span><i style="background:var(--home)"></i>home</span>
-    <span><i style="background:var(--overlay)"></i>overlay</span>
-    <span><i style="background:var(--ghost);border:1px dashed var(--ghost);background:transparent"></i>内置（待验）</span>
+<p class="note">四层叠加时有个共同规矩：<b>后应用的层按 id 覆盖前面各层同 id 的那一行，而且是把目标行的 <code>config</code> 整个换掉，不是按键合并</b>——<code>docs/official/zh/user/develop/basic/publish.md:123</code> 原话：「后应用的层按行胜出，且 patch 会替换目标行的整个 <code>config</code> 值，而不是深度合并各键。」后面「同一个 id 叠四次」那组观测能直接看到这条规矩的效果：某一层只要重述了 <code>config</code>，前一层写在同一个 <code>config</code> 里、没被重述的键会跟着消失。</p>
+
+<h2>怎么测：静态 dump 就是四层叠加的直接产物</h2>
+<p class="note">四层怎么叠是配方层面的事——<code>dsh --dump-config</code> 把组合结果打印出来，秒级返回，不用真的拉起一个实例，比起一个真进程便宜得多。本项 8 条用例里只有 3 类必须真的拉进程：home 层文件缺失时要确认「进程真的能启动、能活着」（dump 不报错只能证明静态组合没崩，证明不了这件事）；home 层对整个 home 生效的那三条用例，判据是条目自己报出来的 <code>config</code> 内容，不是 dump 能替代的。</p>
+
+<h2>四层各自的来源，dump 报得出来</h2>
+<p class="note"><code>identify</code> profile（侧栏可点开）叠了 <code>l04-bundle-a</code> 这个教学组合包，四层各插一条互不重名的标记条目——<code>from-profile</code> 写在 profile 活层，<code>from-home</code> 写在 home 层，<code>from-overlay</code> 由 <code>--patch overlay-identify.yml</code> 传入。<code>--dump-config</code> 对每条都标出它是从哪一层来的。</p>
+<div class="kv">
+  <div class="r"><span class="k">组合树条目总数</span><span class="v">6 个：from-bundle / shared / order-test / from-profile / from-home / from-overlay</span></div>
+  <div class="r"><span class="k"><b class="b-bundle">from-bundle</b> 来源</span><span class="v b-bundle">l04-bundle-a（包名）</span></div>
+  <div class="r"><span class="k"><b class="b-profile">from-profile</b> 来源</span><span class="v b-profile">D:\…\layer-stack\profiles\identify\cordis.patch.yml</span></div>
+  <div class="r"><span class="k"><b class="b-home">from-home</b> 来源</span><span class="v b-home">D:\…\layer-stack\cordis.patch.yml（home 层）</span></div>
+  <div class="r"><span class="k"><b class="b-ovl">from-overlay</b> 来源</span><span class="v b-ovl">D:\…\layer-stack\overlay-identify.yml</span></div>
+</div>
+<p class="note"><span class="b-bundle">bundle 层</span>的来源标的是贡献这条 patch 的包名；<span class="b-profile">profile 活层</span>、<span class="b-home">home 层</span>、<span class="b-ovl">overlay</span> 三层的来源标的都是那份文件本身的绝对路径——四种来源在同一次 dump 里并存，「这条是从哪一层来的」从不用猜。</p>
+
+<h2>同一个 id 叠四次，一路跟着变</h2>
+<p class="note"><code>precedence</code> profile（侧栏可点开）里，<code>shared</code> 这个 id 在四层各出现一次：bundle 层的 <code>l04-bundle-a</code> 用 <code>insert</code> 建出它（<code>config: {layer: bundle, seq: 1}</code>），profile / home / overlay 三层各用裸 <code>- id: shared</code> 覆盖它一次。每加一层重新 dump 一次，不只看终点：</p>
+<div class="kv">
+  <div class="r"><span class="k">只有 bundle 层</span><span class="v">shared.config = {'layer': 'bundle', 'seq': 1}</span></div>
+  <div class="r"><span class="k">叠上 profile 层后</span><span class="v">shared.config = {'layer': 'profile'}</span></div>
+  <div class="r"><span class="k">再叠上 home 层后</span><span class="v">shared.config = {'layer': 'home'}</span></div>
+  <div class="r"><span class="k">最后叠上 overlay 层</span><span class="v ok">shared.config = {'layer': 'overlay'}</span></div>
+</div>
+<p class="note">注意 <code>seq: 1</code> 这个键——bundle 层写了它，profile 层覆盖 <code>shared</code> 时只重述了 <code>layer</code>，没有重述 <code>seq</code>，叠上去之后 <code>seq</code> 就跟着消失了。这正是上一节「整层替换、不按键合并」那条规矩的直接后果，不是巧合。</p>
+
+<h2>home 层：文件缺失 vs 内容非法</h2>
+<p class="note">home 层是可选的一层，但「可选」只体现在「文件不存在」上；文件存在但写错格式是另一种命运。两条用例各自用了一个独立的 profile（侧栏可点开 <code>missing-home</code> / <code>illegal-home</code> 的活层——都是空 <code>[]</code>，实验对象在 home 层，不在这份文件）。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">missing-home</span><span class="b2 ok">✓ 正常启动</span></div>
+    <div class="row">home 层文件<b>不存在</b></div>
+    <div class="row">dump-config 正常返回，3 个条目：from-bundle / shared / order-test</div>
+    <div class="row">拉起后固定等待 5 秒，进程还活着？ <b>True</b></div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">illegal-home</span><span class="b2 miss">✗ fail loud</span></div>
+    <div class="row">home 层内容 = <code>foo: bar</code>（顶层是 mapping，不是数组）</div>
+    <div class="row">dump-config 失败，退出码 1</div>
+    <pre>Error: dsh: patches …\cordis.patch.yml must be a top-level YAML
+array of loader patch entries</pre>
   </div>
 </div>
-<p class="aside">
-  四层各自的来源也认得出来：bundle 层来源＝包名，profile／home／overlay 三层来源＝各自那份
-  <code>cordis.patch.yml</code>（或 <code>--patch</code> 指的文件）的绝对路径——
-  <code>test_four_layers_identifiable</code> 已验。
-</p>
+<p class="note">报错文本固定，出自源码 JSDoc（这次归档里的调用栈显示 <code>dsh-app-boot/lib/index.js:840</code> 一带），不是文档正文——引用时不能写成「文档说」；行号会随打包版本变，判定依据的是报错<b>文本</b>不是行号。</p>
 
+<h2><code>--patch</code> 可以给多个，按 argv 顺序</h2>
+<p class="note">第四层本身还能再叠：<code>overlay-order</code> profile 的活层是空的，靶子是 bundle 层建出来的 <code>order-test</code> 条目，两份 overlay 文件各用裸 id 改它的 <code>which</code> 字段，交换两次调用的顺序。</p>
+<div class="cmp2">
+  <div class="ccard">
+    <div class="hd"><span class="nm">--patch a b</span></div>
+    <div class="row">order-test.config.which = <b class="ok">'b'</b></div>
+    <div class="row">后写的 b 胜出</div>
+  </div>
+  <div class="ccard">
+    <div class="hd"><span class="nm">--patch b a</span></div>
+    <div class="row">order-test.config.which = <b class="ok">'a'</b></div>
+    <div class="row">后写的 a 胜出</div>
+  </div>
+</div>
+<p class="note">跟前三层是同一条「后叠的赢」的规矩，只是这次发生在第四层内部。⚠️ 运行期改一份已经生效的 <code>--patch</code> overlay 文件，热重放拾不拾得到——这条判定归 <code>04-replay/cold-surfaces</code>，本项不重复验证。</p>
+
+<h2>home 层不属于任何一个 profile</h2>
+<p class="note">home 层还有一条前三层都没有的性质：它不挂在任何一个 profile 名下，写一次，这个 home 下每个 profile 启动时都会读到。三条用例都真的拉起了实例——判据是条目自己报出来的 <code>config</code>，不是 dump。<code>home-side</code> 的活层（侧栏可点开）只有基础设施，一个字都没提 <code>in-home</code>；<code>twin-a</code> / <code>twin-b</code> 是两个各自独立的 profile；<code>both-sides</code> 的活层自己写了一条 <code>in-profile</code>。</p>
+<div class="kv">
+  <div class="r"><span class="k">home-side · in-home 收到的 config</span><span class="v ok">{"出处": "home 层"}</span></div>
+  <div class="r"><span class="k">twin-a · in-home 收到的 config</span><span class="v ok">{"出处": "home 层"}</span></div>
+  <div class="r"><span class="k">twin-b · in-home 收到的 config</span><span class="v ok">{"出处": "home 层"}</span></div>
+  <div class="r"><span class="k">both-sides · in-profile 收到的 config</span><span class="v ok">{"出处": "profile 层"}</span></div>
+  <div class="r"><span class="k">both-sides · in-home 收到的 config</span><span class="v ok">{"出处": "home 层"}</span></div>
+</div>
+<p class="note">home 层写一次，<code>twin-a</code> 和 <code>twin-b</code> 两个独立实例都收到同一份 <code>in-home</code>；<code>both-sides</code> 里 profile 层写的 <code>in-profile</code> 不会因为 home 层也写了东西就消失——两层是拼在一起的，不是二选一。</p>
+
+<h2>读出来的是什么</h2>
 <div class="reads">
   <div class="read"><span class="n">①</span><p>
-    <b>home 层文件不存在＝没有这层，照常启动；内容非法（顶层不是数组）当场报错。</b>
-    报错文本钉死在源码 JSDoc 里，不是文档正文。
-    <span class="from">test_home_layer_missing_equals_no_layer · test_home_layer_illegal_content_fails_loud</span>
+    <b>四层顺序：bundle → profile 活层 → home 层 → <code>--patch</code> overlay，逐层组合在空根之上，同一个 id 一层比一层新。</b>
+    <span class="from">test_four_layers_identifiable · test_same_id_layers_precedence</span>
   </p></div>
   <div class="read"><span class="n">②</span><p>
-    <b><code>--patch</code> 给多个时也按「后来者赢」——argv 顺序，后写的顶掉先写的。</b>
-    跟前四层是同一条规则，只是发生在第四层内部。
-    <span class="from">test_overlay_order_by_argv</span>
+    <b>home 层文件不存在，等价于「没有这层」，正常启动。</b>
+    <span class="from">test_home_layer_missing_equals_no_layer</span>
   </p></div>
   <div class="read"><span class="n">③</span><p>
-    <b>home 层不属于任何一个 profile：写一次，这个 home 下每个 profile 都吃到；</b>
-    跟 profile 层各写各的也不冲突，两条并存、各收各的 config。
+    <b>home 层内容非法（顶层不是数组）必须 fail loud，报错文本固定。</b>出处是源码 JSDoc，不是文档正文。
+    <span class="from">test_home_layer_illegal_content_fails_loud</span>
+  </p></div>
+  <div class="read"><span class="n">④</span><p>
+    <b><code>--patch</code> 给多个时也按「后来者赢」——argv 顺序，后写的顶掉先写的。</b>跟前三层是同一条规则，只是发生在第四层内部。
+    <span class="from">test_overlay_order_by_argv</span>
+  </p></div>
+  <div class="read"><span class="n">⑤</span><p>
+    <b>home 层不属于任何一个 profile：写一次，这个 home 下每个 profile 都吃到；</b>跟 profile 层各写各的也不冲突，两条并存、各收各的 config。
     <span class="from">test_the_other_place_works_the_same · test_the_home_place_hits_every_profile · test_two_places_two_entries</span>
   </p></div>
-  <div class="read warn"><span class="n">⚠</span><p>
-    <b>「四层」是文档层面的说法，源码层面实际是五层。</b>第五层不受任何 patch 文件控制，
-    只受「组合树里有没有对应 id」和环境变量驱动，压过前四层——但本项零用例覆盖它，图里画成
-    虚线正是为了不让它看起来跟前四层一样确凿。
+  <div class="read match"><span class="n">⚠</span><p>
+    <b>矫正点：官方文档说的「四层」，源码层面实际是五层。</b>框架自己在 <code>--patch</code> overlay 之后还追加了一层内置补丁，只受「组合树里有没有对应 id」和环境变量驱动，压过前四层——但本项零用例覆盖它，标 ⚠️ 待验，不进上面的判定。源码坐实：<code>dsh</code> 包的 <code>composeProfile()</code> 里，最终 overlay 列表是先复制一份 argv <code>--patch</code> 列表，再在后面追加两条框架内置补丁（<code>agent-presets</code> 根路径合并、<code>session-telemetry-otel</code> 的禁用开关），各有前置条件，细节见 <code>test_layer_stack.py</code> docstring 的「没覆盖到的」一节。
   </p></div>
 </div>
 
 <footer>
 判定与证据出处在 <code>test_layer_stack.py</code> 的模块 docstring，此页只负责让你看懂。<br>
-叠层数值取自归档 <code>results/20260817-151015/summary.md</code>（<code>test_same_id_layers_precedence</code> 的输出），是一次观测的快照。<br>
+数字与文件原文取自归档 <code>results/20260817-151015/</code>（<code>summary.md</code> 与 <code>profiles/</code> 下 9 个 profile），是一次观测的快照。<br>
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">identify/</button>
+                <ul>
+                  <li><button class="fl" data-k="id-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="id-yml">cordis.yml</button></li>
+                  <li><button class="fl" data-k="id-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>l04-bundle-a →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">precedence/</button>
+                <ul>
+                  <li><button class="fl" data-k="pr-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="pr-pkg">package.json</button></li>
+                  <li>node_modules/ → l04-bundle-a</li>
+                </ul></li>
+              <li class="shut"><button class="tw">missing-home/</button>
+                <ul>
+                  <li><button class="fl" data-k="mh-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="mh-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">illegal-home/</button>
+                <ul>
+                  <li><button class="fl" data-k="ih-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ih-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">overlay-order/</button>
+                <ul>
+                  <li><button class="fl" data-k="oo-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="oo-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">home-side/</button>
+                <ul>
+                  <li><button class="fl" data-k="hs-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="hs-pkg">package.json</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button><ul><li>lab-recorder →</li></ul></li>
+                </ul></li>
+              <li class="shut"><button class="tw">twin-a/</button>
+                <ul>
+                  <li><button class="fl" data-k="ta-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="ta-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">twin-b/</button>
+                <ul>
+                  <li><button class="fl" data-k="tb-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="tb-pkg">package.json</button></li>
+                </ul></li>
+              <li class="shut"><button class="tw">both-sides/</button>
+                <ul>
+                  <li><button class="fl" data-k="bs-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="bs-pkg">package.json</button></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/</button>
+            <ul>
+              <li><button class="tw">l04-bundle-a/</button>
+                <ul>
+                  <li><button class="fl" data-k="l04-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="l04-idx">index.js</button></li>
+                  <li><button class="fl" data-k="l04-pkg">package.json</button></li>
+                </ul></li>
+              <li><button class="fl" data-k="reporter">reporter.mjs</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-id-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/identify/cordis.patch.yml"
+         data-why="第 2 层：profile 自己的活层——test_four_layers_identifiable 用来验证四层来源"><pre># 第 2 层：profile 自己的活层
+- insert:
+    - id: from-profile
+      name: l04-bundle-a
+      config:
+        layer: profile
+</pre></div>
+    <div id="fc-id-yml" data-name="cordis.yml"
+         data-src="results/20260817-151015/profiles/identify/cordis.yml"
+         data-why="profile 根文件：空条目列表，四层 patch 全部叠在这份空数组之上"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json&#x27;s dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre></div>
+    <div id="fc-id-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/identify/package.json"
+         data-why="bundles 里带了 l04-bundle-a——这个包自己的 patch 文件就是第 1 层（bundle 层）"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-identify&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;l04-bundle-a&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;l04-bundle-a&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/02-recipe/layer-stack/fixtures/l04-bundle-a&quot;
+  }
+}
+</pre></div>
+    <div id="fc-pr-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/precedence/cordis.patch.yml"
+         data-why="第 2 层覆盖 shared——同一个 id，profile 层用裸 id 顶掉 bundle 层给的值"><pre># 第 2 层覆盖 shared
+- id: shared
+  name: l04-bundle-a
+  config:
+    layer: profile
+</pre></div>
+    <div id="fc-pr-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/precedence/package.json"
+         data-why="同样叠了 l04-bundle-a——shared 由它的 bundle 层 patch 先建出来"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-precedence&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;l04-bundle-a&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;l04-bundle-a&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/02-recipe/layer-stack/fixtures/l04-bundle-a&quot;
+  }
+}
+</pre></div>
+    <div id="fc-mh-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/missing-home/cordis.patch.yml"
+         data-why="空活层——这条用例的实验对象是 home 层文件本身缺失，不是这份文件"><pre>[]
+</pre></div>
+    <div id="fc-mh-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/missing-home/package.json"
+         data-why="叠了 l04-bundle-a，只用来提供 from-bundle / shared / order-test 三条基线条目"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-missing-home&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;l04-bundle-a&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;l04-bundle-a&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/02-recipe/layer-stack/fixtures/l04-bundle-a&quot;
+  }
+}
+</pre></div>
+    <div id="fc-ih-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/illegal-home/cordis.patch.yml"
+         data-why="同上，空活层——这条用例的实验对象是 home 层内容非法"><pre>[]
+</pre></div>
+    <div id="fc-ih-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/illegal-home/package.json"
+         data-why="同 missing-home，叠了 l04-bundle-a"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-illegal-home&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;l04-bundle-a&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;l04-bundle-a&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/02-recipe/layer-stack/fixtures/l04-bundle-a&quot;
+  }
+}
+</pre></div>
+    <div id="fc-oo-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/overlay-order/cordis.patch.yml"
+         data-why="空活层——这条用例的实验对象是两份 --patch overlay 谁先谁后"><pre>[]
+</pre></div>
+    <div id="fc-oo-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/overlay-order/package.json"
+         data-why="同上，叠了 l04-bundle-a 提供 order-test 这个靶子条目"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-overlay-order&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: [
+        &quot;l04-bundle-a&quot;
+      ]
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;l04-bundle-a&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/02-recipe/layer-stack/fixtures/l04-bundle-a&quot;
+  }
+}
+</pre></div>
+    <div id="fc-hs-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/home-side/cordis.patch.yml"
+         data-why="只有基础设施（timer / hmr / 观察器），没有 in-home——那条完全靠 home 层自己插"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/layer-stack/events-home-side.jsonl&quot;
+        flushMs: 100
+</pre></div>
+    <div id="fc-hs-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/home-side/package.json"
+         data-why="bundles: []，条目全部来自活层 insert 与 home 层 insert"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-home-side&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;
+  }
+}
+</pre></div>
+    <div id="fc-ta-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/twin-a/cordis.patch.yml"
+         data-why="twin-a 自己的基础设施，跟 twin-b 各有各的 events 输出路径"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/layer-stack/events-twin-a.jsonl&quot;
+        flushMs: 100
+</pre></div>
+    <div id="fc-ta-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/twin-a/package.json"
+         data-why="同 home-side，bundles: []"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-twin-a&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;
+  }
+}
+</pre></div>
+    <div id="fc-tb-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/twin-b/cordis.patch.yml"
+         data-why="twin-b 自己的基础设施——跟 twin-a 共享同一份 home 层 patch"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/layer-stack/events-twin-b.jsonl&quot;
+        flushMs: 100
+</pre></div>
+    <div id="fc-tb-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/twin-b/package.json"
+         data-why="同 twin-a"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-twin-b&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;
+  }
+}
+</pre></div>
+    <div id="fc-bs-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151015/profiles/both-sides/cordis.patch.yml"
+         data-why="两处各写一条 insert：基础设施 + in-profile；in-home 由 home 层另外插"><pre>- insert:
+    - id: timer
+      name: &#x27;@deepseek-ai/cordis-plugin-timer&#x27;
+
+    - id: hmr
+      name: &#x27;@deepseek-ai/cordis-plugin-hmr&#x27;
+
+    - id: lab-recorder
+      name: lab-recorder
+      config:
+        out: &quot;D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/layer-stack/events-both-sides.jsonl&quot;
+        flushMs: 100
+
+- insert:
+    - id: in-profile
+      name: ./reporter.mjs
+      config:
+        出处: profile 层
+</pre></div>
+    <div id="fc-bs-pkg" data-name="package.json"
+         data-src="results/20260817-151015/profiles/both-sides/package.json"
+         data-why="同 home-side，bundles: []"><pre>{
+  &quot;name&quot;: &quot;dsh-profile-both-sides&quot;,
+  &quot;private&quot;: true,
+  &quot;dsh&quot;: {
+    &quot;profile&quot;: {
+      &quot;bundles&quot;: []
+    }
+  },
+  &quot;dependencies&quot;: {
+    &quot;lab-recorder&quot;: &quot;link:D:/dshfiles/26081520anu/dsh-mechanics-lab/observatory/lab-recorder&quot;
+  }
+}
+</pre></div>
+    <div id="fc-l04-patch" data-name="cordis.patch.yml"
+         data-src="experiments/02-recipe/layer-stack/fixtures/l04-bundle-a/cordis.patch.yml"
+         data-why="教学组合包自己的层——三条互不相干的标记条目，各自服务不同用例"><pre># 教学组合包自己的层——`dsh.bundle.patch` 指向的就是这份文件。
+# 三条互不相干的标记条目，各自服务不同用例：
+#   from-bundle  只用来证明「bundle 层贡献的条目认得出来」
+#   shared       用来测「同一个 id 在四层各出现一次，谁胜出」
+#   order-test   用来测「--patch 多个时按 argv 顺序」
+- insert:
+    - id: from-bundle
+      name: l04-bundle-a
+      config:
+        layer: bundle
+
+    - id: shared
+      name: l04-bundle-a
+      config:
+        layer: bundle
+        seq: 1
+
+    - id: order-test
+      name: l04-bundle-a
+      config:
+        which: base
+</pre></div>
+    <div id="fc-l04-idx" data-name="index.js"
+         data-src="experiments/02-recipe/layer-stack/fixtures/l04-bundle-a/index.js"
+         data-why="空操作 apply——本项绝大多数用例只用 --dump-config，不真正启动实例"><pre>/**
+ * 教学组合包的插件模块本体。
+ *
+ * 本项绝大多数用例只用 `--dump-config` 做静态分析，从不真正启动实例——
+ * 四层怎么叠是配方层面的事，用不着拉一个真进程去看。写这个空操作 apply
+ * 只是保险：万一某个用例真的拉起了实例，条目能正常激活，不会卡在
+ * 「找不到模块」上。
+ */
+export const name = &quot;l04-bundle-a&quot;;
+
+export function apply() {
+  // 静态用例，故意什么都不做。
+}
+</pre></div>
+    <div id="fc-l04-pkg" data-name="package.json"
+         data-src="experiments/02-recipe/layer-stack/fixtures/l04-bundle-a/package.json"
+         data-why="dsh.bundle.patch 指向它自己的 cordis.patch.yml，就是四层里的第 1 层"><pre>{
+  &quot;name&quot;: &quot;l04-bundle-a&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;private&quot;: true,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;main&quot;: &quot;index.js&quot;,
+  &quot;exports&quot;: {
+    &quot;.&quot;: &quot;./index.js&quot;
+  },
+  &quot;dsh&quot;: {
+    &quot;bundle&quot;: {
+      &quot;patch&quot;: &quot;./cordis.patch.yml&quot;
+    }
+  }
+}
+</pre></div>
+    <div id="fc-reporter" data-name="reporter.mjs"
+         data-src="experiments/02-recipe/layer-stack/fixtures/reporter.mjs"
+         data-why="把自己收到的 config 原样报给 lab-recorder——home 层那组用例用它当探针"><pre>/**
+ * 把自己收到的 config 原样报给 lab-recorder。
+ *
+ * 用于「同一个条目在 profile 层与 home 层都被写到时，它最后收到的是哪一份」
+ * 这类判定——判据只能是插件自己报出来的内容，写进哪个文件是我们做的事，
+ * 收到什么是它说的事，两边摆在一起才叫对上了。
+ */
+
+export const inject = [&quot;labObserver&quot;];
+
+export function apply(ctx, config) {
+  const say = ctx.labObserver.for(ctx);
+
+  say(&quot;我收到的 config&quot;, { 类型: typeof config, 内容: config ?? null });
+}
+</pre></div>
+  </div>
+</aside>
 </div>
 
+<script src="../../lab.js"></script>
 <script>
-const LAYERS = [...document.querySelectorAll('.layer')];
-const valOut = document.getElementById('val-out');
-const readout = document.getElementById('readout');
-const rnote = document.getElementById('rnote');
-const COLORS = {0:'--bundle',1:'--profile',2:'--home',3:'--overlay',4:'--ghost'};
-
-const LAST = LAYERS.length - 1;
-
-// 每一步一句话：只叠到这一层为止，shared.config 变成了什么
-const STEP_T = ['① bundle 层', '② profile 活层', '③ home 层', '④ overlay 层', '⑤ 内置 overlay（待验）'];
-const CAP = [
-  '组合包自带的基线值先垫底：<code>layer: bundle, seq: 1</code>。',
-  'profile 活层写了同一个 id，覆盖成 <code>layer: profile</code>——后叠的赢。',
-  'home 层再覆盖一次，变成 <code>layer: home</code>；这层对该 home 下每个 profile 都生效，不只这一个。',
-  '<code>--patch</code> overlay 覆盖成 <code>layer: overlay</code>——四层里最后叠上的一层。',
-  '框架内置的第五层追加在这里，但它不认 <code>shared</code> 这个 id，值原样留在 overlay 层给的那个。<b>「四层」是文档说法，源码层面其实是五层。</b>',
+const MECH = [
+  `<b class="b-bundle">bundle 层</b><br>profile 的 <code>package.json</code> 里 <code>dsh.profile.bundles</code>
+   列出要叠哪些组合包，按列表顺序逐个叠——每个组合包自己也是一个 npm 包，它的 <code>package.json</code> 里
+   <code>dsh.bundle.patch</code> 字段指向自带的一份 <code>cordis.patch.yml</code>。四层里唯一必须<b>重启才生效</b>
+   的一层：<code>composeProfile()</code> 只在启动时读一次。`,
+  `<b class="b-profile">profile 活层</b><br>这个 profile 自己的 <code>cordis.patch.yml</code>——日常改的就是它，
+   改动会被 watcher 接住热重放（机制细节见 05-reload 组）。它叠在 bundle 层之上：同一个 id 这里再写一次，
+   就覆盖 bundle 层给的值。`,
+  `<b class="b-home">home 层</b><br><code>$DSH_HOME/cordis.patch.yml</code>——<code>$DSH_HOME</code> 是这次部署
+   的数据面（不写时默认 <code>~/.dsh</code>），存放所有 profile 与共享配置。这一层<b>不属于任何一个 profile</b>：
+   写一次，这个 home 下每个 profile 启动时都会读到、都会叠上。`,
+  `<b class="b-ovl"><code>--patch</code> overlay</b><br>CLI 参数，<code>dsh --profile &lt;名&gt; --patch &lt;path&gt;</code>
+   可以给多次，按 argv 出现的顺序叠加，写在后面的覆盖写在前面的。四层里唯一由命令行调用者临时指定的一层，
+   不写进任何 profile 的常驻文件。`,
 ];
-const posEl = document.getElementById('pos');
-const capT = document.getElementById('cap-t'), capD = document.getElementById('cap-d');
-const prev = document.getElementById('prev'), next = document.getElementById('next');
-let cur = LAST;
-
-/** 渲染「只叠到第 i 层为止」的结果——往前找最后一个真的改了 shared 的层。
-    hover 与分步共用这个函数：hover 只调它做临时预览，不碰 cur。 */
-function render(i){
-  let val = null, color = null;
-  for (let k = 0; k <= i; k++){
-    if (LAYERS[k].dataset.val){ val = LAYERS[k].dataset.val; color = COLORS[k]; }
-  }
-  LAYERS.forEach((l, k) => {
-    l.classList.toggle('dim', k > i);
-    l.classList.toggle('cur', k === i);
-  });
-  valOut.textContent = val ?? '（还没叠）';
-  if (color) readout.style.setProperty('--flash-c', `var(${color})`);
-  // 第五层只在轮到它时才提示——它压根不碰 shared，所以值不会变
-  rnote.classList.toggle('on', i === LAST);
-  capT.textContent = STEP_T[i];
-  capT.style.color = `var(${COLORS[i]})`;
-  capD.innerHTML = CAP[i];
-  posEl.textContent = `${i + 1} / ${LAYERS.length}`;
-}
-
-/** 分步指针真的挪动——由按钮/键盘驱动，会持久化 cur。 */
-function gotoStep(i){
-  cur = Math.max(0, Math.min(LAST, i));
-  render(cur);
-  prev.disabled = cur === 0;
-  next.disabled = cur === LAST;
-}
-
-LAYERS.forEach((layer, i) => {
-  layer.addEventListener('mouseenter', () => render(i));
-  layer.addEventListener('focus', () => render(i));
-  layer.tabIndex = 0;
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
 });
-// 移开鼠标回到分步指针所在的那一步，不是回到终态
-document.querySelector('.layers').addEventListener('mouseleave', () => render(cur));
-
-prev.addEventListener('click', () => gotoStep(cur - 1));
-next.addEventListener('click', () => gotoStep(cur + 1));
-addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft'){ gotoStep(cur - 1); e.preventDefault(); }
-  if (e.key === 'ArrowRight'){ gotoStep(cur + 1); e.preventDefault(); }
-});
-
-gotoStep(LAST);
 </script>
 </body>
 </html>

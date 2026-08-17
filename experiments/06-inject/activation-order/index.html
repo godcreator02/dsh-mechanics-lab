@@ -4,180 +4,121 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>activation-order · 书写顺序不决定加载顺序</title>
+<link rel="stylesheet" href="../../lab.css">
 <style>
 :root{
-  --bg:#fbfbfd; --fg:#1c1c22; --dim:#6b6b78; --line:#e3e3ea; --card:#fff;
-  --c-registry:#3b82f6; --c-alpha:#a855f7; --c-beta:#22c55e; --ok:#22c55e;
-  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+  --c-registry:#3b82f6; --c-alpha:#a855f7; --c-beta:#22c55e;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --c-registry:#60a5fa; --c-alpha:#c084fc; --c-beta:#4ade80;
 }}
 :root[data-theme=dark]{
-  --bg:#0f0f13; --fg:#e8e8ee; --dim:#9a9aa8; --line:#26262f; --card:#17171d;
+  --c-registry:#60a5fa; --c-alpha:#c084fc; --c-beta:#4ade80;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:14.5px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{max-width:900px;margin:0 auto;padding:32px 20px 72px}
-.crumb{font-size:12px;color:var(--dim);font-family:var(--mono)}
-h1{font-size:23px;margin:.35em 0 .2em;letter-spacing:-.01em}
-.sub{color:var(--dim);margin:0 0 14px}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
-.tag{font-size:11.5px;padding:2.5px 9px;border:1px solid var(--line);
-  border-radius:99px;color:var(--dim);font-family:var(--mono)}
-.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
-h2{font-size:15px;margin:38px 0 4px}
-.note{color:var(--dim);font-size:13px;margin:0 0 16px}
+.note code{font-family:var(--mono);font-size:12px}
 
-/* ── 依赖链 ── */
-.chain{display:flex;align-items:stretch;gap:0;background:var(--card);
-  border:1px solid var(--line);border-radius:12px;padding:18px 16px;
-  overflow-x:auto}
-.cbox{flex:1;min-width:140px;border:1.5px solid var(--cc);border-radius:10px;
-  padding:10px 12px;text-align:center}
-.cbox .nm{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--cc)}
-.cbox .ds{font-size:11px;color:var(--dim);margin-top:4px;line-height:1.5}
-.carrow{flex:none;width:52px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;color:var(--dim)}
-.carrow .gl{font-size:18px;line-height:1}
-.carrow .lb{font-size:10px;font-family:var(--mono);margin-top:2px;white-space:nowrap}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:20px 18px 18px;margin-bottom:8px}
 
-/* ── 双栏对照 ── */
-.dual{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px}
-.col{background:var(--card);border:1px solid var(--line);border-radius:12px;
-  padding:16px 16px 14px}
-.col h3{font-size:11.5px;color:var(--dim);font-family:var(--mono);
-  margin:0 0 12px;font-weight:500;text-align:center;letter-spacing:.02em}
+.chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 8px}
+.chain .ccard{flex:1 1 150px}
+.clink{flex:none;font-family:var(--mono);font-size:12px;color:var(--dim);
+  text-align:center;line-height:1.4}
+
+.ccard{border:1px solid var(--cc,var(--line));border-radius:10px;background:var(--card);
+  padding:11px 13px;text-align:center}
+.ccard .nm{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--cc)}
+.ccard .ds{font-size:11px;color:var(--dim);margin-top:4px;line-height:1.5}
+
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0 4px}
+@media (max-width:640px){.cmp2{grid-template-columns:1fr}.chain{flex-direction:column}}
 .plist{display:flex;flex-direction:column;gap:7px}
-.prow{--c:var(--dim);display:flex;align-items:center;gap:9px;padding:8px 11px;
-  border-radius:8px;border:1px dashed var(--line);transition:all .3s;
-  background:var(--bg)}
-.prow.on{border-color:var(--c);border-style:solid;
-  background:color-mix(in srgb,var(--c) 12%,var(--bg))}
-.prow .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--c);
-  opacity:.35;transition:opacity .3s}
-.prow.on .dot{opacity:1}
+.plist h4{font-size:11.5px;color:var(--dim);font-family:var(--mono);
+  margin:0 0 2px;font-weight:500;text-align:center;letter-spacing:.02em}
+.prow{--c:var(--dim);display:flex;align-items:center;gap:9px;padding:7px 10px;
+  border-radius:8px;border:1px dashed var(--line);background:var(--card);
+  opacity:.5;transition:all .3s}
+.prow.on{border-color:var(--c);border-style:solid;opacity:1;
+  background:color-mix(in srgb,var(--c) 12%,var(--card))}
+.prow .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--c)}
 .prow .nm{font-family:var(--mono);font-size:12.5px}
-.prow .badge{margin-left:auto;font-family:var(--mono);font-size:10.5px;
-  color:var(--c);opacity:0;transform:translateY(-2px);white-space:nowrap;
-  transition:all .3s}
-.prow.on .badge{opacity:1;transform:none}
-
-.verdict{margin-top:16px;text-align:center;padding:12px 14px;border-radius:10px;
-  border:1px solid var(--line);font-size:13px;color:var(--dim);opacity:0;
-  transform:translateY(-4px);transition:all .4s}
-.verdict.on{opacity:1;transform:none;border-color:color-mix(in srgb,var(--ok) 45%,transparent);
-  color:var(--fg)}
-.verdict b{color:var(--ok)}
-
-/* ── 分步控件：节奏归读者，不自动播 ── */
-.cap{display:flex;gap:9px;align-items:baseline;min-height:38px;
-  padding:8px 12px;margin-top:14px;border-radius:8px;
-  background:color-mix(in srgb,var(--fg) 4%,transparent)}
-.cap .t{font-family:var(--mono);font-size:11.5px;flex:none;font-weight:600;color:var(--dim)}
-.cap .d{font-size:12.5px;line-height:1.55}
-.cap .d b{color:var(--ok)}
-.ctl{display:flex;gap:8px;align-items:center;margin-top:11px;
-  padding-top:12px;border-top:1px solid var(--line)}
-button{font:inherit;font-size:13px;padding:5px 15px;border-radius:7px;
-  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button:hover:not(:disabled){border-color:var(--dim)}
-button:disabled{opacity:.35;cursor:default}
-.pos{font-family:var(--mono);font-size:11.5px;color:var(--dim);
-  min-width:52px;text-align:center}
-.hint{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:4px}
-
-.reads{display:grid;gap:10px;margin-top:16px}
-.read{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
-  background:var(--card);border:1px solid var(--line);border-radius:10px}
-.read .n{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;padding-top:2px}
-.read p{margin:0;font-size:13.5px}
-.read code{font-family:var(--mono);font-size:12px}
-.from{display:block;margin-top:5px;font-size:11.5px;color:var(--dim);font-family:var(--mono)}
-
-footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
-  font-size:11.5px;color:var(--dim);font-family:var(--mono);line-height:2}
-footer a{color:inherit}
-
-@media (max-width:600px){
-  .dual{grid-template-columns:1fr}
-  .chain{flex-direction:column}
-  .carrow{width:auto;flex-direction:row;padding:2px 0}
-  .carrow .gl{transform:rotate(90deg)}
-}
+.prow .badge{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--c)}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+<main>
 
 <div class="crumb">06-inject / activation-order</div>
 <h1>书写顺序不决定加载顺序</h1>
-<p class="sub">patch 文件里三条怎么排都不影响谁先真正 apply——谁先备齐依赖，谁先跑。</p>
+<p class="sub">patch 文件里三条 <code>insert</code> 怎么排都不影响谁先真正 apply——谁先备齐依赖，谁先跑。</p>
 <div class="tags">
   <span class="tag">档次 ①</span>
   <span class="tag">🔬 发现型</span>
-  <span class="tag ok">✅ 2 条用例</span>
+  <span class="tag ok">✅ 满覆盖 · 2 条用例</span>
   <span class="tag">不需要 web</span>
 </div>
 
-<h2>三个教学插件的依赖链</h2>
-<p class="note">箭头指向被依赖者。</p>
-<div class="chain">
-  <div class="cbox" style="--cc:var(--c-beta)">
-    <div class="nm">lab-beta</div>
-    <div class="ds">依赖 labRegistry<br>+ labAlpha</div>
-  </div>
-  <div class="carrow"><span class="gl">←</span><span class="lb">依赖</span></div>
-  <div class="cbox" style="--cc:var(--c-alpha)">
-    <div class="nm">lab-alpha</div>
-    <div class="ds">依赖 labRegistry<br>提供 labAlpha</div>
-  </div>
-  <div class="carrow"><span class="gl">←</span><span class="lb">依赖</span></div>
-  <div class="cbox" style="--cc:var(--c-registry)">
-    <div class="nm">lab-registry</div>
-    <div class="ds">提供 labRegistry<br>不依赖任何人</div>
+<h2>这一项讲的是什么</h2>
+<p class="note">条目（entry，配方里的一行，见 <code>00-base/baseline-profile</code>）会被 dsh 的 loader 一次性交给运行时去建。
+一份 patch（补丁，对条目列表的一次编辑指令，整棵组合树都由 patch 叠出来）里，一个 <code>insert</code> 块常常一口气写好几条——
+写的时候总要挑个先后，比如先写提供服务的那条、再写要用它的那条，看着像是在暗示"先写的先跑"。这一项要讲清楚的正是这件事：
+决定谁先真正开始跑的，到底是不是这几行写第几。</p>
+
+<h2>机制怎么工作</h2>
+<p class="note">走一遍一批条目从"进树"到"真正 apply"的过程：①②是登记与就位这两端各自发生的事，③是框架逐条放行时用的判据，④是这条判据带来的结果。</p>
+
+<div class="stage">
+  <div id="mech">
+    <div class="picker arrow" id="pk-mech">
+      <button class="pick"><span class="pi">①</span><span class="pn">一批条目并发建立</span></button>
+      <button class="pick"><span class="pi">②</span><span class="pn">每条各自一个 fiber</span></button>
+      <button class="pick"><span class="pi">③</span><span class="pn">inject 全部就位才放行</span></button>
+      <button class="pick"><span class="pi">④</span><span class="pn">谁先备齐，谁先跑</span></button>
+    </div>
+    <div class="pickbody" id="pb-mech"></div>
   </div>
 </div>
 
-<h2>两份 patch，顺序相反，落地顺序一样</h2>
-<p class="note">左边正着写（registry → alpha → beta），右边倒着写（beta → alpha → registry）。
-<b>一步步走下去</b>，看两边真正 apply 的先后。</p>
-
-<div class="dual">
-  <div class="col">
-    <h3>正着写的 patch</h3>
-    <div class="plist" data-side="fwd">
-      <div class="prow" data-id="registry" style="--c:var(--c-registry)">
-        <span class="dot"></span><span class="nm">lab-registry</span>
-        <span class="badge"></span>
-      </div>
-      <div class="prow" data-id="alpha" style="--c:var(--c-alpha)">
-        <span class="dot"></span><span class="nm">lab-alpha</span>
-        <span class="badge"></span>
-      </div>
-      <div class="prow" data-id="beta" style="--c:var(--c-beta)">
-        <span class="dot"></span><span class="nm">lab-beta</span>
-        <span class="badge"></span>
-      </div>
-    </div>
+<h2>三个教学插件的依赖链</h2>
+<p class="note">箭头指向被依赖者。<code>lab-registry</code> 提供一个叫 <code>labRegistry</code> 的服务（service，插件之间互相提供能力的方式：
+一方 <code>ctx.provide</code> 登记，另一方 <code>inject</code> 声明依赖或 <code>ctx.get()</code> 运行时取），自己不依赖任何人；
+<code>lab-alpha</code> 依赖它，同时自己又提供 <code>labAlpha</code>；<code>lab-beta</code> 把两个服务都声明成依赖，是链上等得最多的那个。</p>
+<div class="chain">
+  <div class="ccard" style="--cc:var(--c-registry)">
+    <div class="nm">lab-registry</div>
+    <div class="ds">提供 labRegistry<br>不依赖任何人</div>
   </div>
-  <div class="col">
-    <h3>倒着写的 patch</h3>
-    <div class="plist" data-side="rev">
-      <div class="prow" data-id="beta" style="--c:var(--c-beta)">
-        <span class="dot"></span><span class="nm">lab-beta</span>
-        <span class="badge"></span>
-      </div>
-      <div class="prow" data-id="alpha" style="--c:var(--c-alpha)">
-        <span class="dot"></span><span class="nm">lab-alpha</span>
-        <span class="badge"></span>
-      </div>
-      <div class="prow" data-id="registry" style="--c:var(--c-registry)">
-        <span class="dot"></span><span class="nm">lab-registry</span>
-        <span class="badge"></span>
-      </div>
-    </div>
+  <div class="clink">→<br>依赖</div>
+  <div class="ccard" style="--cc:var(--c-alpha)">
+    <div class="nm">lab-alpha</div>
+    <div class="ds">依赖 labRegistry<br>提供 labAlpha</div>
+  </div>
+  <div class="clink">→<br>依赖</div>
+  <div class="ccard" style="--cc:var(--c-beta)">
+    <div class="nm">lab-beta</div>
+    <div class="ds">依赖 labRegistry<br>+ labAlpha</div>
+  </div>
+</div>
+<p class="note"><code>lab-registry</code> 提供的账本是这一项的观测手段：谁登记一笔就立刻整份落盘，落盘顺序即真实的 apply 先后——
+拿它当时钟用，比另外拼事件流时间戳更直接。</p>
+
+<h2>两份 patch，顺序相反，落地顺序一样</h2>
+<p class="note">同一条依赖链，两个 profile 各自的 <code>cordis.patch.yml</code> 只有 <code>insert</code> 里三条的书写顺序不同：
+左边正着写（registry → alpha → beta），右边倒着写（beta → alpha → registry）。<b>一步步走下去</b>，看两边真正 apply 的先后。</p>
+
+<div class="cmp2">
+  <div class="plist" data-side="fwd">
+    <h4>正着写的 patch</h4>
+    <div class="prow" data-id="registry" style="--c:var(--c-registry)"><span class="dot"></span><span class="nm">lab-registry</span><span class="badge"></span></div>
+    <div class="prow" data-id="alpha" style="--c:var(--c-alpha)"><span class="dot"></span><span class="nm">lab-alpha</span><span class="badge"></span></div>
+    <div class="prow" data-id="beta" style="--c:var(--c-beta)"><span class="dot"></span><span class="nm">lab-beta</span><span class="badge"></span></div>
+  </div>
+  <div class="plist" data-side="rev">
+    <h4>倒着写的 patch</h4>
+    <div class="prow" data-id="beta" style="--c:var(--c-beta)"><span class="dot"></span><span class="nm">lab-beta</span><span class="badge"></span></div>
+    <div class="prow" data-id="alpha" style="--c:var(--c-alpha)"><span class="dot"></span><span class="nm">lab-alpha</span><span class="badge"></span></div>
+    <div class="prow" data-id="registry" style="--c:var(--c-registry)"><span class="dot"></span><span class="nm">lab-registry</span><span class="badge"></span></div>
   </div>
 </div>
 
@@ -189,10 +130,7 @@ footer a{color:inherit}
   <span class="hint">← → 键也行</span>
 </div>
 
-<div class="verdict" id="verdict">
-  两边书写顺序相反，实际 apply 顺序都是 <b>registry → alpha → beta</b>——一模一样。
-</div>
-
+<h2>读出来的是什么</h2>
 <div class="reads">
   <div class="read"><span class="n">①</span><p>
     <b>顺序由服务就位驱动，不由行序驱动。</b>账本文件每登记一笔就整份落盘，落盘顺序即真实 apply 先后；
@@ -214,9 +152,382 @@ lab-alpha 登记于账本计时起点后 0.7846ms，lab-beta 登记于 1.3769ms�
 <a href="../../index.html">← 全部实验</a>
 </footer>
 
+</main>
+<aside class="side">
+  <div class="pane tree-pane">
+    <h3>实验现场的文件</h3>
+    <ul class="ft">
+      <li><button class="tw">$DSH_HOME/</button>
+        <ul>
+          <li>logs/</li>
+          <li><button class="fl" data-k="ledger">ledger.json</button></li>
+          <li><button class="fl" data-k="wbeta">w-beta.json</button></li>
+          <li><button class="tw">profiles/</button>
+            <ul>
+              <li><button class="tw">forward-order/</button>
+                <ul>
+                  <li><button class="fl" data-k="fwd-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="fwd-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="fwd-yml">cordis.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-registry &rarr;</li><li>lab-alpha &rarr;</li><li>lab-beta &rarr;</li></ul></li>
+                </ul></li>
+              <li><button class="tw">reverse-order/</button>
+                <ul>
+                  <li><button class="fl" data-k="rev-pkg">package.json</button></li>
+                  <li><button class="fl" data-k="rev-patch">cordis.patch.yml</button></li>
+                  <li><button class="fl" data-k="rev-yml">cordis.yml</button></li>
+                  <li class="shut"><button class="tw">node_modules/</button>
+                    <ul><li>lab-registry &rarr;</li><li>lab-alpha &rarr;</li><li>lab-beta &rarr;</li></ul></li>
+                </ul></li>
+            </ul></li>
+        </ul></li>
+      <li><button class="tw">插件源码</button>
+        <ul>
+          <li><button class="tw">fixtures/lab-registry/</button>
+            <ul>
+              <li><button class="fl" data-k="reg-pkg">package.json</button></li>
+              <li><button class="fl" data-k="reg-idx">index.js</button></li>
+            </ul></li>
+          <li><button class="tw">fixtures/lab-alpha/</button>
+            <ul>
+              <li><button class="fl" data-k="alpha-pkg">package.json</button></li>
+              <li><button class="fl" data-k="alpha-idx">index.js</button></li>
+            </ul></li>
+          <li><button class="tw">fixtures/lab-beta/</button>
+            <ul>
+              <li><button class="fl" data-k="beta-pkg">package.json</button></li>
+              <li><button class="fl" data-k="beta-idx">index.js</button></li>
+            </ul></li>
+        </ul></li>
+    </ul>
+  </div>
+
+  <div class="pane view-pane">
+    <div class="vhint" id="vhint">点左边任一文件，这里显示它的原文。</div>
+    <div class="vmeta" id="vmeta" hidden>
+      <div class="vname" id="vname"></div>
+      <div class="vsrc" id="vsrc"></div>
+      <div class="vwhy" id="vwhy"></div>
+    </div>
+    <div class="vcode" id="vcode"></div>
+  </div>
+
+  <div class="stash" hidden>
+    <div id="fc-ledger" data-name="ledger.json"
+         data-src="results/20260817-151055/ledger.json"
+         data-why="lab-registry 提供的账本：谁登记一笔就整份落盘，entries 数组按落盘先后记录——这一项拿它当时钟用"><pre>{
+  "marker": "lab-registry-v1",
+  "providedAt": "2026-08-17T07:10:55.084Z",
+  "entries": [
+    {
+      "who": "lab-alpha",
+      "note": null,
+      "ms": 0.7846,
+      "at": "2026-08-17T07:10:55.083Z"
+    },
+    {
+      "who": "lab-beta",
+      "note": "alpha 在这儿",
+      "ms": 1.3769,
+      "at": "2026-08-17T07:10:55.084Z"
+    }
+  ]
+}</pre>
+    </div>
+    <div id="fc-wbeta" data-name="w-beta.json"
+         data-src="results/20260817-151055/w-beta.json"
+         data-why="lab-beta 的见证文件：gotRegistry / gotAlpha 均为 true；ledgerBefore 只有 lab-alpha 一条，是 beta 给自己登记之前拍的账本快照"><pre>{
+  "marker": "lab-beta-v1",
+  "appliedAt": "2026-08-17T07:10:55.084Z",
+  "gotRegistry": true,
+  "gotAlpha": true,
+  "ledgerBefore": [
+    {
+      "who": "lab-alpha",
+      "note": null,
+      "ms": 0.7846,
+      "at": "2026-08-17T07:10:55.083Z"
+    }
+  ]
+}</pre>
+    </div>
+    <div id="fc-fwd-pkg" data-name="package.json"
+         data-src="results/20260817-151055/profiles/forward-order/package.json"
+         data-why="dependencies 里 link 了三个教学插件"><pre>{
+  "name": "dsh-profile-forward-order",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-registry": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/activation-order/fixtures/lab-registry",
+    "lab-alpha": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/activation-order/fixtures/lab-alpha",
+    "lab-beta": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/activation-order/fixtures/lab-beta"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-fwd-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151055/profiles/forward-order/cordis.patch.yml"
+         data-why="活层：insert 三条，正着写——registry → alpha → beta"><pre># activation-order 活层
+- insert:
+    - id: lab-registry
+      name: lab-registry
+      config:
+        ledger: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/activation-order/ledger.json"
+
+    - id: lab-alpha
+      name: lab-alpha
+
+    - id: lab-beta
+      name: lab-beta
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/activation-order/w-beta.json"
+</pre>
+    </div>
+    <div id="fc-fwd-yml" data-name="cordis.yml"
+         data-src="results/20260817-151055/profiles/forward-order/cordis.yml"
+         data-why="profile 根，每次启动被重写成空数组——真正的配方在 cordis.patch.yml 里"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-rev-pkg" data-name="package.json"
+         data-src="results/20260817-151055/profiles/reverse-order/package.json"
+         data-why="dependencies 同样 link 了三个教学插件"><pre>{
+  "name": "dsh-profile-reverse-order",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "lab-registry": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/activation-order/fixtures/lab-registry",
+    "lab-alpha": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/activation-order/fixtures/lab-alpha",
+    "lab-beta": "link:D:/dshfiles/26081520anu/dsh-mechanics-lab/experiments/06-inject/activation-order/fixtures/lab-beta"
+  }
+}
+</pre>
+    </div>
+    <div id="fc-rev-patch" data-name="cordis.patch.yml"
+         data-src="results/20260817-151055/profiles/reverse-order/cordis.patch.yml"
+         data-why="活层：同样三条，insert 顺序整个倒过来写——beta → alpha → registry"><pre># activation-order 活层
+- insert:
+    - id: lab-beta
+      name: lab-beta
+      config:
+        witness: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/activation-order/w-beta.json"
+
+    - id: lab-alpha
+      name: lab-alpha
+
+    - id: lab-registry
+      name: lab-registry
+      config:
+        ledger: "D:/dshfiles/26081520anu/dsh-mechanics-lab/out/testhome/activation-order/ledger.json"
+</pre>
+    </div>
+    <div id="fc-rev-yml" data-name="cordis.yml"
+         data-src="results/20260817-151055/profiles/reverse-order/cordis.yml"
+         data-why="profile 根，每次启动被重写成空数组——真正的配方在 cordis.patch.yml 里"><pre># dsh profile root — an empty entry list. The tree is composed as patches:
+# each bundle in package.json's dsh.profile.bundles, then cordis.patch.yml, then any
+# --patch overlays. Edit cordis.patch.yml, not this file.
+[]
+</pre>
+    </div>
+    <div id="fc-reg-pkg" data-name="package.json"
+         data-src="fixtures/lab-registry/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-registry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-reg-idx" data-name="index.js"
+         data-src="fixtures/lab-registry/index.js"
+         data-why="provide(&quot;labRegistry&quot;)：一本账本，谁登记一笔就立刻整份落盘，落盘顺序即真实 apply 先后"><pre>/**
+ * 提供 `labRegistry` 服务：一本「谁登记过」的账本，谁登记一笔就立刻整份落盘。
+ *
+ * 落盘时机就是真实的 apply 先后关系——账本内容本身就是活的调用顺序凭证，
+ * 不用另外拼事件流时间戳。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-registry-v1";
+
+export function apply(ctx, config) {
+  const ledger = config?.ledger;
+  if (!ledger) throw new Error("lab-registry: config.ledger（账本落盘路径）是必需的");
+
+  const entries = [];
+  const t0 = process.hrtime.bigint();
+
+  const dump = () =&gt;
+    writeFileSync(
+      ledger,
+      JSON.stringify({ marker: MARKER, providedAt: new Date().toISOString(), entries }, null, 2),
+      "utf8",
+    );
+
+  const book = {
+    sign(who, note) {
+      entries.push({
+        who,
+        note: note ?? null,
+        ms: Number(process.hrtime.bigint() - t0) / 1e6,
+        at: new Date().toISOString(),
+      });
+      dump();
+    },
+    list() {
+      return entries.slice();
+    },
+  };
+
+  ctx.provide("labRegistry", book);
+  dump(); // 先落一次空账本，证明提供者自己先到位
+}
+</pre>
+    </div>
+    <div id="fc-alpha-pkg" data-name="package.json"
+         data-src="fixtures/lab-alpha/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-alpha",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-alpha-idx" data-name="index.js"
+         data-src="fixtures/lab-alpha/index.js"
+         data-why="依赖 labRegistry，同时自己又 provide(&quot;labAlpha&quot;)——它既是消费者也是提供者"><pre>/**
+ * 依赖链的中段：依赖 `labRegistry`，登记自己，并再提供一个服务 `labAlpha`。
+ *
+ * 它同时是消费者和提供者，所以 `lab-beta` 依赖它时构成二级依赖链。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-alpha-v1";
+
+export const inject = ["labRegistry"];
+
+export function apply(ctx, config) {
+  const book = ctx.get("labRegistry");
+  const ledgerBefore = book ? book.list() : null;
+
+  if (book) {
+    book.sign("lab-alpha", config?.note ?? null);
+    ctx.provide("labAlpha", { marker: MARKER, greet: () =&gt; "alpha 在这儿" });
+  }
+
+  if (config?.witness) {
+    writeFileSync(
+      config.witness,
+      JSON.stringify(
+        {
+          marker: MARKER,
+          appliedAt: new Date().toISOString(),
+          gotRegistry: book !== undefined &amp;&amp; book !== null,
+          ledgerBefore,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
+}
+</pre>
+    </div>
+    <div id="fc-beta-pkg" data-name="package.json"
+         data-src="fixtures/lab-beta/package.json"
+         data-why="包型插件：有 package.json，靠包名引用"><pre>{
+  "name": "lab-beta",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.js" }
+}
+</pre>
+    </div>
+    <div id="fc-beta-idx" data-name="index.js"
+         data-src="fixtures/lab-beta/index.js"
+         data-why="依赖 labRegistry 和 labAlpha 两个服务——链上等得最多，所以必然最后一个 apply"><pre>/**
+ * 依赖链的末端：二级依赖。要两个服务——`labRegistry`（根提供）和
+ * `labAlpha`（中段提供）。它必然是三个里最后 apply 的，不是因为写在最后，
+ * 而是因为它等的东西最多——这正是「加载由服务可用性驱动」的直接体现。
+ */
+
+import { writeFileSync } from "node:fs";
+
+const MARKER = "lab-beta-v1";
+
+export const inject = ["labRegistry", "labAlpha"];
+
+export function apply(ctx, config) {
+  const book = ctx.get("labRegistry");
+  const alpha = ctx.get("labAlpha");
+  const ledgerBefore = book ? book.list() : null;
+
+  if (book) book.sign("lab-beta", alpha ? alpha.greet() : "（没拿到 labAlpha）");
+
+  if (config?.witness) {
+    writeFileSync(
+      config.witness,
+      JSON.stringify(
+        {
+          marker: MARKER,
+          appliedAt: new Date().toISOString(),
+          gotRegistry: book !== undefined &amp;&amp; book !== null,
+          gotAlpha: alpha !== undefined &amp;&amp; alpha !== null,
+          ledgerBefore,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
+}
+</pre>
+    </div>
+  </div>
+</aside>
 </div>
 
+<script src="../../lab.js"></script>
 <script>
+const MECH = [
+  `<b>一批条目并发建立</b><br>活层（patch 叠出来的组合树）里这一批 <code>insert</code> 交给 <code>EntryGroup.update()</code> 处理，
+   源码里这一步是 <code>Promise.allSettled(config.map(...))</code>——所有条目一次性并发创建，不是照数组下标顺序逐条来。
+   三条教学插件几乎同时被交出去，接下来分道扬镳靠的不是这一步。`,
+  `<b>每条各自一个 fiber</b><br>条目在运行时对应一个 fiber——插件这一次生命的载体（这份契约本身怎么运作，
+   见 <code>06-inject/inject-hard-dependency</code>）。三条并发建立之后，各自的 fiber 各走各的生命周期，
+   互不等待彼此的"建立"这一步。`,
+  `<b>inject 全部就位才放行</b><br>一条 fiber 声明了 <code>inject</code>（依赖声明，写在插件代码里的
+   <code>export const inject = [...]</code>），它列出的服务要全部到位，<code>apply</code> 才被放行——这份契约的细节与
+   等不到会怎样，<code>06-inject/inject-hard-dependency</code> 已经讲过，这里只用它的结论。
+   lab-alpha 要等 labRegistry 一个；lab-beta 要等 labRegistry 和 labAlpha 两个都到位。`,
+  `<b>谁先备齐，谁先跑</b><br>三条谁先进入 apply，由"它自己声明的服务几时全部就位"决定：lab-registry 不依赖任何人，
+   第一个备齐；lab-alpha 只等它一个，第二个备齐；lab-beta 要等两个，最后备齐。这条链天生就分出了先后，
+   跟 patch 文件里那三行 <code>insert</code> 写第几行无关。`,
+];
+initPicker(document.getElementById('mech'), (body, i) => {
+  body.innerHTML = `<p>${MECH[i]}</p>`;
+});
+
 // 真实相对时间（ms，取自归档）。registry 提供账本时把自己的 apply 时刻定为计时原点 t0，
 // 所以它自己是 0ms；alpha / beta 的 ms 是相对 t0 的真实偏移。
 const SEQ = [
@@ -226,7 +537,6 @@ const SEQ = [
 ];
 
 const cols = [...document.querySelectorAll('.plist')];
-const verdict = document.getElementById('verdict');
 
 function rowsFor(id){
   return cols.map(col => col.querySelector(`.prow[data-id="${id}"]`));
@@ -236,7 +546,7 @@ function rowsFor(id){
 const CAP = [
   '两栏同时点亮 <b>lab-registry</b>——它谁都不依赖，两份 patch 不管从哪一行读起，registry 都是最先备齐的那个，记为 t0。',
   '两栏同时点亮 <b>lab-alpha</b>——它在正着写的 patch 里排第二、倒着写的 patch 里也排第二（但整份顺序是反的）。两边落地都在 t0 + 0.78ms，跟书写位置无关。',
-  '<b>两栏同时点亮 lab-beta，它拿到了 alpha 提供的 labAlpha.greet()（gotAlpha: true）。</b>倒着写的 patch 里 beta 明明写在最前面，却是最后一个真正 apply 的——顺序由「谁的依赖先就位」决定，不由行序决定。',
+  '两栏同时点亮 <b>lab-beta</b>，它拿到了 alpha 提供的 <code>labAlpha.greet()</code>（gotAlpha: true）。倒着写的 patch 里 beta 明明写在最前面，却是最后一个真正 apply 的——顺序由「谁的依赖先就位」决定，不由行序决定。',
 ];
 const CIRCLED = ['①','②','③'];
 
@@ -258,7 +568,6 @@ function goto(i){
       r.querySelector('.badge').textContent = e.badge;
     });
   }
-  verdict.classList.toggle('on', cur === SEQ.length - 1);
   posEl.textContent = `${cur + 1} / ${SEQ.length}`;
   capT.textContent = CIRCLED[cur];
   capD.innerHTML = CAP[cur];
