@@ -15,6 +15,11 @@ experiments/**/results/
 /.venv/
 __pycache__/
 .pytest_cache/
+.ruff_cache/
+
+# Claude Code 的本机权限决策与本地路径。settings.json 是共享正本、进 git，
+# 这份不进
+.claude/settings.local.json
 
 # drafts phase 的临时载体：只在一轮方案打磨期间有意义，结论落 drafts/<topic>.md
 .god-flow/drafts/NOTES.md
